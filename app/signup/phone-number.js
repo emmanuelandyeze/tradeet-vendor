@@ -1,26 +1,59 @@
-import React, { useRef, useState } from 'react';
+import React, { useContext, useRef, useState } from 'react';
 import {
 	View,
 	TextInput,
 	Button,
 	Text,
 	TouchableOpacity,
+	ToastAndroid,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import PhoneInput from 'react-native-phone-number-input';
+import { AuthContext } from '@/context/AuthContext';
 
 export default function PhoneNumberScreen() {
 	const router = useRouter();
 	const [phoneNumber, setPhoneNumber] = useState('');
 	const phoneInput = useRef();
 	const [formattedValue, setFormattedValue] = useState('');
+	const { verifyPhoneNumber } = useContext(AuthContext);
 
-	const handleNext = () => {
-		// Navigate to the verification screen with the phone number if needed
-		router.push({
-			pathname: '/signup/verification',
-			params: { phoneNumber }, // Pass the phone number as a parameter if needed
-		});
+	const handleNext = async () => {
+		// Validate phone number format here
+		if (!phoneNumber) {
+			ToastAndroid.show(
+				'Please enter a valid phone number.',
+				ToastAndroid.SHORT,
+			);
+			return;
+		}
+
+		try {
+			const response = await verifyPhoneNumber(phoneNumber);
+			console.log(response);
+
+			if (response.status === 200) {
+				ToastAndroid.show(
+					`Code sent to ${phoneNumber}`,
+					ToastAndroid.SHORT,
+				);
+				router.push({
+					pathname: '/signup/verification',
+					params: { phoneNumber },
+				});
+			} else {
+				ToastAndroid.show(
+					response.message,
+					ToastAndroid.SHORT,
+				);
+			}
+		} catch (error) {
+			ToastAndroid.show(
+				'An error occurred. Please try again.',
+				ToastAndroid.SHORT,
+			);
+			console.error('Error verifying phone number:', error);
+		}
 	};
 
 	return (
@@ -59,7 +92,7 @@ export default function PhoneNumberScreen() {
 			</View>
 			<View className="flex flex-row justify-end items-end">
 				<TouchableOpacity
-					onPress={handleNext}
+					onPress={() => handleNext()}
 					className="bg-green-500 my-3 px-4 py-3 rounded-lg"
 				>
 					<Text className="text-white text-center text-xl font-semibold">

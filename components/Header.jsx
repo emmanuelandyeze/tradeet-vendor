@@ -1,6 +1,7 @@
-import React from 'react';
+import React, { useContext, useEffect, useState } from 'react';
 import { View, Text, TextInput, Image } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { AuthContext } from '@/context/AuthContext';
 
 export default function Header ({
 	profileImage,
@@ -8,6 +9,13 @@ export default function Header ({
 	onSearch,
 	name
 }) {
+	const { userInfo, loading } = useContext(AuthContext); 
+
+	if (loading) {
+		return <Text></Text>;
+	}
+
+
 	return (
 		<View
 			style={{
@@ -29,20 +37,20 @@ export default function Header ({
 		>
 			<View className="flex flex-row gap-2">
 				<Image
-					source={{ uri: profileImage }}
+					source={{ uri: userInfo?.logoUrl }}
 					className="w-10 h-10 rounded-full"
 					style={{
 						marginBottom: 4,
 						resizeMode: 'contain',
 						height: 50,
 						width: 50,
-						borderRadius: 50
+						borderRadius: 50,
 					}}
 				/>
 				<View className="flex flex-col gap-1 items-start">
 					<View>
 						<Text className="text-xl font-bold">
-							Welcome back, {name}
+							Welcome back to {userInfo?.name}
 						</Text>
 					</View>
 					<View className="flex flex-row gap-1 items-center">
@@ -51,8 +59,12 @@ export default function Header ({
 							size={16}
 							color="gray"
 						/>
-						<Text style={{color: 'gray'}} className="text-lg text-gray-200 font-bold">
-							{campus}
+						<Text
+							style={{ color: 'gray' }}
+							className="text-lg text-gray-200 font-bold"
+						>
+							{userInfo?.address}
+							, {campus}
 						</Text>
 					</View>
 				</View>

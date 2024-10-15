@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useContext, useState } from 'react';
 import {
 	View,
 	TextInput,
@@ -7,14 +7,19 @@ import {
 	StyleSheet,
 	Platform,
 	TouchableOpacity,
+	ToastAndroid,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import {
+	useLocalSearchParams,
+	useRouter,
+} from 'expo-router';
 import {
 	CodeField,
 	Cursor,
 	useBlurOnFulfill,
 	useClearByFocusCell,
 } from 'react-native-confirmation-code-field';
+import { AuthContext } from '@/context/AuthContext';
 
 const styles = StyleSheet.create({
 	root: { flex: 1, padding: 20 },
@@ -31,6 +36,7 @@ const styles = StyleSheet.create({
 		borderColor: '#00000030',
 		textAlign: 'center',
 		marginRight: 20,
+		paddingTop: 10,
 	},
 	focusCell: {
 		borderColor: '#000',
@@ -43,6 +49,8 @@ export default function VerificationScreen() {
 	const router = useRouter();
 	const [code, setCode] = useState('');
 	const [value, setValue] = useState('');
+	const { verifyCode } = useContext(AuthContext);
+	const { phoneNumber } = useLocalSearchParams();
 	const ref = useBlurOnFulfill({
 		value,
 		cellCount: CELL_COUNT,
@@ -53,9 +61,41 @@ export default function VerificationScreen() {
 			setValue,
 		});
 
-	const handleNext = () => {
-		// Navigate to the name and password screen
-		router.push('/signup/name-password');
+	const handleNext = async () => {
+		// Validate phone number format here
+		if (!code) {
+			ToastAndroid.show(
+				'Please enter a valid code.',
+				ToastAndroid.SHORT,
+			);
+			return;
+		}
+
+		try {
+			const response = await verifyCode(phoneNumber, code);
+
+			if (response.status === 200) {
+				router.push({
+					pathname: '/signup/business-name',
+					params: { phoneNumber },
+				});
+				ToastAndroid.show(
+					`Phone number verified`,
+					ToastAndroid.SHORT,
+				);
+			} else {
+				ToastAndroid.show(
+					response.message,
+					ToastAndroid.SHORT,
+				);
+			}
+		} catch (error) {
+			ToastAndroid.show(
+				'An error occurred. Please try again.',
+				ToastAndroid.SHORT,
+			);
+			console.error('Error verifying phone number:', error);
+		}
 	};
 
 	return (
