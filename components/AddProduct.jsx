@@ -1,5 +1,5 @@
 import Ionicons from '@expo/vector-icons/Ionicons';
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
 	View,
 	Text,
@@ -14,17 +14,25 @@ import {
 } from 'react-native';
 import * as ImagePicker from 'expo-image-picker';
 import { uploadImageToCloudinary } from '../utils/cloudinary';
+import axiosInstance from '../utils/axiosInstance';
 
-const AddProduct = ({ onAddProduct, initialProduct }) => {
+const AddProduct = ({
+	onAddProduct,
+	initialProduct,
+	storeId,
+	loading,
+}) => {
+	const [img, setImg] = useState('');
+	const [picture, setPicture] = useState('');
 	const [product, setProduct] = useState(
 		initialProduct || {
-			id: Math.floor(Math.random() * 1000),
 			name: '',
 			price: '',
 			image: '',
 			variants: [],
 			addOns: [],
 			description: '',
+			storeId: storeId,
 		},
 	);
 
@@ -40,6 +48,38 @@ const AddProduct = ({ onAddProduct, initialProduct }) => {
 	const [editingAddOnIndex, setEditingAddOnIndex] =
 		useState(null);
 
+	const [categories, setCategories] = useState([]);
+	const [selectedCategory, setSelectedCategory] =
+		useState(null);
+	const [isDropdownVisible, setDropdownVisible] =
+		useState(false);
+	const [isModalVisible, setIsModalVisible] = useState(false);
+	const [newCategory, setNewCategory] = useState('');
+	const [isAddingCategory, setIsAddingCategory] =
+		useState(false);
+
+	useEffect(async() => {
+		// Fetch categories from the backend
+		const response = await axiosInstance
+			.get(`/category/${storeId}`)
+			console.log(response.data)
+		 setCategories(response.data);
+	}, []);
+
+	const addCategory = () => {
+		// Create a new category
+		if (!newCategory.trim()) return;
+
+		axiosInstance
+			.post(`/category/${storeId}`, { name: newCategory })
+			.then((response) => {
+				setCategories((prev) => [...prev, response.data]);
+				setNewCategory(''); 
+				setIsAddingCategory(false);
+			});
+	};
+
+	// console.log(categories)
 	const pickImage = async () => {
 		let result = await ImagePicker.launchImageLibraryAsync({
 			mediaTypes: ImagePicker.MediaTypeOptions.Images,
@@ -49,10 +89,7 @@ const AddProduct = ({ onAddProduct, initialProduct }) => {
 		});
 
 		if (!result.canceled) {
-			setProduct({
-				...product,
-				image: result.assets[0].uri,
-			});
+			setPicture(result.assets[0].uri);
 			setModalVisible(false);
 		}
 	};
@@ -66,11 +103,31 @@ const AddProduct = ({ onAddProduct, initialProduct }) => {
 		});
 
 		if (!result.canceled) {
-			setProduct({
-				...product,
-				image: result.assets[0].uri,
-			});
+			setPicture(result.assets[0].uri);
 			setModalVisible(false);
+		}
+	};
+
+	// Function to handle image upload to Cloudinary
+	const handleImageUpload = async () => {
+		try {
+			const response = await uploadImageToCloudinary(
+				picture || product.image,
+			);
+			if (response.secure_url) {
+				setProduct({
+					...product,
+					image: response.secure_url,
+				});
+				return response.secure_url;
+			} else {
+				alert('Failed to upload image');
+				return null;
+			}
+		} catch (error) {
+			console.error('Error uploading image:', error);
+			alert('Image upload failed. Please try again.');
+			return null;
 		}
 	};
 
@@ -155,11 +212,28 @@ const AddProduct = ({ onAddProduct, initialProduct }) => {
 		setProduct({ ...product, addOns: updatedAddOns });
 	};
 
-	const handleSaveProduct = () => {
-		if (product.name && product.price) {
-			onAddProduct(product);
+	const handleSaveProduct = async () => {
+		const uploadedLogoUrl = await handleImageUpload();
+
+		// Ensure the product's image is updated with the uploaded URL
+		if (uploadedLogoUrl) {
+			setProduct((prevProduct) => ({
+				...prevProduct,
+				image: uploadedLogoUrl,
+			}));
+
+			// Check that all necessary fields are filled after updating the product state
+			if (product.name && product.price) {
+				onAddProduct({
+					...product,
+					image: uploadedLogoUrl,
+				});
+				console.log(product); // This will log the product object, but remember the state update is asynchronous
+			} else {
+				alert('Please fill in the product name and price.');
+			}
 		} else {
-			alert('Please fill in the product name and price.');
+			alert('Image upload failed. Please try again.');
 		}
 	};
 
@@ -179,9 +253,9 @@ const AddProduct = ({ onAddProduct, initialProduct }) => {
 				style={styles.imageUploadContainer}
 			>
 				<View style={styles.dottedCircle}>
-					{product.image ? (
+					{picture || product.image ? (
 						<Image
-							source={{ uri: product.image }}
+							source={{ uri: picture || product.image }}
 							style={styles.imagePreview}
 						/>
 					) : (
@@ -256,9 +330,104 @@ const AddProduct = ({ onAddProduct, initialProduct }) => {
 				keyboardType="numeric"
 				value={product.price.toString()}
 				onChangeText={(text) =>
-					setProduct({ ...product, price: parseInt(text) })
+					setProduct({
+						...product,
+						price: text ? parseInt(text) : 0, // If text is empty, set price to 0
+					})
 				}
 			/>
+
+			<Text style={styles.label}>Product Category</Text>
+			{/* Selected Category Display */}
+			<TouchableOpacity
+				style={styles.dropdownButton}
+				onPress={() =>
+					setDropdownVisible(!isDropdownVisible)
+				}
+			>
+				<Text style={styles.dropdownText}>
+					{selectedCategory
+						? selectedCategory.name
+						: 'Select a category'}
+				</Text>
+			</TouchableOpacity>
+
+			{/* Dropdown Menu */}
+			{isDropdownVisible && (
+				<View style={styles.dropdown}>
+					<FlatList
+						data={categories}
+						keyExtractor={(item, index) => index.toString()}
+						renderItem={({ item }) => (
+							<TouchableOpacity
+								style={styles.dropdownItem}
+								onPress={() => {
+									setSelectedCategory(item);
+									setDropdownVisible(false);
+								}}
+							>
+								<Text style={styles.dropdownItemText}>
+									{item.name}
+								</Text>
+							</TouchableOpacity>
+						)}
+					/>
+					<TouchableOpacity
+						style={styles.addCategoryButton}
+						onPress={() => {
+							setDropdownVisible(false);
+							setIsModalVisible(true);
+						}}
+					>
+						<Text style={styles.addCategoryText}>
+							+ Add New Category
+						</Text>
+					</TouchableOpacity>
+				</View>
+			)}
+
+			{/* Modal for Adding New Category */}
+			<Modal
+				visible={isModalVisible}
+				animationType="slide"
+				transparent={true}
+				onRequestClose={() => setModalVisible(false)}
+			>
+				<View style={styles.modalContainer}>
+					<View style={styles.modalContent}>
+						<Text style={styles.modalTitle}>
+							Add New Category
+						</Text>
+						<TextInput
+							style={styles.textInput}
+							placeholder="Enter category name"
+							value={newCategory}
+							onChangeText={setNewCategory}
+						/>
+						<View style={styles.modalActions}>
+							<TouchableOpacity
+								style={styles.modalButton}
+								onPress={addCategory}
+							>
+								<Text style={styles.modalButtonText}>
+									Add
+								</Text>
+							</TouchableOpacity>
+							<TouchableOpacity
+								style={[
+									styles.modalButton,
+									styles.cancelButton,
+								]}
+								onPress={() => setIsModalVisible(false)}
+							>
+								<Text style={styles.modalButtonText}>
+									Cancel
+								</Text>
+							</TouchableOpacity>
+						</View>
+					</View>
+				</View>
+			</Modal>
 
 			<Text style={styles.label}>Description</Text>
 			<TextInput
@@ -446,17 +615,36 @@ const AddProduct = ({ onAddProduct, initialProduct }) => {
 					paddingVertical: 16,
 					paddingHorizontal: 5,
 					elevation: 3,
-                    borderRadius: 5,
-                    marginBottom: 30
+					borderRadius: 5,
+					marginBottom: 30,
 				}}
 			>
-				<Text style={{color: 'white', textAlign: 'center', fontSize: 20, fontWeight: 'semibold'}}>
-					{initialProduct
-						? 'Update Product'
-						: 'Add Product'}
-				</Text>
+				{loading ? (
+					<Text
+						style={{
+							color: 'white',
+							textAlign: 'center',
+							fontSize: 20,
+							fontWeight: 'semibold',
+						}}
+					>
+						Loading...
+					</Text>
+				) : (
+					<Text
+						style={{
+							color: 'white',
+							textAlign: 'center',
+							fontSize: 20,
+							fontWeight: 'semibold',
+						}}
+					>
+						{initialProduct
+							? 'Update Product'
+							: 'Add Product'}
+					</Text>
+				)}
 			</TouchableOpacity>
-			
 		</ScrollView>
 	);
 };
@@ -500,8 +688,8 @@ const styles = StyleSheet.create({
 	},
 	label: {
 		marginVertical: 10,
-        fontSize: 18,
-        fontWeight: 'bold',
+		fontSize: 18,
+		fontWeight: 'bold',
 	},
 	input: {
 		borderWidth: 1,
@@ -509,6 +697,7 @@ const styles = StyleSheet.create({
 		padding: 10,
 		borderRadius: 5,
 		marginBottom: 10,
+		fontSize: 16,
 	},
 	variantContainer: {
 		marginBottom: 10,
@@ -522,8 +711,8 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 	},
 	variantActions: {
-        flexDirection: 'row',
-        gap: 10
+		flexDirection: 'row',
+		gap: 10,
 	},
 	variantInputContainer: {
 		flexDirection: 'row',
@@ -549,22 +738,22 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 	},
 	addOnActions: {
-        flexDirection: 'row',
-        gap: 10
+		flexDirection: 'row',
+		gap: 10,
 	},
 	addOnInputContainer: {
 		flexDirection: 'row',
 		// justifyContent: 'space-between',
-        marginBottom: 10,
-        gap: 30
+		marginBottom: 10,
+		gap: 30,
 	},
 	addOnInput: {
 		borderWidth: 1,
 		borderColor: '#ccc',
 		padding: 10,
 		borderRadius: 5,
-        width: '47%',
-        marginRight: 7
+		width: '47%',
+		marginRight: 7,
 	},
 	compulsoryContainer: {
 		flexDirection: 'row',
@@ -592,7 +781,9 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 	},
 	modalButton: {
-		marginBottom: 10,
+		padding: 10,
+		borderRadius: 5,
+		backgroundColor: '#007BFF',
 	},
 	modalCancelButton: {
 		backgroundColor: 'red',
@@ -601,6 +792,74 @@ const styles = StyleSheet.create({
 	},
 	modalButtonText: {
 		color: 'white',
+	},
+	dropdownButton: {
+		padding: 15,
+		borderWidth: 1,
+		borderRadius: 5,
+		borderColor: '#ccc',
+		backgroundColor: '#f9f9f9',
+	},
+	dropdownText: {
+		fontSize: 16,
+		color: '#333',
+	},
+	dropdown: {
+		marginTop: 10,
+		borderWidth: 1,
+		borderColor: '#ccc',
+		borderRadius: 5,
+		backgroundColor: '#fff',
+	},
+	dropdownItem: {
+		padding: 15,
+		borderBottomWidth: 1,
+		borderBottomColor: '#eee',
+	},
+	dropdownItemText: {
+		fontSize: 16,
+		color: '#333',
+	},
+	addCategoryButton: {
+		padding: 15,
+		backgroundColor: '#e9e9e9',
+		alignItems: 'center',
+	},
+	addCategoryText: {
+		fontSize: 16,
+		color: '#007BFF',
+	},
+	modalContainer: {
+		flex: 1,
+		justifyContent: 'center',
+		alignItems: 'center',
+		backgroundColor: 'rgba(0, 0, 0, 0.5)',
+	},
+	modalContent: {
+		width: '90%',
+		padding: 20,
+		backgroundColor: '#fff',
+		borderRadius: 10,
+	},
+	modalTitle: {
+		fontSize: 18,
+		fontWeight: 'bold',
+		marginBottom: 10,
+	},
+	textInput: {
+		borderWidth: 1,
+		borderColor: '#ccc',
+		borderRadius: 5,
+		padding: 10,
+		marginBottom: 20,
+	},
+	modalActions: {
+		flexDirection: 'row',
+		justifyContent: 'flex-end',
+		gap: 10
+	},
+	cancelButton: {
+		backgroundColor: 'gray',
 	},
 });
 

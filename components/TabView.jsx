@@ -1,4 +1,4 @@
-import React, { useState, useRef } from 'react';
+import React, { useState, useRef, useEffect, useContext, useCallback } from 'react';
 import {
 	View,
 	Text,
@@ -6,12 +6,19 @@ import {
 	TouchableOpacity,
 	PanResponder,
 	Animated,
+	ScrollView,
+	RefreshControl,
 } from 'react-native';
 import ActiveOrders from './ActiveOrders';
 import NewRequests from './NewRequests';
 import CompletedOrders from './CompletedOrders';
+import socket from '@/utils/socket'
+import axiosInstance from '@/utils/axiosInstance';
+import { AuthContext } from '@/context/AuthContext';
 
 const TabView = () => {
+	const { userInfo, checkLoginStatus, sendPushNotification } =
+		useContext(AuthContext);
 	const [activeTab, setActiveTab] = useState('newRequests'); // Initial tab
 	const [activeOrdersCount, setActiveOrdersCount] =
 		useState(0);
@@ -34,177 +41,111 @@ const TabView = () => {
 
 	const pan = useRef(new Animated.Value(0)).current;
 
-	const ordersData = [
-		{
-			id: 'order-001',
-			customer: {
-				name: 'John Doe',
-				contact: '+2348123456789',
-			},
-			orderDetails: {
-				items: [
-					{
-						name: 'Chicken Burger',
-						quantity: 1,
-						specialRequest: 'Extra cheese',
-					},
-					{
-						name: 'Fries',
-						quantity: 2,
-						specialRequest: '',
-					},
-				],
-				totalAmount: 1500, // in Naira
-				orderTime: '2024-10-13 12:30:00',
-				paymentMethod: 'Wallet', // or 'Bank'
-			},
-			deliveryInfo: {
-				pickupLocation:
-					'Restaurant Name, Block A, Yabatech',
-				deliveryAddress: 'Hostel B, Yabatech',
-				deliveryFee: 300,
-			},
-			errandRunner: {
-				name: 'Jane Smith',
-				contact: '+2348112233445',
-			},
-			status: 'new', // could be 'new', 'ongoing', 'completed'
-			actions: {
-				acceptOrder: true, // shows the 'Accept' button if true
-				rejectOrder: true, // shows the 'Reject' button if true
-			},
-			paymentStatus: 'Pending', // could be 'Pending' or 'Confirmed'
-		},
-		{
-			id: 'order-002',
-			customer: {
-				name: 'Sarah James',
-				contact: '+2348012345678',
-			},
-			orderDetails: {
-				items: [
-					{
-						name: 'Pizza',
-						quantity: 1,
-						specialRequest: 'No onions',
-					},
-				],
-				totalAmount: 2000,
-				orderTime: '2024-10-13 11:45:00',
-				paymentMethod: 'Bank',
-			},
-			deliveryInfo: {
-				pickupLocation: 'Pizza Hut, Block B, Yabatech',
-				deliveryAddress: 'Hostel C, Yabatech',
-				deliveryFee: 400,
-			},
-			errandRunner: {
-				name: 'Emeka John',
-				contact: '+2347012345678',
-			},
-			status: 'ongoing', // could be 'new', 'ongoing', 'completed'
-			orderStatus: 'Out for Delivery', // e.g. 'Preparing', 'Ready for Pickup', 'Out for Delivery'
-			eta: '15 minutes', // estimated time of arrival or completion
-			actions: {
-				acceptOrder: false, // no action buttons in 'ongoing'
-				rejectOrder: false,
-			},
-			paymentStatus: 'Confirmed', // could be 'Pending' or 'Confirmed'
-		},
-		{
-			id: 'order-003',
-			customer: {
-				name: 'Michael Johnson',
-				contact: '+2347012345678',
-			},
-			orderDetails: {
-				items: [
-					{
-						name: 'Shawarma',
-						quantity: 1,
-						specialRequest: '',
-					},
-					{
-						name: 'Soda',
-						quantity: 2,
-						specialRequest: 'Chilled',
-					},
-				],
-				totalAmount: 1800,
-				orderTime: '2024-10-12 14:00:00',
-				paymentMethod: 'Wallet',
-			},
-			deliveryInfo: {
-				pickupLocation:
-					'Shawarma Palace, Block D, Yabatech',
-				deliveryAddress: 'Hostel D, Yabatech',
-				deliveryFee: 300,
-			},
-			errandRunner: {
-				name: 'Peter Obi',
-				contact: '+2348098765432',
-			},
-			status: 'completed', // could be 'new', 'ongoing', 'completed'
-			completionTime: '2024-10-12 14:45:00',
-			feedback: {
-				rating: 4, // optional rating from the customer (out of 5)
-				comment: 'Great service, fast delivery!',
-			},
-			actions: {
-				acceptOrder: false,
-				rejectOrder: false,
-			},
-			paymentStatus: 'Confirmed',
-		},
-	];
+	const [orders, setOrders] = useState([]);
+	const [loading, setLoading] = useState(false); 
+	const [refreshing, setRefreshing] = useState(false);
 
-	// PanResponder to handle swipes
-	const panResponder = useRef(
-		PanResponder.create({
-			onMoveShouldSetPanResponder: (evt, gestureState) => {
-				const { dx } = gestureState;
-				return Math.abs(dx) > 20; // Detect swipe if more than 20px movement
-			},
-			onPanResponderMove: (evt, gestureState) => {
-				const { dx } = gestureState;
-				pan.setValue(dx); // Track the swipe movement
-			},
-			onPanResponderRelease: (evt, gestureState) => {
-				const { dx } = gestureState;
+	useEffect(() => {
+		// Ensure socket connection is re-established
+		socket.connect();
 
-				if (dx < -50) {
-					// Swipe Left: Move to next tab
-					if (activeTab === 'newRequests') {
-						setActiveTab('activeOrders');
-					} else if (activeTab === 'activeOrders') {
-						setActiveTab('completedOrders');
-					}
-				} else if (dx > 50) {
-					// Swipe Right: Move to previous tab
-					if (activeTab === 'completedOrders') {
-						setActiveTab('activeOrders');
-					} else if (activeTab === 'activeOrders') {
-						setActiveTab('newRequests');
-					}
-				}
+		// Cleanup: disconnect the socket when the component unmounts
+		return () => {
+			socket.disconnect();
+		};
+	}, []);
 
-				// Reset the pan value
-				Animated.spring(pan, {
-					toValue: 0,
-					useNativeDriver: false,
-				}).start();
-			},
-		}),
-	).current;
+	const fetchOrders = async () => {
+		try {
+			const response = await axiosInstance.get(
+				`/orders/store/${userInfo?._id}`,
+			);
+			setOrders(response.data);
+			setLoading(false);
+		} catch (err) {
+			setError(err.message || 'Error fetching orders');
+			setLoading(false);
+		}
+	};
 
-	const translateX = pan.interpolate({
-		inputRange: [-200, 0, 200],
-		outputRange: [200, 0, -200],
-		extrapolate: 'clamp',
-	});
+
+	useEffect(() => {
+		
+
+		fetchOrders();
+
+		const handleOrderUpdate = (updatedOrder) => {
+			setOrders((prevOrders) =>
+				prevOrders.map((order) =>
+					order._id === updatedOrder._id
+						? updatedOrder
+						: order,
+				),
+			);
+		};
+
+		const handleNewOrder = (newOrder) => {
+			setOrders((prevOrders) => [newOrder, ...prevOrders]);
+		};
+
+		const handleDeleteOrder = (orderId) => {
+			setOrders((prevOrders) =>
+				prevOrders.filter((order) => order._id !== orderId),
+			);
+		};
+
+		socket.on('orderUpdate', handleOrderUpdate);
+		socket.on('newOrder', handleNewOrder); 
+		socket.on('deleteOrder', handleDeleteOrder);
+
+		// Cleanup function
+		return () => {
+			socket.off('orderUpdate', handleOrderUpdate);
+			socket.off('newOrder', handleNewOrder);
+			socket.off('deleteOrder', handleDeleteOrder);
+		};
+	}, []);
+
+	const ordersData = orders;
+
+	const newRequests = ordersData?.filter(
+		(order) => order.status === 'pending',
+	);
+
+	const ongoingOrders = ordersData?.filter(
+		(order) => order.status === 'accepted',
+	);
+
+	const completedOrders = ordersData?.filter(
+		(order) => order.status === 'completed',
+	);
+
+	// Effect to update the count of new requests
+	useEffect(() => {
+		setNewRequestsCount(newRequests?.length);
+		setActiveOrdersCount(ongoingOrders?.length);
+		setCompletedOrdersCount(completedOrders?.length);
+	}, [newRequests, ongoingOrders]);
+
+	const onRefresh = useCallback(() => {
+		setRefreshing(true);
+		fetchOrders();
+		setTimeout(() => {
+			setRefreshing(false);
+		}, 3000);
+	}, []);
+
 
 	return (
-		<View style={styles.container}>
+		<ScrollView
+			style={styles.container}
+			refreshControl={
+				<RefreshControl
+					refreshing={refreshing}
+					onRefresh={onRefresh}
+				/>
+			}
+		>
 			<View style={styles.tabContainer}>
 				<TouchableOpacity
 					style={[
@@ -247,34 +188,36 @@ const TabView = () => {
 				// {...panResponder.panHandlers} // Attach PanResponder
 				style={[
 					styles.contentContainer,
-					{ transform: [{ translateX }] },
+					// { transform: [{ translateX }] },
 				]}
 			>
 				{activeTab === 'activeOrders' ? (
 					<ActiveOrders
 						onCountChange={handleActiveOrdersCountChange}
 						ordersData={ordersData}
+						sendPushNotification={sendPushNotification}
 					/>
 				) : activeTab === 'newRequests' ? (
 					<NewRequests
-							onCountChange={handleNewRequestsCountChange}
-							ordersData={ordersData}
+						onCountChange={handleNewRequestsCountChange}
+						ordersData={ordersData}
+						sendPushNotification={sendPushNotification}
 					/>
 				) : (
 					<CompletedOrders
-								onCountChange={handleCompletedOrdersCountChange}
-								ordersData={ordersData}
+						onCountChange={handleCompletedOrdersCountChange}
+						ordersData={ordersData}
 					/>
 				)}
 			</Animated.View>
-		</View>
+		</ScrollView> 
 	);
 };
 
 const styles = StyleSheet.create({
 	container: {
 		flex: 1,
-		backgroundColor: '#f1f1f1',
+		// backgroundColor: '#f1f1f1',
 	},
 	tabContainer: {
 		flexDirection: 'row',

@@ -1,20 +1,37 @@
-import React, { useContext, useEffect, useState } from 'react';
-import { View, Text, TextInput, Image } from 'react-native';
+import React, {
+	useContext,
+	useEffect,
+	useState,
+} from 'react';
+import {
+	View,
+	Text,
+	TextInput,
+	Image,
+	Linking,
+	TouchableOpacity,
+} from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AuthContext } from '@/context/AuthContext';
+import EvilIcons from '@expo/vector-icons/EvilIcons';
+import FontAwesome from '@expo/vector-icons/FontAwesome';
+import { router } from 'expo-router';
+import PlaceholderLogo from './PlaceholderLogo'
+import { StatusBar } from 'expo-status-bar';
 
-export default function Header ({
-	profileImage,
-	campus,
-	onSearch,
-	name
-}) {
-	const { userInfo, loading } = useContext(AuthContext); 
+export default function Header({ userInfo }) {
+	const { loading, checkLoginStatus } =
+		useContext(AuthContext);
+
+	const handleOpenWebsite = () => {
+		Linking.openURL(
+			`https://tradeet.ng/${userInfo?.storeLink}`,
+		); // Replace with your desired website URL
+	};
 
 	if (loading) {
 		return <Text></Text>;
 	}
-
 
 	return (
 		<View
@@ -23,7 +40,7 @@ export default function Header ({
 				justifyContent: 'space-between',
 				alignItems: 'flex-start',
 				paddingTop: 45,
-				paddingBottom: 15,
+				paddingBottom: 10,
 				paddingLeft: 20,
 				paddingRight: 20,
 				backgroundColor: '#fff',
@@ -33,49 +50,130 @@ export default function Header ({
 				top: 0,
 				left: 0,
 				right: 0,
+				elevation: 1,
 			}}
 		>
 			<View className="flex flex-row gap-2">
-				<Image
-					source={{ uri: userInfo?.logoUrl }}
-					className="w-10 h-10 rounded-full"
+				{userInfo?.logoUrl ? (
+					<Image
+						source={{ uri: userInfo.logoUrl }}
+						style={{
+							marginBottom: 4,
+							resizeMode: 'cover',
+							height: 50,
+							width: 50,
+							borderRadius: 50,
+							borderWidth: 1,
+							borderColor: 'gray',
+							elevation: 3,
+						}}
+					/>
+				) : (
+					<PlaceholderLogo name={userInfo?.name} />
+				)}
+				<View
 					style={{
-						marginBottom: 4,
-						resizeMode: 'contain',
-						height: 50,
-						width: 50,
-						borderRadius: 50,
+						flexDirection: 'column',
+						width: '85%',
+						marginTop: 5,
 					}}
-				/>
-				<View className="flex flex-col gap-1 items-start">
-					<View>
-						<Text className="text-xl font-bold">
-							Welcome back to {userInfo?.name}
-						</Text>
-					</View>
-					<View className="flex flex-row gap-1 items-center">
-						<Ionicons
-							name="location-outline"
-							size={16}
-							color="gray"
-						/>
-						<Text
-							style={{ color: 'gray' }}
-							className="text-lg text-gray-200 font-bold"
+				>
+					<View
+						className="flex flex-row gap-1 items-center "
+						style={{
+							justifyContent: 'space-between',
+							marginBottom: 0,
+						}}
+					>
+						<View
+							style={{
+								flexDirection: 'row',
+								alignItems: 'flex-start',
+							}}
 						>
-							{userInfo?.address}
-							, {campus}
-						</Text>
+							<Text
+								className="text-xl font-bold"
+								style={{
+									color: '#121212',
+									fontSize: 20,
+									marginLeft: 3,
+								}}
+							>
+								{userInfo?.name}
+							</Text>
+							<Text
+								style={{
+									color: '#121212',
+									fontSize: 12,
+									marginLeft: 5,
+									color: 'white',
+									backgroundColor: 'green',
+									paddingHorizontal: 5,
+									borderRadius: 15,
+								}}
+							>
+								{userInfo?.plan?.name}
+							</Text>
+						</View>
+						{userInfo?.storeLink && (
+							<View
+								style={{ marginBottom: 5 }}
+								className="flex flex-row items-center"
+							>
+								<TouchableOpacity
+									onPress={handleOpenWebsite}
+								>
+									<Text
+										style={{
+											color: 'gray',
+											textDecorationLine: 'underline',
+											fontSize: 16,
+											marginLeft: 5,
+										}}
+									>
+										Open Store
+									</Text>
+								</TouchableOpacity>
+								<EvilIcons
+									name="external-link"
+									size={18}
+									color="gray"
+								/>
+							</View>
+						)}
+					</View>
+					<View
+						className="flex flex-row items-center mb-2"
+						style={{ gap: 3 }}
+					>
+						<Ionicons
+							name="location"
+							size={15}
+							color="green"
+						/>
+						<TouchableOpacity
+							onPress={() => router.push('/selectLocation')}
+						>
+							<Text
+								style={{
+									color: 'black',
+									// textDecorationLine: 'underline',
+									fontSize: 13,
+									marginLeft: 0,
+								}}
+							>
+								{userInfo?.address}
+							</Text>
+						</TouchableOpacity>
+						<FontAwesome
+							name="angle-down"
+							size={18}
+							color="black"
+						/>
 					</View>
 				</View>
 			</View>
-			<View>
-				<Ionicons
-					name="notifications-outline"
-					size={24}
-					color="gray"
-				/>
-			</View>
+			<View></View>
 		</View>
 	);
-};
+}

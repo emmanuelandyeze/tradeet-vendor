@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "tradeet-97384",
+  "private_key_id": "4e914b6c55b3bd3a8068e8bc1c6aff6db71e8463",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvgIBADANBgkqhkiG9w0BAQEFAASCBKgwggSkAgEAAoIBAQDRJd4xIt3WkiNC\n35idVKLw+v+dcKXasoIU+XaPX7fsTmVQS49McCtLMNTIwuZbNHNo3y6MZYSivinR\ny1/YirvAxGi6cq4xc1AHbYg7ITyCIkbPlzr9Ne1e+Lu1b0XI6CCBEupVhj3bIoyl\nYktXWlpAslKOSaLhteH7iGEUe0LINkaTQfSD5W5sZBK45TRNRhnIXWZpVcRn6/Si\n7hG3WM0KtTcg+dd3n9PLhnNHnx8ffmQs6IX1Oj+ST8/l9uWSxtRKrpOlyGJn1qkw\nG7jTGV8qKIyEb6XDgSTbg2mH76GLgeF76JdcL7S3A8yGvZNZ/jBk1fd82hMVIOTK\ne0yp1aVFAgMBAAECggEABq/CfwkplPzWlkJ+R1dnnzMzHWY20zteR8vi87oAcBRg\njlTgF7ZFWBHPV7zNbxCJ+Qobm576Qta4EQ5CufJThtnwrDdS5N9WKWqhzpwlKlbs\nsyHXX7WL6XujyqzsSvxK372KUuIoE5uy6e2u0XPgy004MPbfN36gYzGMwwIe1DZD\nLz++TpRjePUFENuf6AZ+Yp74D4Pa61dqG7CjmUgQzx7eAYyE1OKs4j53hUFCF2nF\nwzC07tn53Tw7HOGGNmSCn8N4PyzIgMWAGjChNn+V+zaq/ZI4sNmecEmEjrci5RKi\n5dT7Sd617s9oTqoQHK2hQwIOHKHQBLVF0StOxrgHqQKBgQD23mHTdkZTthAsZkzB\ndjrechtlAOzIQNN0/NTpOJQfDDjIC3wVEal7iXNCddwqT9fU+Ic0iDo3o6XJQc4a\nH4dYSpj/qn2uhQ0UXWBGGwr4tAlbAXrgYhVgbzkn+3NuW0TJpVtSFL930GDeSw5a\nX4uKLzY6YaZ8xPaxFd62dudfjQKBgQDY4k4dp1zQkS+EeHLI1lKwKJxGcS/Xv8/W\nakp77I74UYw12jMm35e+YX5nIeDZLWFShAP05aJxxsKp+9aOL78KGBTX/P+pZvTZ\nUB9vSEErQjUJ9OzbuyAKcbuBooPiR2swhcY5DGzPdGLVDhihkQGranWKgBoQP1RS\nIr4h0XQymQKBgQCSDHZrmCl7FNb0rYDzY3LobzFty+JJhrCTIZEEeQiIZb6h+slp\n3Y0bHPIne3rJPXs+79ltZrqqeBJ4womgQs7bmSZy+vZn7ScTyTpPv2f6QujWAkYj\nwWNMLgDueoCL5UsI0N757HRp+cmVOWpAZQ40rkGywFqyrgQUOBAOesHfcQKBgC3M\nQ/CRGdFVBzKy+JIeZ+GZAb8CQbcOYwYE9euLPXmERtZMWEbaKkHidn2ysrdJlOaG\nyAsbvpzF+u9IJbtqq62m/ifJ3fbYrdWBzNGD8XcACREsLiQMNKzf7VdniO/sYt8h\nMIV1cTixe/k/e8YKR875sQ5pFJfft5+MhJfBkgbpAoGBAL2C7RYdsCi6HRC4Rv74\ncu6TXTUe34elLSgcfMr7CIVGj12rkh/AjJbc2ea6Yqvj/KcZrT/7fgYGmub9k3fB\nMzXw1C6/BaPaVcixlz1c6q/+AAQsX319nf7e/dmEnkZ51LCk9gUorjP57446rdxL\nzX0JGkp4k7uCyouMXA/uTGYy\n-----END PRIVATE KEY-----\n",
+  "client_email": "tradeet-business@tradeet-97384.iam.gserviceaccount.com",
+  "client_id": "102867046897350484883",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/tradeet-business%40tradeet-97384.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}

@@ -32,6 +32,13 @@ export default function Login() {
 	const [password, setPassword] = useState('');
 	const [formattedValue, setFormattedValue] = useState('');
 	const phoneInput = useRef();
+	const [isPasswordVisible, setIsPasswordVisible] =
+		useState(false);
+	const [loading, setLoading] = useState(false);
+
+	const togglePasswordVisibility = () => {
+		setIsPasswordVisible(!isPasswordVisible);
+	};
 
 	// Hide header
 	useEffect(() => {
@@ -46,14 +53,26 @@ export default function Login() {
 	};
 
 	const handleLogin = async () => {
+		setLoading(true);
 		// Handle login logic here
 		const response = await login(phone, password);
 
-		console.log(response);
-		if (response.token !== undefined) {
+		// console.log(response);
+
+		if (response.token) {
+			ToastAndroid.show(
+				'Login successful!',
+				ToastAndroid.LONG,
+			);
+			setLoading(false);
 			router.push('(tabs)');
 		} else {
-			console.log(response);
+			// alert(response.messae);
+			ToastAndroid.show(
+				response.message,
+				ToastAndroid.SHORT,
+			);
+			setLoading(false);
 		}
 	};
 
@@ -85,26 +104,62 @@ export default function Login() {
 						setFormattedValue(text);
 					}}
 					// withDarkTheme
-					textContainerStyle={{ width: '110%' }}
+					textContainerStyle={{ width: '70%' }}
 					textInputStyle={{ fontSize: 16, border: 1 }}
 					containerStyle={{
 						backgroundColor: '#f1f2f6',
 						width: '100%',
 						borderRadius: 10,
 						borderBottom: 2,
+						borderWidth: 1,
+						borderColor: '#ccc',
 					}}
 					// withShadow
 					autoFocus
 				/>
-				<TextInput
-					className="border p-4 rounded-lg text-lg mt-4 border-gray-300 mb-4"
-					placeholder="Password"
-					secureTextEntry
-					value={password}
-					onChangeText={setPassword}
-				/>
+				<View>
+					<TextInput
+						className="border p-4 rounded-lg text-lg mt-4 border-gray-300 mb-4"
+						placeholder="Password"
+						secureTextEntry={!isPasswordVisible}
+						value={password}
+						onChangeText={setPassword}
+						style={{ height: 60 }}
+					/>
+					<TouchableOpacity
+						onPress={togglePasswordVisibility}
+						className="absolute right-4 top-10"
+					>
+						<Text className="text-black text-sm">
+							{isPasswordVisible ? 'Hide' : 'Show'}
+						</Text>
+					</TouchableOpacity>
+				</View>
+				<View
+					style={{
+						justifyContent: 'flex-end',
+						alignItems: 'flex-end',
+					}}
+				>
+					<View style={{ flexDirection: 'row', gap: 2 }}>
+						<Text style={{ fontSize: 16 }}>
+							Forgotten your password?
+						</Text>
+						<TouchableOpacity
+							onPress={() =>
+								router.push('/forgot-password')
+							}
+						>
+							<Text
+								style={{ color: 'green', fontSize: 16 }}
+							>
+								Click here
+							</Text>
+						</TouchableOpacity>
+					</View>
+				</View>
 			</View>
-			<View className="flex flex-row justify-end items-end">
+			{/* <View className="flex flex-row justify-end items-end">
 				<TouchableOpacity
 					onPress={() => router.push('/forgot-password')}
 					className=""
@@ -113,13 +168,13 @@ export default function Login() {
 						Forgot password?
 					</Text>
 				</TouchableOpacity>
-			</View>
+			</View> */}
 			<TouchableOpacity
 				onPress={handleLogin}
 				className="bg-green-500 mt-8 mb-3 py-3 rounded-lg"
 			>
 				<Text className="text-white text-center text-xl font-semibold">
-					Login
+					{loading ? 'Loading...' : 'Login'}
 				</Text>
 			</TouchableOpacity>
 

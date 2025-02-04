@@ -32,7 +32,10 @@ export default function PhoneNumberScreen() {
 			const response = await verifyPhoneNumber(phoneNumber);
 			console.log(response);
 
-			if (response.status === 200) {
+			if (
+				response.message ===
+				'Verification code sent via WhatsApp'
+			) {
 				ToastAndroid.show(
 					`Code sent to ${phoneNumber}`,
 					ToastAndroid.SHORT,

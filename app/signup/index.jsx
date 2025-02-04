@@ -5,6 +5,7 @@ import {
 	Image,
 	TouchableOpacity,
 	Dimensions,
+	Linking,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { useNavigation } from '@react-navigation/native';
@@ -28,6 +29,12 @@ export default function SplashScreen() {
 	useEffect(() => {
 		navigation.setOptions({ headerShown: false });
 	}, [navigation]);
+
+	const handleOpenPrivacy = () => {
+		Linking.openURL(
+			`https://www.privacypolicies.com/live/294f3b79-c462-4006-ae52-2190057d0ca7`,
+		); // Replace with your desired website URL
+	};
 
 	return (
 		<View className="flex-1 justify-center items-center bg-white">
@@ -56,17 +63,21 @@ export default function SplashScreen() {
 				// style={{ height: height * 0.5 }}
 				className="px-6 py-4 justify-center items-center"
 			>
-				<View className="items-center justify-center pb-10">
+				<View
+					style={{ width: '100%' }}
+					className="items-center justify-center pb-10"
+				>
 					<Text className="text-center text-4xl font-semibold mb-4">
 						Grow Your Business with Ease.
 					</Text>
-					<Text className="text-center text-xl text-gray-500">
-						Manage Orders and Customers Effortlessly.
+					<Text className="text-center text-2xl text-gray-500">
+						Manage orders, finances and customers
+						effortlessly on the go.
 					</Text>
 				</View>
 
 				{/* Bottom Section: Buttons */}
-				<View className="w-full px-6">
+				<View className="w-full px-2">
 					<TouchableOpacity
 						onPress={() => router.push('/login')}
 						className="border border-slate-700 py-3 rounded-lg mb-4"
@@ -87,11 +98,17 @@ export default function SplashScreen() {
 					</TouchableOpacity>
 					<Text className="text-center mt-3">
 						By clicking login or sign up, you agree to our{' '}
-						<Text className="text-blue-600">
+						<Text
+							onPress={handleOpenPrivacy}
+							className="text-blue-600"
+						>
 							Terms of Service
 						</Text>{' '}
 						and{' '}
-						<Text className="text-blue-600">
+						<Text
+							onPress={handleOpenPrivacy}
+							className="text-blue-600"
+						>
 							Privacy Policy
 						</Text>
 						.

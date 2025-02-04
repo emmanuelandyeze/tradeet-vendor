@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
 	View,
 	Text,
@@ -8,49 +8,110 @@ import {
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import formatDateTime from '@/utils/formatTime';
+import axiosInstance from '@/utils/axiosInstance';
+import socket from '@/utils/socket';
 
-const NewRequests = ({ onCountChange, ordersData }) => {
+const NewRequests = ({
+	onCountChange,
+	ordersData,
+	sendPushNotification,
+}) => {
+	const [loading, setLoading] = useState(false);
+	const [error, setError] = useState(null);
+
 	const newRequests = ordersData?.filter(
-		(order) => order.status === 'new',
+		(order) => order.status === 'pending',
 	);
 
-	// Effect to update the count of new requests
-	useEffect(() => {
-		onCountChange(newRequests.length);
-	}, [newRequests]);
+	const handleAcceptOrder = async (order) => {
+		setLoading(true); // Start loading
+
+		try {
+			const response = await axiosInstance.put(
+				`/orders/v/${order?._id}/accept`,
+				{
+					storeId: order?.storeId._id,
+				},
+			);
+
+			if (response.data.order) {
+				console.log(
+					'Emitting order update:',
+					response.data.order,
+				);
+				sendPushNotification(
+					order?.customerInfo?.expoPushToken,
+					'Order update',
+				    `Your order has been accepted by ${order?.storeId?.name}.`,
+                );
+				socket.emit(
+					'orderUpdate',
+					response.data.order,
+					(error) => {
+						if (error) {
+							console.error('Error updating order:', error);
+						} else {
+							console.log('Order updated successfully');
+						}
+					},
+				);
+			} else {
+				console.error('Order not found in response data');
+			}
+		} catch (err) {
+			console.error('Error in handleAcceptOrder:', err);
+			setError(err.message || 'Error accepting order');
+		} finally {
+			setLoading(false); // Always stop loading
+		}
+	};
+
+	const handleRejectOrder = async (order) => {
+		try {
+			const response = await axiosInstance.put(
+				`/orders/v/${order?._id}/cancel`,
+				{
+					storeId: order?.storeId._id,
+				},
+			);
+			setLoading(false);
+		} catch (err) {
+			setError(err.message || 'Error fetching orders');
+			setLoading(false);
+		}
+	};
 
 	const OrderCard = ({ order }) => {
 		return (
 			<View style={styles.card}>
 				<View style={styles.header}>
-					<Text style={styles.orderId}>#{order?.id}</Text>
+					<Text style={styles.orderId}>
+						#{order?.orderNumber}{' '}
+						{order?.customerInfo?.name}
+					</Text>
 					<Text style={styles.orderTime}>
-						{order.orderDetails.orderTime}
+						{formatDateTime(order?.updatedAt)}
 					</Text>
 				</View>
-				<Text style={styles.customerName}>
-					{order.customer.name}
-				</Text>
 
 				{/* Display order items */}
 				<View style={styles.itemsContainer}>
-					{order.orderDetails.items.map((item, index) => (
-						<Text key={index}>
-							{item.name} (x{item.quantity})
-						</Text>
+					{order?.items?.map((item, index) => (
+						<View key={index}>
+							{item?.variants?.map((variant, index) => (
+								<Text style={{ fontSize: 14 }} key={index}>
+									{variant.name} (x{variant.quantity})
+								</Text>
+							))}
+							{item?.addOns?.map((addon, index) => (
+								<Text style={{ fontSize: 14 }} key={index}>
+									{addon.name} (x{addon.quantity})
+								</Text>
+							))}
+						</View>
 					))}
 				</View>
-
-				<Text>
-					Total: ₦{order.orderDetails.totalAmount}
-				</Text>
-				{/* <Text>
-					Delivery: {order.deliveryInfo.address} (₦
-					{order.deliveryInfo.fee})
-				</Text> */}
-				<Text>
-					Payment: {order.orderDetails.paymentMethod}
-				</Text>
 
 				{/* Conditionally show ETA or feedback */}
 				{order.status === 'ongoing' && (
@@ -64,27 +125,26 @@ const NewRequests = ({ onCountChange, ordersData }) => {
 				)}
 
 				{/* Show action buttons for New Orders */}
-				{order.status === 'new' && (
+				{order.status === 'pending' && (
 					<View style={styles.actionButtons}>
-						<TouchableOpacity style={styles.rejectButton}>
-							<Text style={styles.buttonText}>Reject</Text>
+						<TouchableOpacity
+							onPress={() => handleRejectOrder(order)}
+							style={styles.rejectButton}
+						>
+							<Text style={styles.buttonText}>
+								{loading ? '...' : 'Reject'}
+							</Text>
 						</TouchableOpacity>
-						<TouchableOpacity style={styles.acceptButton}>
-							<Text style={styles.buttonText}>Accept</Text>
+						<TouchableOpacity
+							onPress={() => handleAcceptOrder(order)}
+							style={styles.acceptButton}
+						>
+							<Text style={styles.buttonText}>
+								{loading ? '...' : 'Accept'}
+							</Text>
 						</TouchableOpacity>
 					</View>
 				)}
-
-				{/* <View
-					style={[
-						styles.statusIndicator,
-						styles[`${order.status}Status`],
-					]}
-				>
-					<Text style={styles.statusText}>
-						{order.status.toUpperCase()}
-					</Text>
-				</View> */}
 			</View>
 		);
 	};
@@ -93,7 +153,7 @@ const NewRequests = ({ onCountChange, ordersData }) => {
 			{/* <Text style={styles.header}>New Requests</Text> */}
 			<FlatList
 				data={newRequests}
-				keyExtractor={(item) => item.id}
+				keyExtractor={(item) => item._id}
 				renderItem={({ item }) => (
 					<OrderCard order={item} />
 				)}
@@ -155,7 +215,7 @@ const styles = StyleSheet.create({
 		justifyContent: 'flex-end',
 		marginTop: 8,
 		alignItems: 'center',
-		gap: 10
+		gap: 10,
 	},
 	acceptButton: {
 		backgroundColor: 'green',

@@ -74,7 +74,7 @@ export default function VerificationScreen() {
 		try {
 			const response = await verifyCode(phoneNumber, code);
 
-			if (response.status === 200) {
+			if (response.message === 'Phone number verified') {
 				router.push({
 					pathname: '/signup/business-name',
 					params: { phoneNumber },

@@ -8,10 +8,13 @@ import {
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import formatDateTime from '@/utils/formatTime';
+import { useRouter } from 'expo-router';
 
 const CompletedOrders = ({ onCountChange, ordersData }) => {
+	const router = useRouter()
 	const completed = ordersData?.filter(
-		(order) => order.status === 'completed',
+		(order) => order.status === 'completed', 
 	);
 
 	// Effect to update the count of new requests
@@ -21,29 +24,39 @@ const CompletedOrders = ({ onCountChange, ordersData }) => {
 
 	const OrderCard = ({ order }) => {
 		return (
-			<View style={styles.card}>
+			<TouchableOpacity
+				onPress={() =>
+					router.push(`/(app)/orders/${order._id}`)
+				}
+				style={styles.card}
+			>
 				<View style={styles.header}>
-					<Text style={styles.orderId}>#{order.id}</Text>
+					<Text style={styles.orderId}>
+						#{order?.orderNumber}{' '}
+						{order?.customerInfo?.name}
+					</Text>
 					<Text style={styles.orderTime}>
-						{order.orderDetails.orderTime}
+						{formatDateTime(order?.updatedAt)}
 					</Text>
 				</View>
-				<Text style={styles.customerName}>
-					{order.customer.name}
-				</Text>
 
-				{/* Display order items */}
+				{/* Display order items
 				<View style={styles.itemsContainer}>
-					{order.orderDetails.items.map((item, index) => (
-						<Text key={index}>
-							{item.name} (x{item.quantity})
-						</Text>
+					{order?.items?.map((item, index) => (
+						<View key={index}>
+							{item?.variants?.map((variant, index) => (
+								<Text style={{ fontSize: 14 }} key={index}>
+									{variant.name} (x{variant.quantity})
+								</Text>
+							))}
+							{item?.addOns?.map((addon, index) => (
+								<Text style={{ fontSize: 14 }} key={index}>
+									{addon.name} (x{addon.quantity})
+								</Text>
+							))}
+						</View>
 					))}
-				</View>
-
-				<Text style={{ fontSize: 16, fontWeight: 'bold' }}>
-					Total: ₦{order.orderDetails.totalAmount}
-				</Text>
+				</View> */}
 
 				{/* Conditionally show ETA or feedback */}
 				{order.status === 'ongoing' && (
@@ -55,7 +68,29 @@ const CompletedOrders = ({ onCountChange, ordersData }) => {
 						{order.feedback.comment}
 					</Text>
 				)}
-			</View>
+
+				{/* Show action buttons for New Orders */}
+				{order.status === 'pending' && (
+					<View style={styles.actionButtons}>
+						<TouchableOpacity
+							onPress={() => handleRejectOrder(order)}
+							style={styles.rejectButton}
+						>
+							<Text style={styles.buttonText}>
+								{loading ? '...' : 'Reject'}
+							</Text>
+						</TouchableOpacity>
+						<TouchableOpacity
+							onPress={() => handleAcceptOrder(order)}
+							style={styles.acceptButton}
+						>
+							<Text style={styles.buttonText}>
+								{loading ? '...' : 'Accept'}
+							</Text>
+						</TouchableOpacity>
+					</View>
+				)}
+			</TouchableOpacity>
 		);
 	};
 
@@ -95,11 +130,13 @@ const styles = StyleSheet.create({
 		backgroundColor: '#fff',
 		padding: 16,
 		// borderRadius: 8,
-		marginBottom: 16,
+		// marginBottom: 16,
 		shadowColor: '#000',
 		shadowOpacity: 0.1,
 		shadowRadius: 4,
-		elevation: 2,
+		// elevation: 2,
+		borderBottomWidth: .5,
+		borderColor: '#ccc',
 	},
 	header: {
 		flexDirection: 'row',

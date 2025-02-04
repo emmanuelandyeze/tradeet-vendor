@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "430571676118",
+    "project_id": "tradeet-97384",
+    "storage_bucket": "tradeet-97384.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:430571676118:android:c7b21e04981ec8934e4477",
+        "android_client_info": {
+          "package_name": "com.tradeet.vendor"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyDTIBom7GQqSKmRTBHrul6Edv7hNE9iZGc"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

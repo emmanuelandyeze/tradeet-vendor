@@ -1,5 +1,8 @@
+import axiosInstance from '@/utils/axiosInstance';
+import formatDateTime from '@/utils/formatTime';
+import socket from '@/utils/socket';
 import { router } from 'expo-router';
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
 	View,
 	Text,
@@ -8,10 +11,59 @@ import {
 	StyleSheet,
 } from 'react-native';
 
-const ActiveOrders = ({ onCountChange, ordersData }) => {
+const ActiveOrders = ({ onCountChange, ordersData, sendPushNotification }) => {
+	const [loading, setLoading] = useState(false);
+	const [error, setError] = useState(null);
+
 	const orders = ordersData?.filter(
-		(order) => order.status === 'ongoing',
+		(order) => order.status === 'accepted',
 	);
+
+	const handleCompleteOrder = async (order) => {
+		setLoading(true); // Start loading
+
+		try {
+			const response = await axiosInstance.put(
+				`/orders/v/${order?._id}/complete`,
+				{
+					storeId: order?.storeId._id,
+				},
+			);
+			
+
+			if (response.data.order) {
+				console.log(
+					'Emitting order update:',
+					response.data.order,
+				);
+
+				sendPushNotification(
+					order?.customerInfo?.expoPushToken,
+					'Order update',
+					`Your order has been marked as delivered.`,
+				);
+
+				socket.emit(
+					'orderUpdate',
+					response.data.order,
+					(error) => {
+						if (error) {
+							console.error('Error updating order:', error);
+						} else {
+							console.log('Order updated successfully');
+						}
+					},
+				);
+			} else {
+				console.error('Order not found in response data');
+			}
+		} catch (err) {
+			console.error('Error in handleConfirmOrder:', err);
+			setError(err.message || 'Error confirming order');
+		} finally {
+			setLoading(false); // Always stop loading
+		}
+	};
 
 	// Effect to update the count of active orders
 	useEffect(() => {
@@ -22,28 +74,36 @@ const ActiveOrders = ({ onCountChange, ordersData }) => {
 		return (
 			<View style={styles.card}>
 				<View style={styles.header}>
-					<Text style={styles.orderId}>#{order.id}</Text>
+					<View>
+						<Text style={styles.orderId}>
+							#{order?.orderNumber}{' '}
+						</Text>
+						<Text style={styles.orderId}>
+							{order?.customerInfo?.name}
+						</Text>
+					</View>
 					<Text style={styles.orderTime}>
-						{order.orderDetails.orderTime}
+						{formatDateTime(order?.updatedAt)}
 					</Text>
 				</View>
-				<Text style={styles.customerName}>
-					{order.customer.name}
-				</Text>
 
 				{/* Display order items */}
 				<View style={styles.itemsContainer}>
-					{order.orderDetails.items.map((item, index) => (
-						<Text key={index}>
-							{item.name} (x{item.quantity})
-						</Text>
+					{order?.items?.map((item, index) => (
+						<View key={index}>
+							{item?.variants?.map((variant, index) => (
+								<Text style={{ fontSize: 14 }} key={index}>
+									{variant.name} (x{variant.quantity})
+								</Text>
+							))}
+							{item?.addOns?.map((addon, index) => (
+								<Text style={{ fontSize: 14 }} key={index}>
+									{addon.name} (x{addon.quantity})
+								</Text>
+							))}
+						</View>
 					))}
 				</View>
-
-				<Text style={{fontSize: 16, fontWeight: 'bold'}}>
-					Total: ₦{order.orderDetails.totalAmount}
-				</Text>
-				
 
 				{/* Conditionally show ETA or feedback */}
 				{order.status === 'ongoing' && (
@@ -57,15 +117,19 @@ const ActiveOrders = ({ onCountChange, ordersData }) => {
 				)}
 
 				{/* Show action buttons for New Orders */}
-				{order.status === 'ongoing' && (
-					<View style={styles.actionButtons}>
-						<TouchableOpacity style={styles.acceptButton}>
-							<Text style={styles.buttonText}>
-								Ready for Pickup
-							</Text>
-						</TouchableOpacity>
-					</View>
-				)}
+				{order.status === 'accepted' &&
+					!order.runnerInfo?.runnerId && (
+						<View style={styles.actionButtons}>
+							<TouchableOpacity
+								onPress={() => handleCompleteOrder(order)}
+								style={styles.acceptButton}
+							>
+								<Text style={styles.buttonText}>
+									Mark as Delivered
+								</Text>
+							</TouchableOpacity>
+						</View>
+					)}
 			</View>
 		);
 	};
@@ -106,11 +170,13 @@ const styles = StyleSheet.create({
 		backgroundColor: '#fff',
 		padding: 16,
 		// borderRadius: 8,
-		marginBottom: 16,
+		// marginBottom: 16,
 		shadowColor: '#000',
 		shadowOpacity: 0.1,
 		shadowRadius: 4,
-		elevation: 2,
+		// elevation: 2,
+		borderBottomWidth: 0.5,
+		borderColor: '#ccc',
 	},
 	header: {
 		flexDirection: 'row',

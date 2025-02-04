@@ -38,10 +38,10 @@ export default function TabLayout() {
 			<Tabs.Screen
 				name="index"
 				options={{
-					title: 'Orders',
+					title: 'Home',
 					tabBarIcon: ({ color, focused }) => (
 						<TabBarIcon
-							name={focused ? 'basket' : 'basket-outline'}
+							name={focused ? 'home' : 'home-outline'}
 							color={color}
 						/>
 					),
@@ -64,18 +64,18 @@ export default function TabLayout() {
 				}}
 			/>
 			<Tabs.Screen
-				name="wallet"
+				name="orders"
 				options={{
-					title: 'Wallet',
+					title: 'Orders',
 					tabBarIcon: ({ color, focused }) => (
 						<TabBarIcon
-							name={focused ? 'wallet' : 'wallet-outline'}
+							name={focused ? 'basket' : 'basket-outline'}
 							color={color}
 						/>
 					),
 				}}
 			/>
-			<Tabs.Screen
+			{/* <Tabs.Screen
 				name="support"
 				options={{
 					title: 'Support',
@@ -90,17 +90,15 @@ export default function TabLayout() {
 						/>
 					),
 				}}
-			/>
+			/> */}
 			<Tabs.Screen
-				name="profile"
+				name="settings"
 				options={{
-					title: 'Profile',
+					title: 'Settings',
 					tabBarIcon: ({ color, focused }) => (
 						<TabBarIcon
 							name={
-								focused
-									? 'person-circle'
-									: 'person-circle-outline'
+								focused ? 'settings' : 'settings-outline'
 							}
 							color={color}
 						/>

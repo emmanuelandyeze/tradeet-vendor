@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const axiosInstance = axios.create({
-	baseURL: 'https://tradeet-server.vercel.app/api', // or use your deployed server URL
+	baseURL: 'http://192.168.1.159:5000', // or use your deployed server URL
 	headers: {
 		'Content-Type': 'application/json',
 	},

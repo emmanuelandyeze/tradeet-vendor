@@ -1,4 +1,8 @@
-import React, { useState } from 'react';
+import React, {
+	useContext,
+	useEffect,
+	useState,
+} from 'react';
 import {
 	View,
 	Text,
@@ -9,39 +13,38 @@ import {
 	Button,
 	Image,
 	Switch,
+	ActivityIndicator,
 } from 'react-native';
 import AddProduct from '@/components/AddProduct';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
+import { useProducts } from '@/context/ProductsContext';
+import { AuthContext } from '@/context/AuthContext';
+import { ProductsContext } from '@/context/ProductsContext';
 
 const products = () => {
-	const [products, setProducts] = useState([
-		{
-			id: 1,
-			name: 'Classic Burger',
-			price: 1200,
-			image:
-				'https://static.vecteezy.com/system/resources/previews/036/333/896/original/ai-generated-crispy-chicken-burger-with-fries-meal-png.png',
-			variants: [
-				{ name: 'Single', price: 1200 },
-				{ name: 'Double', price: 1800 },
-				{ name: 'Cheese', price: 1500 },
-			],
-			addOns: [
-				{
-					name: 'Extra Cheese',
-					price: 200,
-					compulsory: false,
-				},
-				{ name: 'Bacon', price: 300, compulsory: false },
-				{ name: 'Lettuce', price: 50, compulsory: true },
-			],
-			description:
-				'Cheese variant with single and double options.',
-		},
-		// Additional products can be added here...
-	]);
+	const { userInfo } = useContext(AuthContext);
+	const {
+		products,
+		fetchProductsByStore,
+		loading,
+		error,
+		setProducts,
+		addProduct,
+		updateProduct,
+		deleteProduct,
+		updateVariant,
+		deleteVariant,
+		updateAddon,
+		deleteAddon,
+	} = useContext(ProductsContext);
+
+	const storeId = userInfo?._id;
+
+	useEffect(() => {
+		fetchProductsByStore(storeId);
+	}, [storeId]);
 
 	const [isModalVisible, setModalVisible] = useState(false);
 	const [isEditing, setIsEditing] = useState(false);
@@ -61,44 +64,15 @@ const products = () => {
 		setSelectedProduct(null);
 	};
 
-	// Function to handle toggle
-	const handleToggle = (isActive) => {
-		setProducts(
-			products.map((product) =>
-				product.id === selectedProduct.id
-					? { ...product, isActive }
-					: product,
-			),
-		);
-		closeMenu();
-	};
-
 	// Function to add a new product
-	const onAddProduct = (newProduct) => {
+	const onAddProduct = async (newProduct) => {
 		if (isEditing) {
-			// Update the existing product
-			setProducts(
-				products.map((product) =>
-					product.id === newProduct.id
-						? newProduct
-						: product,
-				),
-			);
+			updateProduct(newProduct._id, newProduct);
 		} else {
 			// Add a new product
-			setProducts([...products, newProduct]);
+			const res = await addProduct(newProduct);
 		}
 		setModalVisible(false); // Close modal after adding/editing
-	};
-
-	// Function to delete a product
-	const deleteProduct = (productId) => {
-		setProducts(
-			products.filter(
-				(product) => product.id !== productId,
-			),
-		);
-		closeMenu();
 	};
 
 	// Function to open the modal for adding or editing a product
@@ -107,6 +81,14 @@ const products = () => {
 		setSelectedProduct(product);
 		setModalVisible(true);
 	};
+
+	if (loading) {
+		return (
+			<View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+				<ActivityIndicator size="large" color="green" />
+			</View>
+		);
+	}
 
 	return (
 		<View style={styles.container}>
@@ -128,16 +110,16 @@ const products = () => {
 					}}
 				>
 					<Text
-						style={{ fontSize: 22, fontWeight: 'bold' }}
+						style={{ fontSize: 24 }}
 					>
 						Products
 					</Text>
 					<TouchableOpacity>
-						<Ionicons
+						{/* <Ionicons
 							name="search-outline"
 							size={22}
 							color="black"
-						/>
+						/> */}
 					</TouchableOpacity>
 				</View>
 			</View>
@@ -145,7 +127,7 @@ const products = () => {
 				{/* List of Products */}
 				<FlatList
 					data={products}
-					keyExtractor={(item) => item.id.toString()}
+					keyExtractor={(item) => item._id.toString()}
 					renderItem={({ item }) => (
 						<View style={styles.productCard}>
 							{/* Product Image */}
@@ -160,13 +142,15 @@ const products = () => {
 								<Text style={styles.productName}>
 									{item.name}
 								</Text>
-								<Text>Price: ₦{item?.price.toLocaleString()}</Text>
+								<Text>
+									Price: ₦{item?.price.toLocaleString()}
+								</Text>
 								<Text
 									style={{
-										color: item.isActive ? 'green' : 'red',
+										color: 'green',
 									}}
 								>
-									{item.isActive ? 'Active' : 'Inactive'}
+									Active
 								</Text>
 							</View>
 
@@ -215,37 +199,49 @@ const products = () => {
 							</Text>
 
 							{/* Toggle Active/Inactive */}
-							<View style={styles.toggleRow}>
+							<View>
 								<Text style={styles.modalText}>
-									{selectedProduct.isActive
-										? 'Active'
-										: 'Inactive'}
+									{selectedProduct.description}
 								</Text>
-								<Switch
-									value={selectedProduct.isActive}
-									onValueChange={(value) =>
-										handleToggle(value)
-									}
-								/>
 							</View>
 
-							{/* Delete Option */}
-							<TouchableOpacity
-								onPress={() => {
-									deleteProduct(selectedProduct.id);
+							<View
+								style={{
+									display: 'flex',
+									flexDirection: 'row',
+									justifyContent: 'flex-end',
+									marginTop: 20,
 								}}
-								style={styles.deleteButton}
 							>
-								<Text style={styles.deleteText}>
-									Delete Product
-								</Text>
-							</TouchableOpacity>
-
-							<TouchableOpacity onPress={closeMenu}>
-								<Text style={styles.closeButton}>
-									Close
-								</Text>
-							</TouchableOpacity>
+								<TouchableOpacity
+									style={{
+										padding: 10,
+										backgroundColor: 'transparent',
+										borderRadius: 4,
+										alignItems: 'center',
+										borderWidth: 1,
+										borderColor: 'gray',
+										marginRight: 10
+									}}
+									onPress={closeMenu}
+								>
+									<Text style={styles.closeButton}>
+										Close
+									</Text>
+								</TouchableOpacity>
+								{/* Delete Option */}
+								<TouchableOpacity
+									onPress={() => {
+										deleteProduct(selectedProduct._id);
+										closeMenu();
+									}}
+									style={styles.deleteButton}
+								>
+									<Text style={styles.deleteText}>
+										Delete Product
+									</Text>
+								</TouchableOpacity>
+							</View>
 						</View>
 					</View>
 				</Modal>
@@ -271,7 +267,7 @@ const products = () => {
 				>
 					<Ionicons
 						name="add-sharp"
-						size={34}
+						size={40}
 						color="white"
 					/>
 				</TouchableOpacity>
@@ -290,6 +286,8 @@ const products = () => {
 					<AddProduct
 						onAddProduct={onAddProduct}
 						initialProduct={selectedProduct}
+						storeId={storeId}
+						loading={loading}
 					/>
 					<TouchableOpacity
 						onPress={() => setModalVisible(false)}
@@ -336,8 +334,10 @@ const styles = StyleSheet.create({
 	productImage: {
 		width: 50,
 		height: 50,
-		borderRadius: 4,
+		borderRadius: 5,
 		marginRight: 10,
+		borderWidth: 1,
+		borderColor: '#ddd',
 	},
 	productInfo: {
 		flex: 1,
@@ -347,8 +347,8 @@ const styles = StyleSheet.create({
 		fontWeight: 'bold',
 	},
 	actions: {
-    flexDirection: 'row',
-    gap: 10
+		flexDirection: 'row',
+		gap: 10,
 	},
 	actionButton: {
 		padding: 10,
@@ -369,8 +369,7 @@ const styles = StyleSheet.create({
 		backgroundColor: '#fff',
 		margin: 10,
 		padding: 16,
-    borderRadius: 10,
-    
+		borderRadius: 10,
 	},
 	modalTitle: {
 		fontSize: 20,
@@ -381,24 +380,23 @@ const styles = StyleSheet.create({
 		flexDirection: 'row',
 		justifyContent: 'center',
 		marginBottom: 20,
-    alignItems: 'center',
+		alignItems: 'center',
 	},
 	deleteButton: {
 		padding: 10,
 		backgroundColor: '#e74c3c',
 		borderRadius: 4,
 		alignItems: 'center',
-		marginBottom: 20,
 	},
 	deleteText: {
 		color: '#fff',
 		fontWeight: 'bold',
 	},
 	closeButton: {
-		color: '#3498db',
+		color: 'gray',
 		fontWeight: 'bold',
 		textAlign: 'center',
-		marginTop: 10,
+		
 	},
 });
 
