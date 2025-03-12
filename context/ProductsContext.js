@@ -37,11 +37,13 @@ const ProductsProvider = ({ children }) => {
 	// Add a new product
 	const addProduct = async (productData) => {
 		setLoading(true);
+		console.log(productData);
 		try {
 			const response = await axiosInstance.post(
 				'/products',
 				productData,
 			);
+			console.log('res: ', response);
 			// console.log(response);
 			setProducts([...products, response.data]);
 			setLoading(false);
@@ -49,7 +51,7 @@ const ProductsProvider = ({ children }) => {
 			setError(
 				err.response?.data?.message ||
 					'Failed to add product',
-			);
+			); 
 			setLoading(false);
 		}
 	};

@@ -53,17 +53,21 @@ const AddProduct = ({
 		useState(null);
 	const [isDropdownVisible, setDropdownVisible] =
 		useState(false);
-	const [isModalVisible, setIsModalVisible] = useState(false);
+	const [isModalVisible, setIsModalVisible] =
+		useState(false);
 	const [newCategory, setNewCategory] = useState('');
 	const [isAddingCategory, setIsAddingCategory] =
 		useState(false);
 
-	useEffect(async() => {
-		// Fetch categories from the backend
-		const response = await axiosInstance
-			.get(`/category/${storeId}`)
-			console.log(response.data)
-		 setCategories(response.data);
+	useEffect(() => {
+		async function fetchCategory() {
+			// Fetch categories from the backend
+			const response = await axiosInstance.get(
+				`/category/${storeId}`,
+			);
+			setCategories(response.data);
+		}
+		fetchCategory()
 	}, []);
 
 	const addCategory = () => {
@@ -74,13 +78,14 @@ const AddProduct = ({
 			.post(`/category/${storeId}`, { name: newCategory })
 			.then((response) => {
 				setCategories((prev) => [...prev, response.data]);
-				setNewCategory(''); 
+				setNewCategory('');
 				setIsAddingCategory(false);
 			});
 	};
 
 	// console.log(categories)
 	const pickImage = async () => {
+
 		let result = await ImagePicker.launchImageLibraryAsync({
 			mediaTypes: ImagePicker.MediaTypeOptions.Images,
 			allowsEditing: true,
@@ -93,9 +98,9 @@ const AddProduct = ({
 			setModalVisible(false);
 		}
 	};
+ 
 
 	const takePhoto = async () => {
-		ImagePicker.requestCameraPermissionsAsync();
 		let result = await ImagePicker.launchCameraAsync({
 			allowsEditing: true,
 			aspect: [1, 1],
@@ -107,6 +112,7 @@ const AddProduct = ({
 			setModalVisible(false);
 		}
 	};
+
 
 	// Function to handle image upload to Cloudinary
 	const handleImageUpload = async () => {
@@ -213,29 +219,33 @@ const AddProduct = ({
 	};
 
 	const handleSaveProduct = async () => {
+		if (!selectedCategory) {
+			alert('Please select a category')
+			return
+		}
+
 		const uploadedLogoUrl = await handleImageUpload();
 
-		// Ensure the product's image is updated with the uploaded URL
-		if (uploadedLogoUrl) {
-			setProduct((prevProduct) => ({
-				...prevProduct,
-				image: uploadedLogoUrl,
-			}));
-
-			// Check that all necessary fields are filled after updating the product state
-			if (product.name && product.price) {
-				onAddProduct({
-					...product,
-					image: uploadedLogoUrl,
-				});
-				console.log(product); // This will log the product object, but remember the state update is asynchronous
-			} else {
-				alert('Please fill in the product name and price.');
-			}
-		} else {
+		if (!uploadedLogoUrl) {
 			alert('Image upload failed. Please try again.');
+			return;
+		}
+
+		// Create a new product object with the updated image and category
+		const updatedProduct = {
+			...product,
+			image: uploadedLogoUrl,
+			category: selectedCategory?._id,
+		};
+
+		// Check if required fields are filled before sending the request
+		if (updatedProduct.name && updatedProduct.price) {
+			const res = await onAddProduct(updatedProduct); // Send the updated product
+		} else {
+			alert('Please fill in the product name and price.');
 		}
 	};
+
 
 	return (
 		<ScrollView
@@ -856,7 +866,7 @@ const styles = StyleSheet.create({
 	modalActions: {
 		flexDirection: 'row',
 		justifyContent: 'flex-end',
-		gap: 10
+		gap: 10,
 	},
 	cancelButton: {
 		backgroundColor: 'gray',

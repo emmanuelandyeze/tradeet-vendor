@@ -196,7 +196,7 @@ const StoreLocationPicker = () => {
 						size={24}
 						color="black"
 					/>
-				</TouchableOpacity>
+				</TouchableOpacity> 
 			</View>
 			<TextInput
 				style={styles.input}

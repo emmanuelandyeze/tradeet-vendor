@@ -8,9 +8,9 @@ const TodoList = ({ businessData, setModalVisible }) => {
 	// Define the to-do items and conditions to check if they are complete
 	const todoItems = [
 		{
-			label: 'Add Email Address',
-			isComplete: businessData?.email,
-			onPress: () => router.push('/(app)/setupstore'),
+			label: 'Add Business Location',
+			isComplete: businessData?.address,
+			onPress: () => router.push('/selectLocation'),
 		},
 		{
 			label: 'Add Bank Account Information',

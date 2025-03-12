@@ -221,7 +221,11 @@ const InvoiceTable = ({
 				{formatDate(item.createdAt)}
 			</Text> */}
 			<Text style={styles.cell}>
-				₦{item.totalAmount.toLocaleString()}
+				₦
+				{(item.deliveryFee
+					? item.itemsAmount + item.deliveryFee + item.discountAmount
+					: item.itemsAmount
+				)?.toLocaleString()}
 			</Text>
 			<Text style={styles.cell}>
 				₦
@@ -464,42 +468,58 @@ const InvoiceTable = ({
 								<Text style={styles.modalTitle}>
 									Invoice Details
 								</Text>
+								<View style={styles.header}>
+									<Text
+										style={[
+											styles.headerCell,
+											{ textAlign: 'left' },
+										]}
+									>
+										Item
+									</Text>
+									<Text style={styles.headerCell}>
+										Quantity
+									</Text>
+									<Text style={styles.headerCell}>
+										Amount
+									</Text>
+								</View>
 								{selectedInvoice?.items?.map(
 									(item, index) => (
 										<View
 											key={index}
 											style={{
-												paddingBottom: 10,
+												// paddingBottom: 10,
 												borderBottomWidth: 1,
 												borderColor: '#f0f0f0',
 												marginBottom: 10,
 											}}
 										>
-											<View style={styles.header}>
-												<Text
-													style={[
-														styles.headerCell,
-														{ textAlign: 'left' },
-													]}
-												>
-													Item
-												</Text>
-												<Text style={styles.headerCell}>
-													Quantity
-												</Text>
-												<Text style={styles.headerCell}>
-													Amount
-												</Text>
-											</View>
 											<View style={styles.row}>
-												<Text
-													style={[
-														styles.cell,
-														{ textAlign: 'left' },
-													]}
+												<View
+													style={{
+														flexDirection: 'column',
+													}}
 												>
-													{item?.name || item?.product}
-												</Text>
+													<View>
+														<Text>
+															{item?.name || item?.product}
+														</Text>
+														{item?.addOns?.map(
+															(addon, index) => (
+																<View>
+																	<Text
+																		style={{ fontSize: 14 }}
+																		key={index}
+																	>
+																		{addon.name}(x
+																		{addon.quantity}){' '}
+																	</Text>
+																</View>
+															),
+														)}
+													</View>
+												</View>
 												<Text style={styles.cell}>
 													{item?.quantity}
 												</Text>
@@ -537,6 +557,86 @@ const InvoiceTable = ({
 										flexDirection: 'row',
 										justifyContent: 'space-between',
 										alignItems: 'center',
+									}}
+								>
+									<Text
+										style={{
+											fontSize: 16,
+											// fontWeight: 'bold',
+										}}
+									>
+										Sub-total
+									</Text>
+									<Text
+										style={{
+											fontSize: 16,
+											// fontWeight: 'bold',
+										}}
+									>
+										₦
+										{selectedInvoice?.itemsAmount?.toLocaleString()}
+									</Text>
+								</View>
+								{selectedInvoice?.deliveryFee > 0 && (
+									<View>
+										<View
+											style={{
+												flexDirection: 'row',
+												justifyContent: 'space-between',
+												alignItems: 'center',
+											}}
+										>
+											<Text
+												style={{
+													fontSize: 16,
+													// fontWeight: 'bold',
+												}}
+											>
+												Delivery Fee
+											</Text>
+											<Text
+												style={{
+													fontSize: 16,
+													// fontWeight: 'bold',
+												}}
+											>
+												₦
+												{selectedInvoice?.deliveryFee?.toLocaleString()}
+											</Text>
+										</View>
+										<View
+											style={{
+												flexDirection: 'row',
+												justifyContent: 'space-between',
+												alignItems: 'center',
+											}}
+										>
+											<Text
+												style={{
+													fontSize: 16,
+													// fontWeight: 'bold',
+												}}
+											>
+												Service Fee
+											</Text>
+											<Text
+												style={{
+													fontSize: 16,
+													// fontWeight: 'bold',
+												}}
+											>
+												₦
+												{selectedInvoice?.serviceFee?.toLocaleString()}
+											</Text>
+										</View>
+									</View>
+								)}
+								<View
+									style={{
+										flexDirection: 'row',
+										justifyContent: 'space-between',
+										alignItems: 'center',
+										marginTop: 10,
 									}}
 								>
 									<Text
@@ -877,7 +977,7 @@ const styles = StyleSheet.create({
 		paddingVertical: 10,
 		// borderBottomWidth: 1,
 		borderBottomColor: '#f0f0f0',
-		alignItems: 'center',
+		alignItems: 'flex-start',
 	},
 	cell: {
 		flex: 1,

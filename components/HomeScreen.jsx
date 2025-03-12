@@ -10,7 +10,11 @@ import React, {
 	useEffect,
 	useState,
 } from 'react';
-import { FlatList, RefreshControl, TouchableWithoutFeedback } from 'react-native';
+import {
+	FlatList,
+	RefreshControl,
+	TouchableWithoutFeedback,
+} from 'react-native';
 import {
 	View,
 	Text,
@@ -31,6 +35,7 @@ const HomeScreen = () => {
 	const { userInfo, checkLoginStatus } =
 		useContext(AuthContext);
 	const [orders, setOrders] = useState([]);
+	const [wallet, setWallet] = useState(0);
 	const [loading, setLoading] = useState(false);
 	const [filter, setFilter] = useState('in progress');
 	const [filteredOrders, setFilteredOrders] =
@@ -42,6 +47,8 @@ const HomeScreen = () => {
 		useState(false);
 
 	const [modalVisible, setModalVisible] = useState(false);
+
+	const [viewValues, setViewValues] = useState(false);
 
 	const handleSavePaymentInfo = async (paymentInfo) => {
 		const response = await axiosInstance.post(
@@ -62,7 +69,7 @@ const HomeScreen = () => {
 	// Effect to update the count of active orders whenever the orders list changes
 	useEffect(() => {
 		filterOrders();
-		fetchExpenses()
+		fetchExpenses();
 	}, [orders, filter]);
 
 	// Function to get user information
@@ -107,6 +114,20 @@ const HomeScreen = () => {
 		}
 	};
 
+	const fetchWallet = async () => {
+		try {
+			const response = await axiosInstance.get(
+				`/businesses/wallet/${userInfo?._id}`,
+			);
+			// Reverse the fetched orders so that the newest orders are at the top
+			setWallet(response.data.walletBalance);
+			setLoading(false);
+		} catch (err) {
+			console.log(err.message || 'Error fetching wallet balance');
+			setLoading(false);
+		}
+	};
+
 	const fetchExpenses = async () => {
 		try {
 			const response = await axiosInstance.get(
@@ -123,6 +144,7 @@ const HomeScreen = () => {
 	useEffect(() => {
 		getBusinessInfo();
 		fetchOrders();
+		fetchWallet();
 
 		const handleOrderUpdate = (updatedOrder) => {
 			setOrders((prevOrders) =>
@@ -183,23 +205,50 @@ const HomeScreen = () => {
 	);
 
 	// Calculate the total of totalAmount for pending orders
-	const totalPendingAmount = ordersData?.reduce(
-		(total, order) => total + order.balance,
-		0,
-	);
+	const totalPendingAmount =
+		ordersData?.reduce((total, order) => {
+			const itemsAmount = order.itemsAmount || 0;
+			const deliveryFee = order.deliveryFee || 0;
+			const discountAmount = order.discountAmount || 0;
+			const amountPaid = order.amountPaid || 0;
+
+			// Vendor's actual total (excluding serviceFee)
+			const vendorTotal =
+				itemsAmount + deliveryFee - discountAmount;
+			const balance = Math.max(0, vendorTotal - amountPaid); // Avoid negative balance
+
+			return total + balance;
+		}, 0) || 0;
 
 	// Calculate the total of totalAmount for pending orders
-	const totalIncomeAmount = ordersData?.reduce(
-		(total, order) => total + order.amountPaid,
-		0,
-	);
+	const totalIncomeAmount =
+		ordersData?.reduce((total, order) => {
+			const itemsAmount = order.itemsAmount || 0;
+			const deliveryFee = order.deliveryFee || 0;
+			const discountAmount = order.discountAmount || 0;
+			const amountPaid = order.amountPaid || 0;
+
+			// Vendor's actual total (excluding serviceFee)
+			const vendorTotal =
+				itemsAmount + deliveryFee - discountAmount;
+
+			// Vendor receives the minimum of vendorTotal or amountPaid
+			const vendorIncome = Math.min(
+				vendorTotal,
+				amountPaid,
+			);
+
+			return total + vendorIncome;
+		}, 0) || 0;
+	
 
 	const totalExpensesAmount = expenses?.reduce(
 		(total, expense) => total + expense.amount,
 		0,
 	);
 
-	const profitOrLossAmount = totalIncomeAmount - totalExpensesAmount;
+	const profitOrLossAmount =
+		totalIncomeAmount - totalExpensesAmount;
 
 	// Function to filter orders based on status
 	const filterOrders = () => {
@@ -224,10 +273,15 @@ const HomeScreen = () => {
 		setRefreshing(true);
 		fetchOrders();
 		getBusinessInfo();
+		fetchWallet()
 		setTimeout(() => {
 			setRefreshing(false);
 		}, 3000);
 	}, []);
+
+	const toggleView = () => {
+		setViewValues(!viewValues);
+	}
 
 	const quickAccessItems = [
 		{
@@ -309,12 +363,45 @@ const HomeScreen = () => {
 
 						{/* Sales Overview */}
 						<View style={styles.section}>
-							<Text style={styles.sectionTitle}>
-								Business Overview
-							</Text>
+							<View
+								style={{
+									flexDirection: 'row',
+									alignItems: 'center',
+									gap: 10,
+									marginBottom: 10,
+								}}
+							>
+								<Text style={styles.sectionTitle}>
+									Business Overview
+								</Text>
+								<TouchableOpacity
+									onPress={() => toggleView()}
+								>
+									<Ionicons
+										name={
+											!viewValues
+												? 'eye-off-outline'
+												: 'eye-outline'
+										}
+										size={20}
+										color="#3C4043"
+									/>
+								</TouchableOpacity>
+							</View>
 							<View style={styles.statsContainer}>
-								<View style={styles.statBox}>
-									<Text style={styles.statValue}>
+								<View
+									style={[
+										styles.statBox,
+										{ backgroundColor: '#DFF6E2' },
+									]}
+								>
+									<Text
+										style={
+											!viewValues
+												? styles.blurredText
+												: styles.statValue
+										}
+									>
 										₦{totalIncomeAmount?.toLocaleString()}
 									</Text>
 									<Text style={styles.statLabel}>
@@ -324,8 +411,19 @@ const HomeScreen = () => {
 								<TouchableWithoutFeedback
 									onPress={() => router.push('/invoices')}
 								>
-									<View style={styles.statBox}>
-										<Text style={styles.statValue}>
+									<View
+										style={[
+											styles.statBox,
+											{ backgroundColor: '#E1F5F9' },
+										]}
+									>
+										<Text
+											style={
+												!viewValues
+													? styles.blurredText
+													: styles.statValue
+											}
+										>
 											₦
 											{totalPendingAmount?.toLocaleString()}
 										</Text>
@@ -335,12 +433,23 @@ const HomeScreen = () => {
 									</View>
 								</TouchableWithoutFeedback>
 							</View>
-							<View style={styles.statsContainer}>
+							<View style={[styles.statsContainer]}>
 								<TouchableWithoutFeedback
 									onPress={() => router.push('/expenses')}
 								>
-									<View style={styles.statBox}>
-										<Text style={styles.statValue}>
+									<View
+										style={[
+											styles.statBox,
+											{ backgroundColor: '#FDE5E9' },
+										]}
+									>
+										<Text
+											style={
+												!viewValues
+													? styles.blurredText
+													: styles.statValue
+											}
+										>
 											₦
 											{totalExpensesAmount?.toLocaleString()}
 										</Text>
@@ -350,13 +459,24 @@ const HomeScreen = () => {
 										</Text>
 									</View>
 								</TouchableWithoutFeedback>
-								<View style={styles.statBox}>
-									<Text style={styles.statValue}>
-										₦{profitOrLossAmount?.toLocaleString()}
+								<View
+									style={[
+										styles.statBox,
+										{ backgroundColor: '#EAE6F8' },
+									]}
+								>
+									<Text
+										style={
+											!viewValues
+												? styles.blurredText
+												: styles.statValue
+										}
+									>
+										₦{wallet?.toLocaleString()}
 									</Text>
 
 									<Text style={styles.statLabel}>
-										Profit/Loss
+										Wallet
 									</Text>
 								</View>
 							</View>
@@ -364,7 +484,7 @@ const HomeScreen = () => {
 						</View>
 
 						{/* Order Management */}
-						{/* <View style={styles.section}>
+						<View style={styles.section}>
 							<Text style={styles.sectionTitle}>
 								Sales Management
 							</Text>
@@ -409,18 +529,70 @@ const HomeScreen = () => {
 										<Text style={styles.orderText}>
 											Order #{item.orderNumber}
 										</Text>
-										<Text
-											style={{
-												fontSize: 14,
-												color:
-													item.status === 'completed'
-														? 'green'
-														: '#121212',
-												textTransform: 'capitalize',
-											}}
-										>
-											{item.status}
-										</Text>
+										<View style={styles.headerRight}>
+											<View
+												style={{
+													display: 'flex',
+													flexDirection: 'row',
+													gap: 5,
+													alignItems: 'center',
+													backgroundColor:
+														item.payment.status !==
+														'completed'
+															? '#FF7043'
+															: 'green',
+													paddingHorizontal: 10,
+													borderRadius: 15,
+													paddingVertical: 5,
+												}}
+											>
+												<Text
+													style={{
+														fontSize: 10,
+														color:
+															item.payment.status !==
+															'completed'
+																? 'white'
+																: 'white',
+
+														textTransform: 'capitalize',
+													}}
+												>
+													{item?.payment?.status !==
+													'completed'
+														? 'Not paid'
+														: 'Paid'}
+												</Text>
+											</View>
+											<View
+												style={{
+													display: 'flex',
+													flexDirection: 'row',
+													gap: 5,
+													alignItems: 'center',
+													backgroundColor:
+														item.status === 'completed'
+															? 'green'
+															: '#FFEDB3',
+													paddingHorizontal: 10,
+													borderRadius: 15,
+													paddingVertical: 5,
+												}}
+											>
+												<Text
+													style={{
+														fontSize: 10,
+														color:
+															item.status === 'completed'
+																? '#fff'
+																: '#121212',
+														textTransform: 'capitalize',
+													}}
+												>
+													{item?.status}
+												</Text>
+											</View>
+										</View>
 									</TouchableOpacity>
 								)}
 								ListEmptyComponent={
@@ -442,16 +614,14 @@ const HomeScreen = () => {
 								}
 							/>
 							<TouchableOpacity
-								onPress={() =>
-									router.push('/(app)/(tabs)/orders')
-								}
+								onPress={() => router.push('/(tabs)/orders')}
 								style={styles.viewAllButton}
 							>
 								<Text style={styles.viewAllText}>
 									View All Orders
 								</Text>
 							</TouchableOpacity>
-						</View> */}
+						</View>
 
 						{/* Quick Access Buttons */}
 						<View style={styles.section}>
@@ -476,7 +646,7 @@ const HomeScreen = () => {
 											{
 												borderColor: item.locked
 													? '#ccc'
-													: 'green',
+													: '#1A1A1A',
 											},
 										]}
 									>
@@ -485,8 +655,8 @@ const HomeScreen = () => {
 												styles.settingText,
 												{
 													color: item.locked
-														? '#121212'
-														: 'green',
+														? '#ccc'
+														: '#1A1A1A',
 												},
 											]}
 										>
@@ -495,7 +665,9 @@ const HomeScreen = () => {
 										<Ionicons
 											name={item.icon}
 											size={24}
-											color={item.locked ? '#ccc' : 'green'}
+											color={
+												item.locked ? '#ccc' : '#1A1A1A'
+											}
 										/>
 										{item?.locked && (
 											<View
@@ -541,7 +713,7 @@ const HomeScreen = () => {
 const styles = StyleSheet.create({
 	container: {
 		flex: 1,
-		backgroundColor: '#f9f9f9',
+		backgroundColor: '#F9FAFB',
 	},
 	contentContainer: {
 		padding: 20,
@@ -570,13 +742,12 @@ const styles = StyleSheet.create({
 		shadowOffset: { width: 0, height: 1 },
 		shadowOpacity: 0.1,
 		shadowRadius: 5,
-		elevation: 1
+		elevation: 1,
 	},
 	sectionTitle: {
 		fontSize: 18,
 		fontWeight: 'bold',
-		color: '#333333',
-		marginBottom: 10,
+		color: '#3C4043',
 	},
 	statsContainer: {
 		flexDirection: 'row',
@@ -587,14 +758,21 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 		width: '48%',
 		padding: 20,
-		backgroundColor: '#f1f1f1',
+		backgroundColor: '#DFF6E2',
 		borderRadius: 8,
-		gap: 5
+		gap: 5,
 	},
 	statValue: {
 		fontSize: 18,
 		fontWeight: 'bold',
-		color: 'green',
+		color: '#1A1A1A',
+	},
+	blurredText: {
+		fontSize: 18,
+		color: 'transparent', // Make the text transparent
+		textShadowColor: 'rgba(0, 0, 0, 1)', // Shadow color
+		textShadowOffset: { width: 0, height: 0 }, // Shadow offset
+		textShadowRadius: 30, // Blur radius
 	},
 	statLabel: {
 		fontSize: 14,
@@ -692,6 +870,10 @@ const styles = StyleSheet.create({
 		color: '#121212',
 		fontSize: 12,
 		// fontWeight: 'bold',
+	},
+	headerRight: {
+		flexDirection: 'row',
+		gap: 5,
 	},
 });
 

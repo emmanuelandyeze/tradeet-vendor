@@ -10,11 +10,10 @@ import {
 	TouchableOpacity,
 	Modal,
 	StyleSheet,
-	Button,
 	Image,
-	Switch,
 	ActivityIndicator,
 } from 'react-native';
+import { Picker } from '@react-native-picker/picker'; // Import Picker
 import AddProduct from '@/components/AddProduct';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import FontAwesome from '@expo/vector-icons/FontAwesome';
@@ -23,7 +22,7 @@ import { useProducts } from '@/context/ProductsContext';
 import { AuthContext } from '@/context/AuthContext';
 import { ProductsContext } from '@/context/ProductsContext';
 
-const products = () => {
+const Products = () => {
 	const { userInfo } = useContext(AuthContext);
 	const {
 		products,
@@ -51,6 +50,8 @@ const products = () => {
 	const [selectedProduct, setSelectedProduct] =
 		useState(null);
 	const [menuVisible, setMenuVisible] = useState(false);
+	const [selectedCategory, setSelectedCategory] =
+		useState('All'); // State for selected category
 
 	// Function to open menu for a specific product
 	const openMenu = (product) => {
@@ -67,10 +68,11 @@ const products = () => {
 	// Function to add a new product
 	const onAddProduct = async (newProduct) => {
 		if (isEditing) {
+			console.log('new: ', newProduct);
 			updateProduct(newProduct._id, newProduct);
 		} else {
 			// Add a new product
-			const res = await addProduct(newProduct);
+			addProduct(newProduct);
 		}
 		setModalVisible(false); // Close modal after adding/editing
 	};
@@ -82,9 +84,30 @@ const products = () => {
 		setModalVisible(true);
 	};
 
+	// Get unique categories from products
+	const categories = [
+		'All',
+		...new Set(products.map((product) => product.category.name)),
+	];
+
+	// Filter products based on selected category
+	const filteredProducts =
+		selectedCategory === 'All'
+			? products
+			: products.filter(
+					(product) =>
+						product.category.name === selectedCategory,
+			  );
+
 	if (loading) {
 		return (
-			<View style={{flex: 1, justifyContent: 'center', alignItems: 'center'}}>
+			<View
+				style={{
+					flex: 1,
+					justifyContent: 'center',
+					alignItems: 'center',
+				}}
+			>
 				<ActivityIndicator size="large" color="green" />
 			</View>
 		);
@@ -109,25 +132,44 @@ const products = () => {
 						alignItems: 'center',
 					}}
 				>
-					<Text
-						style={{ fontSize: 24 }}
-					>
-						Products
-					</Text>
+					<Text style={{ fontSize: 24 }}>Products</Text>
 					<TouchableOpacity>
-						{/* <Ionicons
-							name="search-outline"
-							size={22}
-							color="black"
-						/> */}
+						{/* <Ionicons name="search-outline" size={22} color="black" /> */}
 					</TouchableOpacity>
 				</View>
+
+				{/* Category Dropdown */}
+				<View style={styles.pickerContainer}>
+					<Picker
+						selectedValue={selectedCategory}
+						onValueChange={(itemValue) =>
+							setSelectedCategory(itemValue)
+						}
+						style={styles.picker}
+					>
+						{categories.map((category, index) => (
+							<Picker.Item
+								key={index}
+								label={category}
+								value={category}
+							/>
+						))}
+					</Picker>
+				</View>
 			</View>
-			<View style={{ flex: 1, padding: 16 }}>
+
+			<View
+				style={{
+					flex: 1,
+					paddingHorizontal: 16,
+					paddingBottom: 10,
+				}}
+			>
 				{/* List of Products */}
 				<FlatList
-					data={products}
+					data={filteredProducts} // Use filtered products
 					keyExtractor={(item) => item._id.toString()}
+					showsVerticalScrollIndicator={false}
 					renderItem={({ item }) => (
 						<View style={styles.productCard}>
 							{/* Product Image */}
@@ -145,11 +187,7 @@ const products = () => {
 								<Text>
 									Price: ₦{item?.price.toLocaleString()}
 								</Text>
-								<Text
-									style={{
-										color: 'green',
-									}}
-								>
+								<Text style={{ color: 'green' }}>
 									Active
 								</Text>
 							</View>
@@ -159,7 +197,6 @@ const products = () => {
 								{/* Edit Button */}
 								<TouchableOpacity
 									onPress={() => openModal(item)}
-									// style={styles.actionButton}
 								>
 									<FontAwesome
 										name="edit"
@@ -171,7 +208,6 @@ const products = () => {
 								{/* Menu Button */}
 								<TouchableOpacity
 									onPress={() => openMenu(item)}
-									// style={styles.actionButton}
 								>
 									<MaterialCommunityIcons
 										name="dots-vertical"
@@ -221,7 +257,7 @@ const products = () => {
 										alignItems: 'center',
 										borderWidth: 1,
 										borderColor: 'gray',
-										marginRight: 10
+										marginRight: 10,
 									}}
 									onPress={closeMenu}
 								>
@@ -292,7 +328,6 @@ const products = () => {
 					<TouchableOpacity
 						onPress={() => setModalVisible(false)}
 						style={{
-							// marginVertical: 20,
 							backgroundColor: 'gray',
 							paddingVertical: 5,
 							paddingHorizontal: 5,
@@ -322,6 +357,15 @@ const styles = StyleSheet.create({
 		paddingTop: 20,
 		backgroundColor: '#fff',
 	},
+	pickerContainer: {
+		marginTop: 10,
+		borderWidth: 1,
+		borderColor: '#ddd',
+		borderRadius: 5,
+	},
+	picker: {
+		width: '100%',
+	},
 	productCard: {
 		flexDirection: 'row',
 		paddingVertical: 16,
@@ -350,16 +394,6 @@ const styles = StyleSheet.create({
 		flexDirection: 'row',
 		gap: 10,
 	},
-	actionButton: {
-		padding: 10,
-		backgroundColor: '#3498db',
-		borderRadius: 4,
-		marginLeft: 10,
-	},
-	actionText: {
-		color: '#fff',
-		fontWeight: 'bold',
-	},
 	modalContainer: {
 		flex: 1,
 		justifyContent: 'center',
@@ -376,12 +410,6 @@ const styles = StyleSheet.create({
 		fontWeight: 'bold',
 		marginBottom: 10,
 	},
-	toggleRow: {
-		flexDirection: 'row',
-		justifyContent: 'center',
-		marginBottom: 20,
-		alignItems: 'center',
-	},
 	deleteButton: {
 		padding: 10,
 		backgroundColor: '#e74c3c',
@@ -396,8 +424,7 @@ const styles = StyleSheet.create({
 		color: 'gray',
 		fontWeight: 'bold',
 		textAlign: 'center',
-		
 	},
 });
 
-export default products;
+export default Products;

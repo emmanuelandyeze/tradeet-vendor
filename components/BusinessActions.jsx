@@ -13,17 +13,7 @@ const BusinessActions = () => {
 
 	return (
 		<View style={styles.container}>
-			{/* <TouchableOpacity
-				style={[styles.button, styles.recordSales]}
-				onPress={() => router.push('/invoices')}
-			>
-				<FontAwesome6
-					name="naira-sign"
-					size={12}
-					color="#fff"
-				/>
-				<Text style={styles.buttonText}>Record Sales</Text>
-			</TouchableOpacity> */}
+		
 			<TouchableOpacity
 				style={[styles.button, styles.createInvoice]}
 				onPress={() => router.push('/invoices')}
@@ -31,11 +21,9 @@ const BusinessActions = () => {
 				<MaterialIcons
 					name="receipt"
 					size={14}
-					color="#fff"
+					color="#212121"
 				/>
-				<Text style={styles.buttonText}>
-					Create Invoice
-				</Text>
+				<Text style={styles.buttonText}>Invoices</Text>
 			</TouchableOpacity>
 			<TouchableOpacity
 				style={[styles.button, styles.updateInventory]}
@@ -44,11 +32,23 @@ const BusinessActions = () => {
 				<FontAwesome6
 					name="circle-minus"
 					size={14}
-					color="#fff"
+					color="#212121"
 				/>
-				<Text style={styles.buttonText}>
-					Record Expenses
-				</Text>
+				<Text style={styles.buttonText}>Expenses</Text>
+			</TouchableOpacity>
+			<TouchableOpacity
+				style={[
+					styles.button,
+					{ backgroundColor: '#E1F5F9', gap: 8 },
+				]}
+				onPress={() => router.push('/transfer')}
+			>
+				<FontAwesome6
+					name="paper-plane"
+					size={14}
+					color="#212121"
+				/>
+				<Text style={[styles.buttonText, {color: '#212121'}]}>Transfer</Text>
 			</TouchableOpacity>
 		</View>
 	);
@@ -73,21 +73,20 @@ const styles = StyleSheet.create({
 		borderRadius: 5,
 		marginHorizontal: 5,
 		gap: 3,
-		width: '40%'
+		width: '40%',
 	},
 	buttonText: {
-		color: '#fff',
+		color: '#212121',
 		fontSize: 14,
 		// marginLeft: 8,
 	},
-	recordSales: {
-		backgroundColor: '#4CAF50', // Green
-	},
+
 	createInvoice: {
-		backgroundColor: '#2196F3', // Blue
+		backgroundColor: '#6BD48A', // Blue
+		gap: 8,
 	},
 	updateInventory: {
-		backgroundColor: '#E80022', // Red
-		// paddingHorizontal: 14,
+		backgroundColor: '#FFC4B0', // Red
+		gap: 8,
 	},
 });

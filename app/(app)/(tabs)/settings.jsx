@@ -41,7 +41,7 @@ const ProfileScreen = () => {
 
 	const handleOpenWebsite = () => {
 		Linking.openURL(
-			`https://tradeet.ng/${userInfo?.storeLink}`,
+			`https://tradeet.ng/store/${userInfo?.storeLink}`,
 		); // Replace with your desired website URL
 	};
 
@@ -86,7 +86,7 @@ const ProfileScreen = () => {
 									fontSize: 16,
 								}}
 							>
-								https://tradeet.ng/{userInfo?.storeLink}
+								https://tradeet.ng/store/{userInfo?.storeLink}
 							</Text>
 						</TouchableOpacity>
 					)}

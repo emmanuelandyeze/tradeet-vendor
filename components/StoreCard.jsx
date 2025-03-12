@@ -19,14 +19,14 @@ const StoreCard = ({
 	campus,
 }) => {
 	const [dominantColor, setDominantColor] =
-		useState('#FFFFFF');
+		useState('green');
 	const [secondaryColor, setSecondaryColor] =
-		useState('#EAEAEA');
+		useState('orange');
 
 	useEffect(() => {
 		const fetchColors = async () => {
 			const result = await ImageColors.getColors(
-				userInfo?.logoUrl,
+				userInfo?.sport,
 				{
 					fallback: '#FFFFFF',
 					cache: true,
@@ -175,16 +175,6 @@ const StoreCard = ({
 								alignItems: 'center',
 							}}
 						>
-							{/* Use{' '} */}
-							<Text
-								style={{
-									textTransform: 'uppercase',
-									fontWeight: 'bold',
-									color: 'white',
-								}}
-							>
-								{/* {campus} */}
-							</Text>{' '}
 							Get massive
 						</Text>
 						<View
@@ -217,42 +207,47 @@ const StoreCard = ({
 					</Text>
 				</View>
 
-				<Image
-					source={{ uri: userInfo?.logoUrl }}
-					style={{
-						height: 200,
-						width: 200,
-						borderRadius: 10,
-						marginVertical: 10,
-					}}
-				/>
-				<Text
-					style={{
-						textAlign: 'center',
-						marginVertical: 5,
-						color: 'white',
-						textDecorationLine: 'underline',
-						marginBottom: 10,
-					}}
-				>
-					https://tradeet.ng/{storeLink}
-				</Text>
-
 				<View
 					style={{
-						flexDirection: 'row',
-						justifyContent: 'space-between',
-						alignItems: 'flex-end',
+						paddingVertical: 40,
+						alignItems: 'center',
 					}}
 				>
-					<Image
-						source={require('@/assets/images/google-play.png')}
+					<Text style={{ fontSize: 16 }}>Use the code</Text>
+					<Text
 						style={{
-							height: 30,
-							width: '50%',
-							resizeMode: 'contain',
+							textTransform: 'uppercase',
+							fontWeight: 'bold',
+							color: 'white',
+							fontSize: 38,
 						}}
-					/>
+					>
+						LAUNCH
+					</Text>
+				</View>
+				<View>
+					<Text
+						style={{
+							textAlign: 'center',
+							marginVertical: 5,
+							color: 'white',
+							marginBottom: 5,
+						}}
+					>
+						Visit
+					</Text>
+					<Text
+						style={{
+							textAlign: 'center',
+							marginVertical: 5,
+							color: 'white',
+							textDecorationLine: 'underline',
+							marginBottom: 10,
+							fontSize: 16,
+						}}
+					>
+						https://tradeet.ng/store/{storeLink}
+					</Text>
 				</View>
 			</LinearGradient>
 		</View>

@@ -25,7 +25,7 @@ export default function Header({ userInfo }) {
 
 	const handleOpenWebsite = () => {
 		Linking.openURL(
-			`https://tradeet.ng/${userInfo?.storeLink}`,
+			`https://${userInfo?.storeLink}.tradeet.ng`,
 		); // Replace with your desired website URL
 	};
 
@@ -107,7 +107,7 @@ export default function Header({ userInfo }) {
 									fontSize: 12,
 									marginLeft: 5,
 									color: 'white',
-									backgroundColor: 'green',
+									backgroundColor: '#2EBE4F',
 									paddingHorizontal: 5,
 									borderRadius: 15,
 								}}

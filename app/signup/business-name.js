@@ -18,7 +18,7 @@ import { Picker } from '@react-native-picker/picker'; // Import Picker
 import { uploadImageToCloudinary } from '../../utils/cloudinary';
 import { AuthContext } from '@/context/AuthContext';
 import Ionicons from '@expo/vector-icons/Ionicons';
-
+ 
 export default function BusinessNameScreen() {
 	const router = useRouter();
 	const [businessName, setBusinessName] = useState('');
@@ -371,7 +371,7 @@ export default function BusinessNameScreen() {
 								}}
 							/>
 						</View>
-						<Text
+						{/* <Text
 							style={{ fontSize: 18 }}
 							className="text-lg mt-5"
 						>
@@ -383,7 +383,7 @@ export default function BusinessNameScreen() {
 							className="border-b text-xl border-gray-300 mb-4"
 							placeholder="Your Business Address*"
 							style={{ paddingVertical: 10, fontSize: 14 }}
-						/>
+						/> */}
 						<View
 							style={{
 								flexDirection: 'row',

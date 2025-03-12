@@ -48,6 +48,18 @@ export default function TabLayout() {
 				}}
 			/>
 			<Tabs.Screen
+				name="orders"
+				options={{
+					title: 'Orders',
+					tabBarIcon: ({ color, focused }) => (
+						<TabBarIcon
+							name={focused ? 'newspaper' : 'newspaper-outline'}
+							color={color}
+						/>
+					),
+				}}
+			/>
+			<Tabs.Screen
 				name="products"
 				options={{
 					title: 'Products',
@@ -63,18 +75,7 @@ export default function TabLayout() {
 					),
 				}}
 			/>
-			<Tabs.Screen
-				name="orders"
-				options={{
-					title: 'Orders',
-					tabBarIcon: ({ color, focused }) => (
-						<TabBarIcon
-							name={focused ? 'basket' : 'basket-outline'}
-							color={color}
-						/>
-					),
-				}}
-			/>
+
 			{/* <Tabs.Screen
 				name="support"
 				options={{
