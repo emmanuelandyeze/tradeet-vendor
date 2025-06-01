@@ -532,10 +532,13 @@ const SingleOrderPage = () => {
 									</Text>
 									<Text style={{ fontSize: 16 }}>
 										₦
-										{(
-											item.basePrice * item?.quantity
-										)?.toLocaleString() ||
-											item.price?.toLocaleString()}
+										{item.basePrice
+											? (
+													item.basePrice * item?.quantity
+											  )?.toLocaleString()
+											: (
+													item.price * item?.quantity
+											  )?.toLocaleString()}
 									</Text>
 								</View>
 								{item?.specialInstructions && (

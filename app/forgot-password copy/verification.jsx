@@ -1,10 +1,8 @@
-import React, {
-	useContext,
-	useState,
-	useEffect,
-} from 'react';
+import React, { useContext, useState } from 'react';
 import {
 	View,
+	TextInput,
+	Button,
 	Text,
 	StyleSheet,
 	Platform,
@@ -43,10 +41,6 @@ const styles = StyleSheet.create({
 	focusCell: {
 		borderColor: '#000',
 	},
-	resendText: {
-		color: 'green',
-		textAlign: 'center',
-	},
 });
 
 const CELL_COUNT = 4;
@@ -54,62 +48,21 @@ const CELL_COUNT = 4;
 export default function VerificationScreen() {
 	const router = useRouter();
 	const [code, setCode] = useState('');
-	const { verifyCode, verifyPhoneNumber } =
-		useContext(AuthContext);
-	const { phoneNumber } = useLocalSearchParams();
+	const [value, setValue] = useState('');
+	const { verifyResetOtp } = useContext(AuthContext);
+	const { phone } = useLocalSearchParams();
 	const ref = useBlurOnFulfill({
-		value: code,
+		value,
 		cellCount: CELL_COUNT,
 	});
 	const [props, getCellOnLayoutHandler] =
 		useClearByFocusCell({
-			value: code,
-			setValue: setCode,
+			value,
+			setValue,
 		});
-	const [timer, setTimer] = useState(60);
-	const [canResend, setCanResend] = useState(false);
-
-	useEffect(() => {
-		if (timer > 0) {
-			const interval = setInterval(() => {
-				setTimer((prev) => prev - 1);
-			}, 1000);
-			return () => clearInterval(interval);
-		} else {
-			setCanResend(true);
-		}
-	}, [timer]);
-
-	const handleResendCode = async () => {
-		try {
-			const response = await verifyPhoneNumber(phoneNumber);
-			console.log(response);
-
-			if (
-				response.message ===
-				'Verification code sent via WhatsApp'
-			) {
-				ToastAndroid.show(
-					`Code sent to ${phoneNumber}`,
-					ToastAndroid.SHORT,
-				);
-				setTimer(60);
-				setCanResend(false);
-			} else {
-				ToastAndroid.show(
-					response.message,
-					ToastAndroid.SHORT,
-				);
-			}
-		} catch (error) {
-			ToastAndroid.show(
-				'An error occurred. Please try again.',
-				ToastAndroid.SHORT,
-			);
-		}
-	};
 
 	const handleNext = async () => {
+		// Validate phone number format here
 		if (!code) {
 			ToastAndroid.show(
 				'Please enter a valid code.',
@@ -119,14 +72,18 @@ export default function VerificationScreen() {
 		}
 
 		try {
-			const response = await verifyCode(phoneNumber, code);
-			if (response.message === 'Phone number verified') {
+			const response = await verifyResetOtp(phone, code);
+
+			if (
+				response.message ===
+				'OTP verified. Proceed to reset password.'
+			) {
 				router.push({
-					pathname: '/signup/business-name',
-					params: { phoneNumber },
+					pathname: '/change-password/reset-password',
+                    params: { phone, otp: code },
 				});
 				ToastAndroid.show(
-					'Phone number verified',
+					`OTP verified. Proceed to reset password.`,
 					ToastAndroid.SHORT,
 				);
 			} else {
@@ -157,6 +114,7 @@ export default function VerificationScreen() {
 				<CodeField
 					ref={ref}
 					{...props}
+					// Use `caretHidden={false}` when users can't paste a text value, because context menu doesn't appear
 					value={code}
 					onChangeText={setCode}
 					cellCount={CELL_COUNT}
@@ -167,6 +125,7 @@ export default function VerificationScreen() {
 						android: 'sms-otp',
 						default: 'one-time-code',
 					})}
+					testID="my-code-input"
 					renderCell={({ index, symbol, isFocused }) => (
 						<Text
 							key={index}
@@ -184,47 +143,13 @@ export default function VerificationScreen() {
 			<View className="flex flex-row justify-center items-end">
 				<TouchableOpacity
 					onPress={handleNext}
-					className="bg-[#065637] my-3 px-4 py-4 rounded-lg"
+					className="bg-green-500 my-3 px-4 py-3 rounded-lg"
 				>
 					<Text className="text-white text-center text-xl font-semibold">
 						Verify
 					</Text>
 				</TouchableOpacity>
 			</View>
-			{!canResend ? (
-				<Text
-					style={{ fontSize: 16 }}
-					className="text-center mt-3"
-				>
-					Resend code in {timer}s
-				</Text>
-			) : (
-				<View
-					style={{
-						justifyContent: 'center',
-						alignItems: 'center',
-						flexDirection: 'row',
-						marginTop: 10,
-						marginBottom: 10,
-					}}
-				>
-					<Text style={{ fontSize: 16 }}>
-						Not gotten the verification code?{' '}
-					</Text>
-					<TouchableOpacity onPress={handleResendCode}>
-						<Text
-							style={{
-								color: 'green',
-								textAlign: 'center',
-								fontSize: 16,
-								fontWeight: 'bold',
-							}}
-						>
-							Resend code
-						</Text>
-					</TouchableOpacity>
-				</View>
-			)}
 		</View>
 	);
 }

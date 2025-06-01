@@ -151,7 +151,7 @@ export default function Login() {
 							}
 						>
 							<Text
-								style={{ color: 'green', fontSize: 16 }}
+								style={{ color: '#065637', fontSize: 16 }}
 							>
 								Click here
 							</Text>
@@ -171,9 +171,9 @@ export default function Login() {
 			</View> */}
 			<TouchableOpacity
 				onPress={handleLogin}
-				className="bg-green-500 mt-8 mb-3 py-3 rounded-lg"
+				className="bg-[#065637] mt-8 mb-3 py-4 rounded-lg"
 			>
-				<Text className="text-white text-center text-xl font-semibold">
+				<Text className="text-white text-center text-[1.3rem] font-semibold">
 					{loading ? 'Loading...' : 'Login'}
 				</Text>
 			</TouchableOpacity>
@@ -188,7 +188,7 @@ export default function Login() {
 					}
 					className=""
 				>
-					<Text className="text-green-500 text-center text-lg">
+					<Text className="text-[#065637] font-bold text-center text-lg">
 						Sign up now
 					</Text>
 				</TouchableOpacity>

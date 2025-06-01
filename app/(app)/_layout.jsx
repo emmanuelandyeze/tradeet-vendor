@@ -1,8 +1,10 @@
 import { Text } from 'react-native';
 import { Redirect, Slot, Stack } from 'expo-router';
-import { useContext } from 'react';
+import { useContext, useEffect } from 'react';
 import { AuthContext } from '@/context/AuthContext';
 import LoadingScreen from '@/components/LoadingScreen';
+// import { useLinkingContext } from 'expo-router/build/link/linking-context';
+// import linking from '@/linking'
 
 export default function AppLayout() {
     const { user, isLoading } = useContext(AuthContext);
@@ -20,6 +22,8 @@ export default function AppLayout() {
 		// in the headless Node process that the pages are rendered in.
 		return <Redirect href="/signup" />;
 	}
+
+	
 
 	// This layout can be deferred because it's not the root layout.
 	return <Slot />;

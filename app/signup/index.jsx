@@ -17,7 +17,7 @@ const { width, height } = Dimensions.get('window');
 const images = [
 	{
 		id: 1,
-		src: require('@/assets/images/adaptive-icon.png'),
+		src: require('@/assets/images/landing.png'),
 	}
 ];
 
@@ -37,9 +37,9 @@ export default function SplashScreen() {
 	};
 
 	return (
-		<View className="flex-1 justify-center items-center bg-white">
+		<View className="flex-1 justify-center items-center bg-[#fcdbb8]">
 			<StatusBar
-				backgroundColor="#fff"
+				backgroundColor="#fcdbb8"
 				style="dark"
 				translucent={true}
 			/>
@@ -47,13 +47,23 @@ export default function SplashScreen() {
 			<View
 				// style={{ height: height * 0.4 }}
 				className="items-center justify-center pt-10"
+				style={{
+					width: '90%', // Increased image size
+					// height: height * 0.4,
+					overflow: 'hidden',
+					borderWidth: 1,
+					borderColor: '#fcdbb8',
+					borderRadius: 50,
+					marginBottom: 20,
+				}}
 			>
 				<Image
 					source={images[0].src}
 					style={{
-						width: width, // Increased image size
-						height: 450,
-						resizeMode: 'contain',
+						width: '100%', // Increased image size
+						height: 400,
+						resizeMode: 'cover',
+						borderRadius: 50,
 					}}
 				/>
 			</View>
@@ -80,9 +90,9 @@ export default function SplashScreen() {
 				<View className="w-full px-2">
 					<TouchableOpacity
 						onPress={() => router.push('/login')}
-						className="border border-slate-700 py-3 rounded-lg mb-4"
+						className="border border-slate-700 py-4 rounded-lg mb-4"
 					>
-						<Text className="text-slate-700 text-center text-lg">
+						<Text className="text-slate-700 text-center text-[1.3rem]">
 							Login
 						</Text>
 					</TouchableOpacity>
@@ -90,24 +100,24 @@ export default function SplashScreen() {
 						onPress={() =>
 							router.push('/signup/phone-number')
 						}
-						className="bg-green-500 py-3 rounded-lg"
+						className="bg-[#065637] py-4 rounded-lg"
 					>
-						<Text className="text-white text-center text-lg">
+						<Text className="text-white text-center text-[1.3rem]">
 							Sign Up
 						</Text>
 					</TouchableOpacity>
-					<Text className="text-center mt-3">
+					<Text className="text-center mt-3 text-[1.2rem]">
 						By clicking login or sign up, you agree to our{' '}
 						<Text
 							onPress={handleOpenPrivacy}
-							className="text-blue-600"
+							className="text-[#000] font-bold underline"
 						>
 							Terms of Service
 						</Text>{' '}
 						and{' '}
 						<Text
 							onPress={handleOpenPrivacy}
-							className="text-blue-600"
+							className="text-[#000] font-bold underline"
 						>
 							Privacy Policy
 						</Text>

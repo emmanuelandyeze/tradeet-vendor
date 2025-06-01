@@ -21,6 +21,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { useProducts } from '@/context/ProductsContext';
 import { AuthContext } from '@/context/AuthContext';
 import { ProductsContext } from '@/context/ProductsContext';
+import { StatusBar } from 'expo-status-bar';
 
 const Products = () => {
 	const { userInfo } = useContext(AuthContext);
@@ -115,11 +116,12 @@ const Products = () => {
 
 	return (
 		<View style={styles.container}>
+			<StatusBar style="light" backgroundColor="#065637" />
 			<View
 				style={{
 					paddingTop: 20,
 					elevation: 3,
-					backgroundColor: '#fff',
+					backgroundColor: '#065637',
 					paddingHorizontal: 16,
 					paddingBottom: 20,
 				}}
@@ -132,7 +134,7 @@ const Products = () => {
 						alignItems: 'center',
 					}}
 				>
-					<Text style={{ fontSize: 24 }}>Products</Text>
+					<Text style={{ fontSize: 24, color: '#f1f1f1', fontWeight: 'bold' }}>Catalogue</Text>
 					<TouchableOpacity>
 						{/* <Ionicons name="search-outline" size={22} color="black" /> */}
 					</TouchableOpacity>
@@ -146,6 +148,10 @@ const Products = () => {
 							setSelectedCategory(itemValue)
 						}
 						style={styles.picker}
+						itemStyle={{ color: '#f1f1f1', backgroundColor: '#065637' }} // Style for picker items
+						mode="dropdown" // Use dropdown mode for better UX
+						backgroundColor="#065637" // Background color for the picker
+						dropdownIconColor="#f1f1f1" // Color for the dropdown icon
 					>
 						{categories.map((category, index) => (
 							<Picker.Item

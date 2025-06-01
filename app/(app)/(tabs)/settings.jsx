@@ -7,125 +7,201 @@ import {
 	StyleSheet,
 	ScrollView,
 	Linking,
+	FlatList,
+	Alert,
+	Switch,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AuthContext } from '@/context/AuthContext';
 import { useRouter } from 'expo-router';
 import PlaceholderLogo from '../../../components/PlaceholderLogo';
+import { useState } from 'react';
+import { StatusBar } from 'expo-status-bar';
 
 const ProfileScreen = () => {
 	const router = useRouter();
-	const settingsOptions = [
-		{
-			id: '1',
-			title: 'Website settings',
-			onPress: () => router.push('/(app)/setupstore'),
-		},
-		{
-			id: '2',
-			title: 'Tradeet Marketplace',
-			onPress: () => router.push('/(app)/setupcampus'),
-		},
-		// { id: '2', title: 'Change Password' },
-		// { id: '3', title: 'Payment Methods' },
-		// { id: '4', title: 'Notifications' },
-		{
-			id: '5',
-			title: 'Help & Support',
-			onPress: () => openSupport(),
-		},
-	];
+	const { logout, userInfo } = useContext(AuthContext);
+	const [darkMode, setDarkMode] = useState(false);
 
-	const { logout, userInfo, loading } =
-		useContext(AuthContext);
-
+	// Open website
 	const handleOpenWebsite = () => {
 		Linking.openURL(
 			`https://tradeet.ng/store/${userInfo?.storeLink}`,
-		); // Replace with your desired website URL
+		);
 	};
 
+	// Open support chat
 	const openSupport = () => {
-		Linking.openURL(`https://wa.me/9165095973`); // Replace with your desired website URL
+		Linking.openURL(`https://wa.me/9165095973`);
 	};
+
+	// Confirm Logout
+	const confirmLogout = () => {
+		Alert.alert(
+			'Logout',
+			'Are you sure you want to log out?',
+			[
+				{ text: 'Cancel', style: 'cancel' },
+				{
+					text: 'Logout',
+					onPress: logout,
+					style: 'destructive',
+				},
+			],
+		);
+	};
+
+	// Settings categories
+	const settingsSections = [
+		{
+			title: 'Account Settings',
+			data: [
+				// {
+				// 	id: '1',
+				// 	title: 'Edit Profile',
+				// 	icon: 'person',
+				// 	onPress: () => router.push('/(app)/editprofile'),
+				// },
+				{
+					id: '2',
+					title: 'Change Password',
+					icon: 'lock-closed',
+					onPress: () => router.push('/change-password'),
+				},
+			],
+		},
+		{
+			title: 'Store Settings',
+			data: [
+				{
+					id: '3',
+					title: 'Website Settings',
+					icon: 'globe',
+					onPress: () => router.push('/(app)/setupstore'),
+				},
+				{
+					id: '1',
+					title: 'Business Hours',
+					icon: 'time',
+					onPress: () =>
+						router.push('/(app)/business-hours'),
+				},
+				{
+					id: '4',
+					title: 'Payment Methods',
+					icon: 'card',
+					// onPress: () => router.push('/(app)/payments'),
+				},
+			],
+		},
+		{
+			title: 'Preferences',
+			data: [
+				{
+					id: '5',
+					title: 'Dark Mode (coming soon)',
+					icon: 'moon',
+					toggle: true,
+					value: darkMode,
+					onToggle: () => setDarkMode((prev) => !prev),
+				},
+				{
+					id: '6',
+					title: 'Notifications (coming soon)',
+					icon: 'notifications',
+					// onPress: () =>
+					// 	router.push('/(app)/notifications'),
+				},
+			],
+		},
+		{
+			title: 'Help & Support',
+			data: [
+				{
+					id: '7',
+					title: 'Help & FAQs',
+					icon: 'help-circle',
+					onPress: openSupport,
+				},
+			],
+		},
+	];
 
 	return (
-		<ScrollView style={styles.container}>
-			<View style={styles.header}>
-				{userInfo?.logoUrl ? (
-					<Image
-						source={{ uri: userInfo.logoUrl }}
-						style={{
-							marginBottom: 4,
-							resizeMode: 'cover',
-							height: 50,
-							width: 50,
-							borderRadius: 50,
-							borderWidth: 1,
-							borderColor: 'gray',
-							elevation: 3,
-						}}
-					/>
-				) : (
-					<PlaceholderLogo name={userInfo?.name} />
-				)}
-				<View>
-					<Text style={styles.name}>{userInfo?.name}</Text>
-					<Text style={styles.contact}>
-						{userInfo?.phone}
-					</Text>
-					{userInfo?.storeLink && (
-						<TouchableOpacity
-							style={{ marginVertical: 5 }}
-							onPress={handleOpenWebsite}
-						>
-							<Text
-								style={{
-									color: 'blue',
-									textDecorationLine: 'underline',
-									fontSize: 16,
-								}}
-							>
-								https://tradeet.ng/store/{userInfo?.storeLink}
-							</Text>
-						</TouchableOpacity>
-					)}
+		<View style={styles.container}>
+			<StatusBar style="light" backgroundColor="#065637" />
+			<View
+				style={{
+					paddingTop: 25,
+					elevation: 3,
+					backgroundColor: '#065637',
+					paddingHorizontal: 16,
+					paddingBottom: 20,
+				}}
+			>
+				<View
+					style={{
+						display: 'flex',
+						flexDirection: 'row',
+						justifyContent: 'space-between',
+						alignItems: 'center',
+					}}
+				>
+					<Text style={{ fontSize: 24, color: '#f1f1f1', fontWeight: 'bold' }}>Settings</Text>
+					<TouchableOpacity>
+						{/* <Ionicons name="search-outline" size={22} color="black" /> */}
+					</TouchableOpacity>
 				</View>
 			</View>
 
-			<View style={styles.section}>
-				<Text style={styles.sectionTitle}>
-					Store Settings
-				</Text>
-				{settingsOptions.map((option) => (
-					<TouchableOpacity
-						key={option.id}
-						style={styles.settingButton}
-						onPress={option.onPress}
-					>
-						<Text style={styles.settingText}>
-							{option.title}
+			<ScrollView>
+				{/* Settings Sections */}
+				{settingsSections.map((section) => (
+					<View key={section.title} style={styles.section}>
+						<Text style={styles.sectionTitle}>
+							{section.title}
 						</Text>
-						<Ionicons
-							name="chevron-forward"
-							size={20}
-							color="#000"
-						/>
-					</TouchableOpacity>
+						{section.data.map((item) => (
+							<TouchableOpacity
+								key={item.id}
+								style={styles.settingButton}
+								onPress={item.onPress}
+							>
+								<Ionicons
+									name={item.icon}
+									size={20}
+									color="#000"
+								/>
+								<Text style={styles.settingText}>
+									{item.title}
+								</Text>
+								{item.toggle ? (
+									<Switch
+										value={item.value}
+										onValueChange={item.onToggle}
+									/>
+								) : (
+									<Ionicons
+										name="chevron-forward"
+										size={20}
+										color="#000"
+									/>
+								)}
+							</TouchableOpacity>
+						))}
+					</View>
 				))}
+
+				{/* Logout Button */}
 				<TouchableOpacity
-					onPress={logout}
-					style={styles.settingButton}
+					onPress={confirmLogout}
+					style={styles.logoutButton}
 				>
-					<Text style={styles.settingText}>Logout</Text>
-					<Ionicons
-						name="chevron-forward"
-						size={20}
-						color="#000"
-					/>
+					<Text style={styles.logoutText}>Logout</Text>
+					<Ionicons name="log-out" size={20} color="red" />
 				</TouchableOpacity>
-			</View>
-		</ScrollView>
+			</ScrollView>
+		</View>
 	);
 };
 
@@ -134,38 +210,31 @@ const styles = StyleSheet.create({
 		flex: 1,
 		backgroundColor: '#fff',
 		paddingTop: 20,
+		paddingBottom: 0,
 	},
 	header: {
-		alignItems: 'flex-start',
-		paddingVertical: 20,
-		paddingHorizontal: 10,
-		backgroundColor: '#fff',
-		marginBottom: 10,
-		borderBottomWidth: 1,
-		borderColor: '#ccc',
 		flexDirection: 'row',
+		paddingHorizontal: 15,
+		backgroundColor: '#fff',
+		alignItems: 'center',
 		gap: 10,
+		borderBottomWidth: 1,
+		borderBottomColor: '#ccc',
+		paddingVertical: 10,
 	},
-	profileImage: {
-		width: 100,
-		height: 100,
+	logo: {
+		height: 50,
+		width: 50,
 		borderRadius: 50,
-		marginBottom: 10,
-		borderWidth: 3,
-		borderColor: '#ccc',
+		borderWidth: 1,
+		borderColor: 'gray',
 	},
-	name: {
-		fontSize: 24,
-		fontWeight: 'bold',
-	},
-	contact: {
+	name: { fontSize: 22, fontWeight: 'bold' },
+	contact: { fontSize: 16, color: '#777' },
+	storeLink: {
+		color: 'blue',
+		textDecorationLine: 'underline',
 		fontSize: 16,
-		color: '#777',
-	},
-	walletBalance: {
-		fontSize: 18,
-		fontWeight: 'bold',
-		marginVertical: 10,
 	},
 	section: {
 		padding: 15,
@@ -183,10 +252,28 @@ const styles = StyleSheet.create({
 		padding: 15,
 		borderBottomWidth: 1,
 		borderBottomColor: '#ccc',
+		gap: 10,
 	},
-	settingText: {
+	settingText: { fontSize: 16, flex: 1 },
+	logoutButton: {
+		flexDirection: 'row',
+		padding: 15,
+		marginTop: 0,
+		alignItems: 'center',
+		justifyContent: 'center',
+		marginBottom: 30,
+		borderColor: 'red',
+		borderWidth: 1,
+		borderRadius: 5,
+		backgroundColor: '#fff',
+		width: '90%',
+		alignSelf: 'center',
+	},
+	logoutText: {
 		fontSize: 16,
-		flex: 1,
+		color: 'red',
+		marginRight: 5,
+		fontWeight: 'bold',
 	},
 });
 

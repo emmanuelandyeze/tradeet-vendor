@@ -1,21 +1,23 @@
 {
-	"build": {
-		"development": {
-			"developmentClient": true,
-			"distribution": "internal"
-		},
-		"preview": {
-			"distribution": "internal"
-		},
-		"production": {
-			"channel": "production"
-		}
-	},
-	"submit": {
-		"production": {
-			"android": {
-				"serviceAccountKeyPath": "./tradeet-97384-4e914b6c55b3.json"
-			}
-		}
-	}
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "channel": "development"
+    },
+    "preview": {
+      "distribution": "internal",
+      "channel": "preview"
+    },
+    "production": {
+      "channel": "production"
+    }
+  },
+  "submit": {
+    "production": {
+      "android": {
+        "serviceAccountKeyPath": "./tradeet-97384-4e914b6c55b3.json"
+      }
+    }
+  }
 }

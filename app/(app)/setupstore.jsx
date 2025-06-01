@@ -325,7 +325,7 @@ const SetupStoreScreen = ({}) => {
 				paddingHorizontal: 20,
 				paddingTop: 40,
 				flex: 1,
-				backgroundColor: '#fff'
+				backgroundColor: '#fff',
 			}}
 		>
 			<StatusBar
@@ -363,7 +363,10 @@ const SetupStoreScreen = ({}) => {
 				<View style={styles.headerRight}></View>
 			</View>
 
-			<ScrollView style={{marginBottom: 20}} showsVerticalScrollIndicator={false}>
+			<ScrollView
+				style={{ marginBottom: 20 }}
+				showsVerticalScrollIndicator={false}
+			>
 				{/* Banner  */}
 				<TouchableOpacity
 					onPress={pickBanner}
@@ -493,10 +496,10 @@ const SetupStoreScreen = ({}) => {
 					Store Link (This is automatically generated)
 				</Text>
 				<View style={styles.linkContainer}>
-					<Text style={styles.linkPrefix}>tradeet.ng/</Text>
 					<Text style={styles.linkText}>
 						{storeLink.replace('tradeet.ng/', '')}
 					</Text>
+					<Text style={styles.linkText}>.tradeet.ng</Text>
 				</View>
 
 				<Text style={styles.sectionTitle}>Store Theme</Text>
@@ -589,7 +592,7 @@ const SetupStoreScreen = ({}) => {
 						</View>
 					</View>
 				</View>
-			</Modal>
+			</Modal> 
 		</View>
 	);
 };

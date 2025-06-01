@@ -29,6 +29,10 @@ import TodoList from './TodoList';
 import Header from './Header';
 import SkeletonLoader from './SkeletonLoader';
 import BusinessActions from './BusinessActions';
+import { StatusBar } from 'expo-status-bar';
+import { AntDesign, Entypo } from '@expo/vector-icons';
+import FinancialSummaryFilter from './FinancialSummaryFilter';
+import OrderFilterDropdown from './OrderFilterDropdown';
 
 const HomeScreen = () => {
 	const router = useRouter();
@@ -48,7 +52,15 @@ const HomeScreen = () => {
 
 	const [modalVisible, setModalVisible] = useState(false);
 
-	const [viewValues, setViewValues] = useState(false);
+	const [viewValues, setViewValues] = useState(true);
+
+	// New state for financial summary filter
+	const [financialFilter, setFinancialFilter] =
+		useState('allTime');
+	const [
+		selectedFinancialMonth,
+		setSelectedFinancialMonth,
+	] = useState(new Date());
 
 	const handleSavePaymentInfo = async (paymentInfo) => {
 		const response = await axiosInstance.post(
@@ -123,7 +135,9 @@ const HomeScreen = () => {
 			setWallet(response.data.walletBalance);
 			setLoading(false);
 		} catch (err) {
-			console.log(err.message || 'Error fetching wallet balance');
+			console.log(
+				err.message || 'Error fetching wallet balance',
+			);
 			setLoading(false);
 		}
 	};
@@ -181,80 +195,161 @@ const HomeScreen = () => {
 
 	const ordersData = orders;
 
-	const ongoingOrders = ordersData?.filter(
+	// Filtering logic for financial data
+	const filterFinancialData = (data, type) => {
+		const now = new Date();
+		const today = new Date(
+			now.getFullYear(),
+			now.getMonth(),
+			now.getDate(),
+		);
+		const thisMonthStart = new Date(
+			now.getFullYear(),
+			now.getMonth(),
+			1,
+		);
+		const thisMonthEnd = new Date(
+			now.getFullYear(),
+			now.getMonth() + 1,
+			0,
+			23,
+			59,
+			59,
+			999,
+		);
+
+		const selectedMonthStart = new Date(
+			selectedFinancialMonth.getFullYear(),
+			selectedFinancialMonth.getMonth(),
+			1,
+		);
+		const selectedMonthEnd = new Date(
+			selectedFinancialMonth.getFullYear(),
+			selectedFinancialMonth.getMonth() + 1,
+			0,
+			23,
+			59,
+			59,
+			999,
+		);
+
+		return data?.filter((item) => {
+			let itemDate;
+			if (type === 'order') {
+				itemDate = new Date(item.createdAt);
+			} else if (type === 'expense') {
+				itemDate = new Date(item.date); // Assuming expenses have a 'date' field
+			}
+
+			if (!itemDate) return false;
+
+			if (financialFilter === 'today') {
+				return (
+					itemDate.getFullYear() === today.getFullYear() &&
+					itemDate.getMonth() === today.getMonth() &&
+					itemDate.getDate() === today.getDate()
+				);
+			} else if (financialFilter === 'thisMonth') {
+				return (
+					itemDate >= thisMonthStart &&
+					itemDate <= thisMonthEnd
+				);
+			} else if (financialFilter === 'allTime') {
+				return true;
+			} else if (financialFilter === 'selectedMonth') {
+				return (
+					itemDate >= selectedMonthStart &&
+					itemDate <= selectedMonthEnd
+				);
+			}
+			return true;
+		});
+	};
+
+	const filteredOrdersForFinancialSummary =
+		filterFinancialData(orders, 'order');
+	const filteredExpensesForFinancialSummary =
+		filterFinancialData(expenses, 'expense');
+
+	const ongoingOrders = orders?.filter(
 		(order) =>
 			order.status === 'pending' ||
 			order.status === 'accepted',
 	);
 
-	const completedOrders = ordersData?.filter(
+	const completedOrders = orders?.filter(
 		(order) => order.status === 'completed',
 	);
 
-	const paidOrders = ordersData?.filter(
-		(order) => order.payment.status === 'completed',
-	);
+	const paidOrders =
+		filteredOrdersForFinancialSummary?.filter(
+			(order) => order.payment.status === 'completed',
+		);
 
 	const totalAmount = paidOrders?.reduce(
 		(total, order) => total + order.totalAmount,
 		0,
 	);
 
-	const pendingOrders = ordersData?.filter(
-		(order) => order.payment.status === 'pending',
-	);
+	const pendingOrders =
+		filteredOrdersForFinancialSummary?.filter(
+			(order) => order.payment.status === 'pending',
+		);
 
-	// Calculate the total of totalAmount for pending orders
 	const totalPendingAmount =
-		ordersData?.reduce((total, order) => {
-			const itemsAmount = order.itemsAmount || 0;
-			const deliveryFee = order.deliveryFee || 0;
-			const discountAmount = order.discountAmount || 0;
-			const amountPaid = order.amountPaid || 0;
+		filteredOrdersForFinancialSummary?.reduce(
+			(total, order) => {
+				const itemsAmount = order.itemsAmount || 0;
+				const deliveryFee = order.deliveryFee || 0;
+				const discountAmount = order.discountAmount || 0;
+				const amountPaid = order.amountPaid || 0;
 
-			// Vendor's actual total (excluding serviceFee)
-			const vendorTotal =
-				itemsAmount + deliveryFee - discountAmount;
-			const balance = Math.max(0, vendorTotal - amountPaid); // Avoid negative balance
+				const vendorTotal =
+					itemsAmount + deliveryFee - discountAmount;
+				const balance = Math.max(
+					0,
+					vendorTotal - amountPaid,
+				);
 
-			return total + balance;
-		}, 0) || 0;
+				return total + balance;
+			},
+			0,
+		) || 0;
 
-	// Calculate the total of totalAmount for pending orders
 	const totalIncomeAmount =
-		ordersData?.reduce((total, order) => {
-			const itemsAmount = order.itemsAmount || 0;
-			const deliveryFee = order.deliveryFee || 0;
-			const discountAmount = order.discountAmount || 0;
-			const amountPaid = order.amountPaid || 0;
+		filteredOrdersForFinancialSummary?.reduce(
+			(total, order) => {
+				const itemsAmount = order.itemsAmount || 0;
+				const deliveryFee = order.deliveryFee || 0;
+				const discountAmount = order.discountAmount || 0;
+				const amountPaid = order.amountPaid || 0;
 
-			// Vendor's actual total (excluding serviceFee)
-			const vendorTotal =
-				itemsAmount + deliveryFee - discountAmount;
+				const vendorTotal =
+					itemsAmount + deliveryFee - discountAmount;
 
-			// Vendor receives the minimum of vendorTotal or amountPaid
-			const vendorIncome = Math.min(
-				vendorTotal,
-				amountPaid,
-			);
+				const vendorIncome = Math.min(
+					vendorTotal,
+					amountPaid,
+				);
 
-			return total + vendorIncome;
-		}, 0) || 0;
-	
+				return total + vendorIncome;
+			},
+			0,
+		) || 0;
 
-	const totalExpensesAmount = expenses?.reduce(
-		(total, expense) => total + expense.amount,
-		0,
-	);
+	const totalExpensesAmount =
+		filteredExpensesForFinancialSummary?.reduce(
+			(total, expense) => total + expense.amount,
+			0,
+		);
 
 	const profitOrLossAmount =
 		totalIncomeAmount - totalExpensesAmount;
 
-	// Function to filter orders based on status
 	const filterOrders = () => {
 		if (filter === 'in progress') {
 			setFilteredOrders(
-				ordersData?.filter(
+				orders?.filter(
 					(order) =>
 						order.status === 'pending' ||
 						order.status === 'accepted',
@@ -262,9 +357,7 @@ const HomeScreen = () => {
 			);
 		} else {
 			setFilteredOrders(
-				ordersData?.filter(
-					(order) => order.status === filter,
-				),
+				orders?.filter((order) => order.status === filter),
 			);
 		}
 	};
@@ -273,7 +366,8 @@ const HomeScreen = () => {
 		setRefreshing(true);
 		fetchOrders();
 		getBusinessInfo();
-		fetchWallet()
+		fetchWallet();
+		fetchExpenses(); // Refresh expenses as well
 		setTimeout(() => {
 			setRefreshing(false);
 		}, 3000);
@@ -281,7 +375,24 @@ const HomeScreen = () => {
 
 	const toggleView = () => {
 		setViewValues(!viewValues);
-	}
+	};
+
+	const handleFinancialFilterChange = (newFilter) => {
+		setFinancialFilter(newFilter);
+		if (newFilter === 'selectedMonth') {
+			// If selecting a month, ensure the picker is shown if not already
+			// This will be handled by the FinancialSummaryFilter component
+		}
+	};
+
+	const handleMonthSelect = (date) => {
+		setSelectedFinancialMonth(date);
+		setFinancialFilter('selectedMonth'); // Set filter to selectedMonth when a month is chosen
+	};
+
+	const handleOrderFilterSelect = (selectedOption) => {
+		setFilter(selectedOption);
+	};
 
 	const quickAccessItems = [
 		{
@@ -321,6 +432,7 @@ const HomeScreen = () => {
 
 	return (
 		<View style={styles.container}>
+			<StatusBar style="light" backgroundColor="#065637" />
 			{loading ? (
 				<SkeletonLoader />
 			) : (
@@ -362,7 +474,7 @@ const HomeScreen = () => {
 						/>
 
 						{/* Sales Overview */}
-						<View style={styles.section}>
+						<View style={{}}>
 							<View
 								style={{
 									flexDirection: 'row',
@@ -388,13 +500,34 @@ const HomeScreen = () => {
 									/>
 								</TouchableOpacity>
 							</View>
+							<FinancialSummaryFilter
+								onFilterChange={handleFinancialFilterChange}
+								onMonthSelect={handleMonthSelect}
+								currentFilter={financialFilter}
+							/>
 							<View style={styles.statsContainer}>
 								<View
 									style={[
 										styles.statBox,
-										{ backgroundColor: '#DFF6E2' },
+										// { backgroundColor: '#DFF6E2' },
 									]}
 								>
+									<View
+										style={{
+											flexDirection: 'row',
+											alignItems: 'center',
+											gap: 1,
+										}}
+									>
+										<Entypo
+											name="arrow-bold-up"
+											size={16}
+											color="green"
+										/>
+										<Text style={styles.statLabel}>
+											Income
+										</Text>
+									</View>
 									<Text
 										style={
 											!viewValues
@@ -404,9 +537,6 @@ const HomeScreen = () => {
 									>
 										₦{totalIncomeAmount?.toLocaleString()}
 									</Text>
-									<Text style={styles.statLabel}>
-										Income
-									</Text>
 								</View>
 								<TouchableWithoutFeedback
 									onPress={() => router.push('/invoices')}
@@ -414,9 +544,25 @@ const HomeScreen = () => {
 									<View
 										style={[
 											styles.statBox,
-											{ backgroundColor: '#E1F5F9' },
+											// { backgroundColor: '#E1F5F9' },
 										]}
 									>
+										<View
+											style={{
+												flexDirection: 'row',
+												alignItems: 'center',
+												gap: 2,
+											}}
+										>
+											<AntDesign
+												name="minuscircle"
+												size={14}
+												color="gray"
+											/>
+											<Text style={styles.statLabel}>
+												Outstanding
+											</Text>
+										</View>
 										<Text
 											style={
 												!viewValues
@@ -427,22 +573,33 @@ const HomeScreen = () => {
 											₦
 											{totalPendingAmount?.toLocaleString()}
 										</Text>
-										<Text style={styles.statLabel}>
-											Outstanding funds
-										</Text>
 									</View>
 								</TouchableWithoutFeedback>
-							</View>
-							<View style={[styles.statsContainer]}>
 								<TouchableWithoutFeedback
 									onPress={() => router.push('/expenses')}
 								>
 									<View
 										style={[
 											styles.statBox,
-											{ backgroundColor: '#FDE5E9' },
+											// { backgroundColor: '#FDE5E9' },
 										]}
 									>
+										<View
+											style={{
+												flexDirection: 'row',
+												alignItems: 'center',
+												gap: 1,
+											}}
+										>
+											<Entypo
+												name="arrow-bold-down"
+												size={16}
+												color="#89192F"
+											/>
+											<Text style={styles.statLabel}>
+												Expenses
+											</Text>
+										</View>
 										<Text
 											style={
 												!viewValues
@@ -453,18 +610,53 @@ const HomeScreen = () => {
 											₦
 											{totalExpensesAmount?.toLocaleString()}
 										</Text>
-
-										<Text style={styles.statLabel}>
-											Expenses
-										</Text>
 									</View>
 								</TouchableWithoutFeedback>
-								<View
+							</View>
+							<View style={[styles.statsContainer]}>
+								<TouchableOpacity
+									onPress={() => router.push('/transfer')}
 									style={[
 										styles.statBox,
-										{ backgroundColor: '#EAE6F8' },
+										// { backgroundColor: '#EAE6F8' },
 									]}
 								>
+									<View
+										style={{
+											flexDirection: 'row',
+											alignItems: 'center',
+											justifyContent: 'space-between',
+										}}
+									>
+										<View
+											style={{
+												flexDirection: 'row',
+												alignItems: 'center',
+												gap: 2,
+											}}
+										>
+											<Ionicons
+												name="wallet"
+												size={16}
+												color="#159BBC"
+											/>
+											<Text style={styles.statLabel}>
+												Wallet
+											</Text>
+										</View>
+										<View style={{ flexDirection: 'row', gap: 1 }}>
+											<Ionicons
+												name="chevron-forward"
+												size={16}
+												color="#159BBC"
+											/>
+											{/* <Ionicons
+												name="chevron-forward"
+												size={16}
+												color="#159BBC"
+											/> */}
+										</View>
+									</View>
 									<Text
 										style={
 											!viewValues
@@ -474,46 +666,37 @@ const HomeScreen = () => {
 									>
 										₦{wallet?.toLocaleString()}
 									</Text>
-
-									<Text style={styles.statLabel}>
-										Wallet
-									</Text>
-								</View>
+								</TouchableOpacity>
 							</View>
 							<BusinessActions />
 						</View>
 
 						{/* Order Management */}
-						<View style={styles.section}>
-							<Text style={styles.sectionTitle}>
-								Sales Management
-							</Text>
-							<View style={styles.filterContainer}>
-								<TouchableOpacity
-									style={[
-										styles.filterButton,
-										filter === 'in progress' &&
-											styles.activeFilterButton,
-									]}
-									onPress={() => setFilter('in progress')}
-								>
-									<Text style={styles.filterText}>
-										In Progress ({ongoingOrders?.length})
-									</Text>
-								</TouchableOpacity>
-								<TouchableOpacity
-									style={[
-										styles.filterButton,
-										filter === 'completed' &&
-											styles.activeFilterButton,
-									]}
-									onPress={() => setFilter('completed')}
-								>
-									<Text style={styles.filterText}>
-										Completed ({completedOrders?.length})
-									</Text>
-								</TouchableOpacity>
+						<View
+							style={{ marginTop: 10, marginBottom: 20 }}
+						>
+							<View
+								style={{
+									flexDirection: 'row',
+									justifyContent: 'space-between',
+									alignItems: 'center',
+									gap: 2,
+									marginBottom: 5,
+								}}
+							>
+								<Text style={styles.sectionTitle}>
+									Sales Management
+								</Text>
+								<OrderFilterDropdown
+									currentFilter={filter}
+									onSelectFilter={handleOrderFilterSelect}
+									ongoingCount={ongoingOrders?.length || 0}
+									completedCount={
+										completedOrders?.length || 0
+									}
+								/>
 							</View>
+
 							<FlatList
 								data={filteredOrders?.slice(0, 4)}
 								keyExtractor={(item) => item._id}
@@ -539,7 +722,7 @@ const HomeScreen = () => {
 													backgroundColor:
 														item.payment.status !==
 														'completed'
-															? '#FF7043'
+															? '#FFF7E5'
 															: 'green',
 													paddingHorizontal: 10,
 													borderRadius: 15,
@@ -552,7 +735,7 @@ const HomeScreen = () => {
 														color:
 															item.payment.status !==
 															'completed'
-																? 'white'
+																? '#212121'
 																: 'white',
 
 														textTransform: 'capitalize',
@@ -573,7 +756,7 @@ const HomeScreen = () => {
 													backgroundColor:
 														item.status === 'completed'
 															? 'green'
-															: '#FFEDB3',
+															: '#FFF9CC',
 													paddingHorizontal: 10,
 													borderRadius: 15,
 													paddingVertical: 5,
@@ -613,18 +796,10 @@ const HomeScreen = () => {
 									</View>
 								}
 							/>
-							<TouchableOpacity
-								onPress={() => router.push('/(tabs)/orders')}
-								style={styles.viewAllButton}
-							>
-								<Text style={styles.viewAllText}>
-									View All Orders
-								</Text>
-							</TouchableOpacity>
 						</View>
 
 						{/* Quick Access Buttons */}
-						<View style={styles.section}>
+						<View style={{}}>
 							<Text style={styles.sectionTitle}>
 								Quick Access
 							</Text>
@@ -633,6 +808,7 @@ const HomeScreen = () => {
 									flexDirection: 'row',
 									flexWrap: 'wrap',
 									justifyContent: 'space-between',
+									marginTop: 10,
 								}}
 							>
 								{quickAccessItems?.map((item, index) => (
@@ -646,7 +822,7 @@ const HomeScreen = () => {
 											{
 												borderColor: item.locked
 													? '#ccc'
-													: '#1A1A1A',
+													: '#ccc',
 											},
 										]}
 									>
@@ -656,7 +832,8 @@ const HomeScreen = () => {
 												{
 													color: item.locked
 														? '#ccc'
-														: '#1A1A1A',
+														: '#333333',
+													fontSize: 12,
 												},
 											]}
 										>
@@ -664,9 +841,9 @@ const HomeScreen = () => {
 										</Text>
 										<Ionicons
 											name={item.icon}
-											size={24}
+											size={20}
 											color={
-												item.locked ? '#ccc' : '#1A1A1A'
+												item.locked ? '#ccc' : '#333333'
 											}
 										/>
 										{item?.locked && (
@@ -753,14 +930,17 @@ const styles = StyleSheet.create({
 		flexDirection: 'row',
 		justifyContent: 'space-between',
 		marginBottom: 10,
+		// borderWidth: 1
 	},
 	statBox: {
-		alignItems: 'center',
-		width: '48%',
-		padding: 20,
-		backgroundColor: '#DFF6E2',
-		borderRadius: 8,
+		// alignItems: 'center',
+		width: '32%',
+		paddingVertical: 10,
+		borderWidth: 1,
+		borderColor: '#ddd',
 		gap: 5,
+		borderRadius: 8,
+		paddingHorizontal: 5,
 	},
 	statValue: {
 		fontSize: 18,
@@ -776,7 +956,7 @@ const styles = StyleSheet.create({
 	},
 	statLabel: {
 		fontSize: 14,
-		color: '#777777',
+		color: '#212121',
 	},
 	orderRow: {
 		flexDirection: 'row',
@@ -850,10 +1030,10 @@ const styles = StyleSheet.create({
 		paddingVertical: 5,
 		gap: 8,
 		marginBottom: 2,
-		// position: 'absolute',
+		marginTop: 2,
 		// left: 0,
 		// top: 0,
-		backgroundColor: '#fff',
+		// backgroundColor: '#fff',
 		width: '100%',
 		zIndex: 100,
 	},

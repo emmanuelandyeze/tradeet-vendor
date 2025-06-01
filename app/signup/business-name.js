@@ -104,14 +104,6 @@ export default function BusinessNameScreen() {
 			return;
 		}
 
-		// if (!image) {
-		// 	ToastAndroid.show(
-		// 		'Please upload a logo.',
-		// 		ToastAndroid.LONG,
-		// 	);
-		// 	return;
-		// }
-
 		if (password !== confirmPassword) {
 			ToastAndroid.show(
 				'Passwords do not match.',
@@ -175,11 +167,22 @@ export default function BusinessNameScreen() {
 			);
 			return;
 		}
+
+		// Validate email format
+		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+		if (!emailRegex.test(businessEmail)) {
+			ToastAndroid.show(
+				'Please enter a valid email address.',
+				ToastAndroid.LONG,
+			);
+			return;
+		}
+
 		setSelectedTab('offering');
 	};
 
 	const goToPassword = () => {
-		if (!selectedOffering || !businessAddress) {
+		if (!selectedOffering) {
 			ToastAndroid.show(
 				'Please fill in all details.',
 				ToastAndroid.LONG,
@@ -242,7 +245,7 @@ export default function BusinessNameScreen() {
 							<TouchableOpacity
 								onPress={() => goToOffering()}
 								disabled={loading}
-								className="bg-green-600 p-4 rounded-lg"
+								className="bg-[#065637] p-4 rounded-lg"
 								style={{ paddingHorizontal: 20 }}
 							>
 								<Text className="text-white text-center text-lg">
@@ -267,43 +270,44 @@ export default function BusinessNameScreen() {
 						>
 							How do you make money?
 						</Text>
-						<View style={styles.paymentMethodContainer}>
-							{/* Wallet Payment Option */}
+						<View
+							style={{
+								flexDirection: 'row',
+								justifyContent: 'space-between',
+								marginBottom: 20,
+							}}
+						>
+							{/* Products Option */}
 							<TouchableOpacity
 								style={[
 									styles.paymentMethodButton,
 									selectedOffering === 'products' &&
 										styles.selectedPaymentMethod,
+									{ width: '48%' }, // Explicit width
 								]}
 								onPress={() =>
 									setSelectedOffering('products')
 								}
 							>
-								<View
-									style={[
-										styles.circle,
-										selectedOffering === 'products' &&
-											styles.selectedCircle,
-									]}
-								>
-									{selectedOffering === 'products' && (
-										<View style={styles.circleInner} />
-									)}
-								</View>
-								<View>
-									<Text style={styles.paymentMethodText}>
+								<View style={styles.radioContainer}>
+									<View
+										style={[
+											styles.radioOuter,
+											selectedOffering === 'products' &&
+												styles.radioOuterSelected,
+										]}
+									>
+										{selectedOffering === 'products' && (
+											<View style={styles.radioInner} />
+										)}
+									</View>
+									<Text style={styles.optionText}>
 										I sell
 									</Text>
-									<Text
-										style={{
-											fontSize: 12,
-											marginLeft: 10,
-											width: '90%',
-										}}
-									>
-										Food, gadgets, clothes, etc
-									</Text>
 								</View>
+								<Text style={styles.optionSubtext}>
+									Food, gadgets, clothes, etc
+								</Text>
 							</TouchableOpacity>
 
 							{/* Services Option */}
@@ -312,36 +316,31 @@ export default function BusinessNameScreen() {
 									styles.paymentMethodButton,
 									selectedOffering === 'services' &&
 										styles.selectedPaymentMethod,
+									{ width: '48%' }, // Explicit width
 								]}
 								onPress={() =>
 									setSelectedOffering('services')
 								}
 							>
-								<View
-									style={[
-										styles.circle,
-										selectedOffering === 'services' &&
-											styles.selectedCircle,
-									]}
-								>
-									{selectedOffering === 'services' && (
-										<View style={styles.circleInner} />
-									)}
-								</View>
-								<View>
-									<Text style={styles.paymentMethodText}>
+								<View style={styles.radioContainer}>
+									<View
+										style={[
+											styles.radioOuter,
+											selectedOffering === 'services' &&
+												styles.radioOuterSelected,
+										]}
+									>
+										{selectedOffering === 'services' && (
+											<View style={styles.radioInner} />
+										)}
+									</View>
+									<Text style={styles.optionText}>
 										I render services
 									</Text>
-									<Text
-										style={{
-											fontSize: 12,
-											marginLeft: 10,
-											// width: '90%',
-										}}
-									>
-										Design, hairdressing, painting, etc
-									</Text>
 								</View>
+								<Text style={styles.optionSubtext}>
+									Delivery, design, hairdressing, etc
+								</Text>
 							</TouchableOpacity>
 						</View>
 
@@ -403,7 +402,7 @@ export default function BusinessNameScreen() {
 							<TouchableOpacity
 								onPress={() => goToPassword()}
 								disabled={loading}
-								className="bg-green-600 p-4 rounded-lg"
+								className="bg-[#065637] p-4 rounded-lg"
 							>
 								<Text className="text-white text-center text-lg">
 									Next
@@ -519,7 +518,7 @@ export default function BusinessNameScreen() {
 							<TouchableOpacity
 								onPress={handleNext}
 								disabled={loading}
-								className="bg-green-600 p-4 rounded-lg"
+								className="bg-[#065637] p-4 rounded-lg"
 							>
 								<Text className="text-white text-center text-lg">
 									{loading ? 'Please wait...' : 'Continue'}
@@ -643,13 +642,48 @@ const styles = StyleSheet.create({
 		marginTop: 5,
 	},
 	paymentMethodButton: {
-		flexDirection: 'row',
-		alignItems: 'flex-start',
-		padding: 10,
+		padding: 15,
 		borderWidth: 1,
-		borderColor: '#ccc',
+		borderColor: '#ddd',
 		borderRadius: 10,
-		width: '48%', // for equal width buttons side by side
+		backgroundColor: '#fff',
+	},
+	selectedPaymentMethod: {
+		borderColor: '#18a54a',
+		backgroundColor: '#f0fff4',
+	},
+	radioContainer: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		marginBottom: 5,
+	},
+	radioOuter: {
+		height: 20,
+		width: 20,
+		borderRadius: 10,
+		borderWidth: 2,
+		borderColor: '#ccc',
+		alignItems: 'center',
+		justifyContent: 'center',
+		marginRight: 10,
+	},
+	radioOuterSelected: {
+		borderColor: '#18a54a',
+	},
+	radioInner: {
+		height: 10,
+		width: 10,
+		borderRadius: 5,
+		backgroundColor: '#18a54a',
+	},
+	optionText: {
+		fontSize: 16,
+		fontWeight: '500',
+	},
+	optionSubtext: {
+		fontSize: 12,
+		color: '#666',
+		marginLeft: 30, // Align with radio button
 	},
 	selectedPaymentMethod: {
 		borderColor: '#18a54a',

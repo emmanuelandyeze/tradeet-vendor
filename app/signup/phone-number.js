@@ -96,7 +96,7 @@ export default function PhoneNumberScreen() {
 			<View className="flex flex-row justify-end items-end">
 				<TouchableOpacity
 					onPress={() => handleNext()}
-					className="bg-green-500 my-3 px-4 py-3 rounded-lg"
+					className="bg-[#065637] my-3 px-4 py-4 rounded-lg"
 				>
 					<Text className="text-white text-center text-xl font-semibold">
 						Send Code

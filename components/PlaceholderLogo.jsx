@@ -24,10 +24,10 @@ const PlaceholderLogo = ({ name }) => {
 	return (
 		<View
 			style={{
-				backgroundColor: '#121212',
+				backgroundColor: 'green',
 				height: 50,
 				width: 50,
-				borderRadius: 50,
+				borderRadius: 10,
 				justifyContent: 'center',
 				alignItems: 'center',
 				elevation: 3,

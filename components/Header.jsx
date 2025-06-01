@@ -43,7 +43,7 @@ export default function Header({ userInfo }) {
 				paddingBottom: 10,
 				paddingLeft: 20,
 				paddingRight: 20,
-				backgroundColor: '#fff',
+				backgroundColor: '#065637',
 				flexDirection: 'row',
 				zIndex: 100,
 				position: 'fixed',
@@ -53,6 +53,7 @@ export default function Header({ userInfo }) {
 				elevation: 1,
 			}}
 		>
+			<StatusBar style="light" backgroundColor="#065637" />
 			<View className="flex flex-row gap-2">
 				{userInfo?.logoUrl ? (
 					<Image
@@ -62,7 +63,7 @@ export default function Header({ userInfo }) {
 							resizeMode: 'cover',
 							height: 50,
 							width: 50,
-							borderRadius: 50,
+							borderRadius: 10,
 							borderWidth: 1,
 							borderColor: 'gray',
 							elevation: 3,
@@ -94,7 +95,7 @@ export default function Header({ userInfo }) {
 							<Text
 								className="text-xl font-bold"
 								style={{
-									color: '#121212',
+									color: '#f1f1f1',
 									fontSize: 20,
 									marginLeft: 3,
 								}}
@@ -107,9 +108,11 @@ export default function Header({ userInfo }) {
 									fontSize: 12,
 									marginLeft: 5,
 									color: 'white',
-									backgroundColor: '#2EBE4F',
+									backgroundColor: '#065637',
 									paddingHorizontal: 5,
 									borderRadius: 15,
+									borderWidth: 1,
+									borderColor: 'white'
 								}}
 							>
 								{userInfo?.plan?.name}
@@ -125,7 +128,7 @@ export default function Header({ userInfo }) {
 								>
 									<Text
 										style={{
-											color: 'gray',
+											color: '#f1f1f1',
 											textDecorationLine: 'underline',
 											fontSize: 16,
 											marginLeft: 5,
@@ -137,7 +140,7 @@ export default function Header({ userInfo }) {
 								<EvilIcons
 									name="external-link"
 									size={18}
-									color="gray"
+									color="#f1f1f1"
 								/>
 							</View>
 						)}
@@ -149,14 +152,14 @@ export default function Header({ userInfo }) {
 						<Ionicons
 							name="location"
 							size={15}
-							color="green"
+							color="#f1f1f1"
 						/>
 						<TouchableOpacity
 							onPress={() => router.push('/selectLocation')}
 						>
 							<Text
 								style={{
-									color: 'black',
+									color: '#f1f1f1',
 									// textDecorationLine: 'underline',
 									fontSize: 13,
 									marginLeft: 0,
@@ -165,11 +168,11 @@ export default function Header({ userInfo }) {
 								{userInfo?.address}
 							</Text>
 						</TouchableOpacity>
-						<FontAwesome
+						{/* <FontAwesome
 							name="angle-down"
 							size={18}
-							color="black"
-						/>
+							color="#f1f1f1"
+						/> */}
 					</View>
 				</View>
 			</View>

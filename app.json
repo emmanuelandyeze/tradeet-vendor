@@ -2,7 +2,7 @@
 	"expo": {
 		"name": "Tradeet Business",
 		"slug": "tradeet-vendor",
-		"version": "1.0.8",
+		"version": "1.2.0",
 		"orientation": "portrait",
 		"icon": "./assets/images/icon.png",
 		"scheme": "myapp",
@@ -10,7 +10,7 @@
 		"splash": {
 			"image": "./assets/images/splash.png",
 			"resizeMode": "contain",
-			"backgroundColor": "#ffffff"
+			"backgroundColor": "#065637"
 		},
 		"ios": {
 			"supportsTablet": true
@@ -21,7 +21,7 @@
 				"backgroundColor": "#ffffff"
 			},
 			"package": "com.tradeet.vendor",
-			"versionCode": 9,
+			"versionCode": 12,
 			"googleServicesFile": "./google-services.json",
 			"blockedPermissions": [
 				"android.permission.READ_MEDIA_IMAGES",

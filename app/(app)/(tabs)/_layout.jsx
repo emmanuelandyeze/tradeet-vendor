@@ -21,15 +21,12 @@ export default function TabLayout() {
 				tabBarShowLabel: true,
 				tabBarStyle: {
 					paddingBottom: 20,
-					height: 85,
-					paddingTop: 8,
-					// borderRadius: 50,
-					// marginHorizontal: 16,
-					// marginBottom: 20,
+					height: 74,
+					paddingTop: 10,
 					backgroundColor: '#fff',
 				},
 				tabBarLabelStyle: {
-					fontSize: 14,
+					fontSize: 12,
 					marginTop: 10,
 					fontWeight: 'bold',
 				},
@@ -43,6 +40,7 @@ export default function TabLayout() {
 						<TabBarIcon
 							name={focused ? 'home' : 'home-outline'}
 							color={color}
+							size={24}
 						/>
 					),
 				}}
@@ -53,8 +51,11 @@ export default function TabLayout() {
 					title: 'Orders',
 					tabBarIcon: ({ color, focused }) => (
 						<TabBarIcon
-							name={focused ? 'newspaper' : 'newspaper-outline'}
+							name={
+								focused ? 'newspaper' : 'newspaper-outline'
+							}
 							color={color}
+							size={24}
 						/>
 					),
 				}}
@@ -62,7 +63,7 @@ export default function TabLayout() {
 			<Tabs.Screen
 				name="products"
 				options={{
-					title: 'Products',
+					title: 'Catalogue',
 					tabBarIcon: ({ color, focused }) => (
 						<TabBarIcon
 							name={
@@ -71,27 +72,12 @@ export default function TabLayout() {
 									: 'file-tray-stacked-outline'
 							}
 							color={color}
+							size={24}
 						/>
 					),
 				}}
 			/>
 
-			{/* <Tabs.Screen
-				name="support"
-				options={{
-					title: 'Support',
-					tabBarIcon: ({ color, focused }) => (
-						<TabBarIcon
-							name={
-								focused
-									? 'chatbubble-ellipses'
-									: 'chatbubble-ellipses-outline'
-							}
-							color={color}
-						/>
-					),
-				}}
-			/> */}
 			<Tabs.Screen
 				name="settings"
 				options={{
@@ -102,6 +88,7 @@ export default function TabLayout() {
 								focused ? 'settings' : 'settings-outline'
 							}
 							color={color}
+							size={24}
 						/>
 					),
 				}}

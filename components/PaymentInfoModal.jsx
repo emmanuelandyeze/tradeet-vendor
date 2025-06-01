@@ -32,7 +32,7 @@ const PaymentInfoModal = ({ visible, onClose, onSave }) => {
 			const banks = response.data.data;
 			setBanks(banks);
 		} catch (error) {
-			console.error('Error fetching bank list:', error);
+			console.error('Error fetching bank list:', error); 
 		}
     };
     
