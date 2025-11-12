@@ -120,6 +120,8 @@ const StorePaymentsScreen = ({ navigation }) => {
 		[setStore],
 	);
 
+	const paystack_key = process.env.PAYSTACK_SECRET_KEY;
+
 	const getBankNames = async () => {
 		setBanksLoading(true); // Set loading true
 		try {
@@ -127,7 +129,7 @@ const StorePaymentsScreen = ({ navigation }) => {
 				'https://api.paystack.co/bank',
 				{
 					headers: {
-						Authorization: `Bearer sk_live_4278f83a52a6159480e39eadc370d7d3f6080250`, // Replace with your secret key
+						Authorization: `Bearer ${paystack_key}`, // Replace with your secret key
 					},
 				},
 			);
