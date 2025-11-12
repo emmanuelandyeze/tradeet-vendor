@@ -8,527 +8,432 @@ import {
 	Modal,
 	StyleSheet,
 	ToastAndroid,
+	ActivityIndicator,
+	SafeAreaView,
+	KeyboardAvoidingView,
+	Platform,
 } from 'react-native';
 import {
 	useLocalSearchParams,
 	useRouter,
 } from 'expo-router';
 import * as ImagePicker from 'expo-image-picker';
-import { Picker } from '@react-native-picker/picker'; // Import Picker
-import { uploadImageToCloudinary } from '../../utils/cloudinary';
 import { AuthContext } from '@/context/AuthContext';
 import Ionicons from '@expo/vector-icons/Ionicons';
- 
+import { LinearGradient } from 'expo-linear-gradient';
+import axiosInstance, {
+	onAuthFailure,
+} from '@/utils/axiosInstance';
+
 export default function BusinessNameScreen() {
 	const router = useRouter();
 	const [businessName, setBusinessName] = useState('');
-	const [businessAddress, setBusinessAddress] =
+	const [businessDescription, setBusinessDescription] =
 		useState('');
 	const [image, setImage] = useState(null);
 	const [modalVisible, setModalVisible] = useState(false);
-	const [logo, setLogo] = useState(null);
 	const [loading, setLoading] = useState(false);
-	const { completeProfile } = useContext(AuthContext);
+	const { userInfo, token } = useContext(AuthContext);
 	const { phoneNumber } = useLocalSearchParams();
-	const [password, setPassword] = useState('');
-	const [businessEmail, setBusinessEmail] = useState('');
-	const [businessDescription, setBusinessDescription] =
-		useState('');
-	const [confirmPassword, setConfirmPassword] =
-		useState('');
-	const [showPassword, setShowPassword] = useState(false);
-	const [showConfirmPassword, setShowConfirmPassword] =
-		useState(false);
+
 	const [selectedTab, setSelectedTab] = useState('name');
 	const [selectedOffering, setSelectedOffering] =
-		useState('products');
-
-	// State for the selected service
-	const [selectedService, setSelectedService] =
 		useState('');
 
-	// Function to open ImagePicker
 	const pickImage = async () => {
 		let result = await ImagePicker.launchImageLibraryAsync({
 			mediaTypes: ImagePicker.MediaTypeOptions.Images,
 			allowsEditing: true,
-			aspect: [1, 1], // Square image
-			quality: 1,
+			aspect: [1, 1],
+			quality: 0.9,
 		});
 
 		if (!result.canceled) {
 			setImage(result.assets[0].uri);
-			setModalVisible(false); // Close modal after selection
+			setModalVisible(false);
 		}
 	};
 
-	// Function to open Camera
 	const takePhoto = async () => {
-		ImagePicker.requestCameraPermissionsAsync();
+		const { status } =
+			await ImagePicker.requestCameraPermissionsAsync();
+		if (status !== 'granted') {
+			ToastAndroid.show(
+				'Camera permissions are required to take a photo.',
+				ToastAndroid.LONG,
+			);
+			return;
+		}
+
 		let result = await ImagePicker.launchCameraAsync({
 			allowsEditing: true,
-			aspect: [1, 1], // Square image
-			quality: 1,
+			aspect: [1, 1],
+			quality: 0.9,
 		});
 
 		if (!result.canceled) {
 			setImage(result.assets[0].uri);
-			setModalVisible(false); // Close modal after taking a photo
-		}
-	};
-
-	// Function to handle image upload to Cloudinary
-	const handleImageUpload = async () => {
-		try {
-			const response = await uploadImageToCloudinary(image);
-			if (response.secure_url) {
-				setLogo(response.secure_url);
-				return response.secure_url;
-			} else {
-				alert('Failed to upload image');
-				return null;
-			}
-		} catch (error) {
-			console.error('Error uploading image:', error);
-			alert('Image upload failed. Please try again.');
-			return null;
+			setModalVisible(false);
 		}
 	};
 
 	const handleNext = async () => {
-		if (!password || !confirmPassword) {
-			ToastAndroid.show(
-				'Please fill in all details.',
-				ToastAndroid.LONG,
-			);
-			return;
-		}
-
-		if (password !== confirmPassword) {
-			ToastAndroid.show(
-				'Passwords do not match.',
-				ToastAndroid.LONG,
-			);
-			return;
-		}
-
 		setLoading(true);
 
-		let uploadedLogoUrl = ''; // Declare the variable once
-
-		if (image) {
-			uploadedLogoUrl = await handleImageUpload(); // Assign the result to the outer variable
-		}
-
 		try {
-			const profile = {
-				logoUrl: uploadedLogoUrl || '',
-				name: businessName,
-				address: businessAddress,
-				phone: phoneNumber,
-				password: password,
-				serviceType: selectedOffering, // Add selected service
-				isVendor: true,
-				email: businessEmail, // Add business email
-				description: businessDescription,
-			};
-			console.log(profile);
+			if (!businessName.trim()) {
+				ToastAndroid.show(
+					'Please enter your business name.',
+					ToastAndroid.LONG,
+				);
+				setLoading(false);
+				return;
+			}
+			if (!selectedOffering) {
+				ToastAndroid.show(
+					'Please select your business offering.',
+					ToastAndroid.LONG,
+				);
+				setLoading(false);
+				return;
+			}
 
-			const response = await completeProfile(profile);
-			if (response.message === 'Profile setup completed') {
-				router.push('(tabs)');
+			const formData = new FormData();
+			formData.append('name', businessName.trim());
+			formData.append('serviceType', selectedOffering);
+			if (businessDescription.trim())
+				formData.append(
+					'description',
+					businessDescription.trim(),
+				);
+
+			if (image) {
+				const logoType = image
+					.split('.')
+					.pop()
+					.toLowerCase();
+				const logoMime =
+					logoType === 'jpg' || logoType === 'jpeg'
+						? 'image/jpeg'
+						: `image/${logoType}`;
+				formData.append('logo', {
+					uri: image,
+					type: logoMime,
+					name: `logo.${logoType}`,
+				});
+			}
+
+			// NOTE: keep your axiosInstance handling as you already have it.
+			// Common axios usage: axios.post('/stores', formData, { headers: { 'Content-Type': 'multipart/form-data' }})
+			const response = await axiosInstance.post(
+				'/stores',
+				formData,
+				{
+					headers: {
+						'Content-Type': 'multipart/form-data',
+					},
+				},
+			);
+
+			const data = response.data;
+
+			if (
+				response.status >= 200 &&
+				response.status < 300 &&
+				data.message === 'Store created'
+			) {
 				ToastAndroid.show(
 					`Welcome to Tradeet, ${businessName}!`,
 					ToastAndroid.LONG,
 				);
-				setLoading(false);
+				router.push('/signup/owner-details');
 			} else {
 				ToastAndroid.show(
-					response.message,
-					ToastAndroid.SHORT,
+					data.message ||
+						'Failed to create store. Please try again.',
+					ToastAndroid.LONG,
 				);
-				setLoading(false);
 			}
 		} catch (error) {
+			console.error('Error during store creation:', error);
 			ToastAndroid.show(
-				'An error occurred. Please try again.',
-				ToastAndroid.SHORT,
+				'An unexpected error occurred. Please try again.',
+				ToastAndroid.LONG,
 			);
-			console.error('Error completing profile:', error);
+		} finally {
 			setLoading(false);
 		}
 	};
 
 	const goToOffering = () => {
-		if (!businessName || !businessEmail) {
+		if (!businessName.trim()) {
 			ToastAndroid.show(
-				'Please fill in all details.',
+				'Please enter your business name.',
 				ToastAndroid.LONG,
 			);
 			return;
 		}
-
-		// Validate email format
-		const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-		if (!emailRegex.test(businessEmail)) {
+		if (!businessDescription.trim()) {
 			ToastAndroid.show(
-				'Please enter a valid email address.',
+				'Please enter your business description.',
 				ToastAndroid.LONG,
 			);
 			return;
 		}
-
 		setSelectedTab('offering');
 	};
 
-	const goToPassword = () => {
-		if (!selectedOffering) {
-			ToastAndroid.show(
-				'Please fill in all details.',
-				ToastAndroid.LONG,
-			);
-			return;
-		}
-		setSelectedTab('password');
-	};
-
 	return (
-		<View className="flex-1 justify-center px-10">
-			<View className="flex flex-col justify-center align-middle gap-5">
-				{selectedTab === 'name' && (
-					<View>
-						<Text
-							style={{ lineHeight: 40 }}
-							className="text-4xl mb-2 font-bold"
-						>
-							Let's set up your Business Profile
+		<SafeAreaView style={styles.safe}>
+			<KeyboardAvoidingView
+				behavior={
+					Platform.OS === 'ios' ? 'padding' : 'height'
+				}
+				style={styles.flex}
+			>
+				<View style={styles.container}>
+					<View style={styles.card}>
+						{/* Step indicator */}
+						<View style={styles.stepRow}>
+							<View
+								style={[
+									styles.step,
+									selectedTab === 'name' &&
+										styles.stepActive,
+								]}
+							/>
+							<View
+								style={[
+									styles.step,
+									selectedTab === 'offering' &&
+										styles.stepActive,
+								]}
+							/>
+						</View>
+
+						{/* Title */}
+						<Text style={styles.title}>
+							{selectedTab === 'name'
+								? "Let's set up your Business Profile"
+								: 'Tell us more about your business'}
 						</Text>
-						{/* <Text className="text-lg mb-5">
-							Just some more details
-						</Text> */}
-						<TouchableOpacity
-							onPress={() => setModalVisible(true)}
-							style={{ alignItems: 'center' }}
-						>
-							<View style={styles.dottedCircle}>
-								{image ? (
-									<Image
-										source={{ uri: image }}
-										style={styles.imagePreview}
+
+						{/* --- NAME TAB --- */}
+						{selectedTab === 'name' && (
+							<>
+								<TouchableOpacity
+									onPress={() => setModalVisible(true)}
+									activeOpacity={0.8}
+									style={styles.logoWrapper}
+								>
+									<View style={styles.dottedCircle}>
+										{image ? (
+											<>
+												<Image
+													source={{ uri: image }}
+													style={styles.imagePreview}
+												/>
+												<View style={styles.logoEdit}>
+													<Ionicons
+														name="camera"
+														size={16}
+														color="#fff"
+													/>
+												</View>
+											</>
+										) : (
+											<View
+												style={styles.uploadPlaceholder}
+											>
+												<Ionicons
+													name="image-outline"
+													size={36}
+													color="#9AA0A6"
+												/>
+												<Text style={styles.uploadText}>
+													Upload your logo
+												</Text>
+											</View>
+										)}
+									</View>
+								</TouchableOpacity>
+
+								<View style={styles.field}>
+									<Text style={styles.label}>
+										Your Business Name*
+									</Text>
+									<TextInput
+										value={businessName}
+										onChangeText={setBusinessName}
+										placeholder="E.g., Tradeet Store"
+										style={styles.input}
+										autoCapitalize="words"
+										placeholderTextColor="#9aa0a6"
 									/>
-								) : (
-									<Text style={styles.uploadText}>
-										Upload your business logo
+								</View>
+
+								<View style={styles.field}>
+									<Text style={styles.label}>
+										How would you describe your business to
+										customers?*
 									</Text>
-								)}
-							</View>
-						</TouchableOpacity>
+									<TextInput
+										value={businessDescription}
+										onChangeText={setBusinessDescription}
+										placeholder="E.g., We offer fast and reliable delivery services."
+										multiline
+										numberOfLines={3}
+										style={[styles.input, styles.textArea]}
+										placeholderTextColor="#9aa0a6"
+									/>
+								</View>
 
-						<View style={{ gap: 10 }}>
-							<TextInput
-								value={businessName}
-								onChangeText={setBusinessName}
-								className="border-b text-xl border-gray-300 mb-4"
-								placeholder="Your Business Name*"
-								style={{ paddingVertical: 10 }}
-							/>
-							<TextInput
-								value={businessEmail}
-								onChangeText={setBusinessEmail}
-								className="border-b text-xl border-gray-300 mb-4"
-								placeholder="Your Email Address*"
-								style={{ paddingVertical: 10 }}
-								keyboardType="email-address"
-							/>
-						</View>
-						<View style={{ alignItems: 'flex-end' }}>
-							<TouchableOpacity
-								onPress={() => goToOffering()}
-								disabled={loading}
-								className="bg-[#065637] p-4 rounded-lg"
-								style={{ paddingHorizontal: 20 }}
-							>
-								<Text className="text-white text-center text-lg">
-									Next
+								<View style={styles.actionsRight}>
+									<TouchableOpacity
+										onPress={goToOffering}
+										disabled={loading}
+										activeOpacity={0.9}
+										style={[styles.primaryButton]}
+									>
+										<LinearGradient
+											colors={['#0b7a4a', '#065637']}
+											style={styles.gradient}
+										>
+											<Text
+												style={styles.primaryButtonText}
+											>
+												Next
+											</Text>
+											<Ionicons
+												name="arrow-forward"
+												size={18}
+												color="#fff"
+												style={{ marginLeft: 8 }}
+											/>
+										</LinearGradient>
+									</TouchableOpacity>
+								</View>
+							</>
+						)}
+
+						{/* --- OFFERING TAB --- */}
+						{selectedTab === 'offering' && (
+							<>
+								<Text style={styles.subtitle}>
+									How do you make money?
 								</Text>
-							</TouchableOpacity>
-						</View>
-					</View>
-				)}
 
-				{selectedTab === 'offering' && (
-					<View>
-						<Text
-							style={{ lineHeight: 40 }}
-							className="text-4xl mb-2 font-bold"
-						>
-							Tell us about your business
-						</Text>
-						<Text
-							style={{ fontSize: 18 }}
-							className="text-lg mt-5"
-						>
-							How do you make money?
-						</Text>
-						<View
-							style={{
-								flexDirection: 'row',
-								justifyContent: 'space-between',
-								marginBottom: 20,
-							}}
-						>
-							{/* Products Option */}
-							<TouchableOpacity
-								style={[
-									styles.paymentMethodButton,
-									selectedOffering === 'products' &&
-										styles.selectedPaymentMethod,
-									{ width: '48%' }, // Explicit width
-								]}
-								onPress={() =>
-									setSelectedOffering('products')
-								}
-							>
-								<View style={styles.radioContainer}>
-									<View
+								<View style={styles.optionsRow}>
+									<TouchableOpacity
 										style={[
-											styles.radioOuter,
+											styles.paymentMethodCard,
 											selectedOffering === 'products' &&
-												styles.radioOuterSelected,
+												styles.paymentMethodSelected,
 										]}
+										onPress={() =>
+											setSelectedOffering('products')
+										}
+										activeOpacity={0.9}
 									>
-										{selectedOffering === 'products' && (
-											<View style={styles.radioInner} />
-										)}
-									</View>
-									<Text style={styles.optionText}>
-										I sell
-									</Text>
-								</View>
-								<Text style={styles.optionSubtext}>
-									Food, gadgets, clothes, etc
-								</Text>
-							</TouchableOpacity>
+										<View style={styles.optionHeader}>
+											<View
+												style={[
+													styles.radioOuter,
+													selectedOffering === 'products' &&
+														styles.radioOuterSelected,
+												]}
+											>
+												{selectedOffering ===
+													'products' && (
+													<View style={styles.radioInner} />
+												)}
+											</View>
+											<Text style={styles.optionText}>
+												I sell
+											</Text>
+										</View>
+										<Text style={styles.optionSubtext}>
+											Food, gadgets, clothes, etc
+										</Text>
+									</TouchableOpacity>
 
-							{/* Services Option */}
-							<TouchableOpacity
-								style={[
-									styles.paymentMethodButton,
-									selectedOffering === 'services' &&
-										styles.selectedPaymentMethod,
-									{ width: '48%' }, // Explicit width
-								]}
-								onPress={() =>
-									setSelectedOffering('services')
-								}
-							>
-								<View style={styles.radioContainer}>
-									<View
+									<TouchableOpacity
 										style={[
-											styles.radioOuter,
+											styles.paymentMethodCard,
 											selectedOffering === 'services' &&
-												styles.radioOuterSelected,
+												styles.paymentMethodSelected,
 										]}
+										onPress={() =>
+											setSelectedOffering('services')
+										}
+										activeOpacity={0.9}
 									>
-										{selectedOffering === 'services' && (
-											<View style={styles.radioInner} />
-										)}
-									</View>
-									<Text style={styles.optionText}>
-										I render services
-									</Text>
+										<View style={styles.optionHeader}>
+											<View
+												style={[
+													styles.radioOuter,
+													selectedOffering === 'services' &&
+														styles.radioOuterSelected,
+												]}
+											>
+												{selectedOffering ===
+													'services' && (
+													<View style={styles.radioInner} />
+												)}
+											</View>
+											<Text style={styles.optionText}>
+												I render services
+											</Text>
+										</View>
+										<Text style={styles.optionSubtext}>
+											Delivery, design, hairdressing, etc
+										</Text>
+									</TouchableOpacity>
 								</View>
-								<Text style={styles.optionSubtext}>
-									Delivery, design, hairdressing, etc
-								</Text>
-							</TouchableOpacity>
-						</View>
 
-						<View
-							style={{
-								marginVertical: 5,
-							}}
-						>
-							<Text
-								style={{ fontSize: 18 }}
-								className="text-lg mt-5"
-							>
-								How would you describe your brand to
-								customers?
-							</Text>
-							<TextInput
-								value={businessDescription}
-								onChangeText={setBusinessDescription}
-								className="border-b text-xl border-gray-300 mb-4"
-								placeholder="About your business"
-								multiline
-								numberOfLines={3}
-								style={{
-									textAlignVertical: 'top',
-									marginTop: 10,
-									fontSize: 14,
-								}}
-							/>
-						</View>
-						{/* <Text
-							style={{ fontSize: 18 }}
-							className="text-lg mt-5"
-						>
-							Where is your business primarily located?
-						</Text>
-						<TextInput
-							value={businessAddress}
-							onChangeText={setBusinessAddress}
-							className="border-b text-xl border-gray-300 mb-4"
-							placeholder="Your Business Address*"
-							style={{ paddingVertical: 10, fontSize: 14 }}
-						/> */}
-						<View
-							style={{
-								flexDirection: 'row',
-								justifyContent: 'space-between',
-								alignItems: 'center',
-							}}
-						>
-							<TouchableOpacity
-								onPress={() => setSelectedTab('name')}
-								disabled={loading}
-								className="bg-slate-600 p-4 rounded-lg"
-							>
-								<Text className="text-white text-center text-lg">
-									Previous
-								</Text>
-							</TouchableOpacity>
-							<TouchableOpacity
-								onPress={() => goToPassword()}
-								disabled={loading}
-								className="bg-[#065637] p-4 rounded-lg"
-							>
-								<Text className="text-white text-center text-lg">
-									Next
-								</Text>
-							</TouchableOpacity>
-						</View>
+								<View style={styles.twoButtons}>
+									<TouchableOpacity
+										onPress={() => setSelectedTab('name')}
+										disabled={loading}
+										style={[styles.ghostButton]}
+										activeOpacity={0.9}
+									>
+										<Text style={styles.ghostButtonText}>
+											Previous
+										</Text>
+									</TouchableOpacity>
+
+									<TouchableOpacity
+										onPress={handleNext}
+										disabled={loading}
+										style={[
+											styles.primaryButton,
+											loading && { opacity: 0.85 },
+										]}
+										activeOpacity={0.9}
+									>
+										<LinearGradient
+											colors={['#0b7a4a', '#065637']}
+											style={styles.gradient}
+										>
+											{loading ? (
+												<ActivityIndicator color="#fff" />
+											) : (
+												<Text
+													style={styles.primaryButtonText}
+												>
+													Continue
+												</Text>
+											)}
+										</LinearGradient>
+									</TouchableOpacity>
+								</View>
+							</>
+						)}
 					</View>
-				)}
+				</View>
 
-				{selectedTab === 'password' && (
-					<View>
-						<Text
-							style={{ lineHeight: 40 }}
-							className="text-4xl mb-2 font-bold"
-						>
-							Great! Now, let's secure your account
-						</Text>
-						{/* Password and Confirm Password Inputs */}
-						<View className="flex flex-col gap-5">
-							<View
-								style={{
-									paddingVertical: 10,
-								}}
-								className="flex-row items-center mb-4 border-b border-gray-300"
-							>
-								<TextInput
-									value={password}
-									onChangeText={setPassword}
-									secureTextEntry={!showPassword}
-									className="flex-1 text-xl"
-									placeholder="Password"
-								/>
-								<TouchableOpacity
-									onPress={() =>
-										setShowPassword(!showPassword)
-									}
-									className="ml-2"
-								>
-									<Text className="text-xl">
-										{showPassword ? (
-											<Ionicons
-												name="eye-outline"
-												size={24}
-												color="black"
-											/>
-										) : (
-											<Ionicons
-												name="eye-off-outline"
-												size={24}
-												color="black"
-											/>
-										)}
-									</Text>
-								</TouchableOpacity>
-							</View>
-
-							<View
-								style={{
-									paddingVertical: 10,
-								}}
-								className="flex-row items-center mb-4 border-b border-gray-300"
-							>
-								<TextInput
-									value={confirmPassword}
-									onChangeText={setConfirmPassword}
-									secureTextEntry={!showConfirmPassword}
-									className="flex-1 text-xl"
-									placeholder="Confirm Password"
-								/>
-								<TouchableOpacity
-									onPress={() =>
-										setShowConfirmPassword(
-											!showConfirmPassword,
-										)
-									}
-									className="ml-2"
-								>
-									<Text className="text-xl">
-										{showConfirmPassword ? (
-											<Ionicons
-												name="eye-outline"
-												size={24}
-												color="black"
-											/>
-										) : (
-											<Ionicons
-												name="eye-off-outline"
-												size={24}
-												color="black"
-											/>
-										)}
-									</Text>
-								</TouchableOpacity>
-							</View>
-						</View>
-						<View
-							style={{
-								flexDirection: 'row',
-								justifyContent: 'space-between',
-								alignItems: 'center',
-								marginTop: 10,
-							}}
-						>
-							<TouchableOpacity
-								onPress={() => setSelectedTab('offering')}
-								disabled={loading}
-								className="bg-slate-600 p-4 rounded-lg"
-							>
-								<Text className="text-white text-center text-lg">
-									Previous
-								</Text>
-							</TouchableOpacity>
-							<TouchableOpacity
-								onPress={handleNext}
-								disabled={loading}
-								className="bg-[#065637] p-4 rounded-lg"
-							>
-								<Text className="text-white text-center text-lg">
-									{loading ? 'Please wait...' : 'Continue'}
-								</Text>
-							</TouchableOpacity>
-						</View>
-					</View>
-				)}
-
-				{/* Modal for Image Picker Options */}
+				{/* Modal */}
 				<Modal
 					animationType="slide"
 					transparent={true}
@@ -547,7 +452,10 @@ export default function BusinessNameScreen() {
 							</TouchableOpacity>
 							<TouchableOpacity
 								onPress={pickImage}
-								style={styles.modalButton}
+								style={[
+									styles.modalButton,
+									{ backgroundColor: '#333' },
+								]}
 							>
 								<Text style={styles.modalButtonText}>
 									Choose from Gallery
@@ -564,150 +472,251 @@ export default function BusinessNameScreen() {
 						</View>
 					</View>
 				</Modal>
-
-				{/* <TouchableOpacity
-					onPress={handleNext}
-					disabled={loading}
-					className="bg-green-600 p-4 rounded-lg"
-				>
-					<Text className="text-white text-center text-lg">
-						{loading ? 'Please wait...' : 'Next'}
-					</Text>
-				</TouchableOpacity> */}
-			</View>
-		</View>
+			</KeyboardAvoidingView>
+		</SafeAreaView>
 	);
 }
 
 const styles = StyleSheet.create({
+	safe: {
+		// flex: 1,
+		backgroundColor: '#f3f7f5',
+	},
+	// flex: { flex: 1 },
+	container: {
+		// flex: 1,
+		paddingHorizontal: 20,
+		paddingTop: 40,
+		alignItems: 'center',
+	},
+	card: {
+		width: '100%',
+		maxWidth: 760,
+		backgroundColor: '#fff',
+		borderRadius: 16,
+		padding: 22,
+		// shadow (iOS)
+		shadowColor: '#000',
+		shadowOffset: { width: 0, height: 8 },
+		shadowOpacity: 0.06,
+		shadowRadius: 18,
+		// elevation (Android)
+		elevation: 6,
+	},
+	stepRow: {
+		flexDirection: 'row',
+		justifyContent: 'center',
+		gap: 8,
+		marginBottom: 12,
+	},
+	step: {
+		height: 8,
+		width: 8,
+		borderRadius: 4,
+		backgroundColor: '#E6EEF0',
+		marginHorizontal: 4,
+	},
+	stepActive: {
+		backgroundColor: '#06a04f',
+		transform: [{ scale: 1.4 }],
+	},
+	title: {
+		fontSize: 22,
+		fontWeight: '700',
+		textAlign: 'center',
+		color: '#12343b',
+		marginBottom: 16,
+	},
+	subtitle: {
+		fontSize: 18,
+		color: '#254343',
+		marginBottom: 12,
+		textAlign: 'left',
+	},
+	logoWrapper: {
+		alignItems: 'center',
+		marginBottom: 8,
+	},
 	dottedCircle: {
 		width: 150,
 		height: 150,
 		borderRadius: 100,
-		borderColor: '#ccc',
+		borderColor: '#D6E6DF',
 		borderWidth: 2,
-		borderStyle: 'dotted',
+		borderStyle: 'dashed',
 		justifyContent: 'center',
 		alignItems: 'center',
-		marginBottom: 20,
+		marginBottom: 8,
+		backgroundColor: '#fbfffe',
+	},
+	uploadPlaceholder: {
+		alignItems: 'center',
 	},
 	uploadText: {
-		color: '#888',
-		fontSize: 16,
-		textAlign: 'center',
-		width: '90%',
+		color: '#98a3a0',
+		fontSize: 13,
+		marginTop: 6,
 	},
 	imagePreview: {
-		width: 120,
-		height: 120,
-		borderRadius: 60,
+		width: 122,
+		height: 122,
+		borderRadius: 62,
 	},
-	modalContainer: {
-		flex: 1,
-		justifyContent: 'center',
-		alignItems: 'center',
-		backgroundColor: 'rgba(0, 0, 0, 0.5)',
+	logoEdit: {
+		position: 'absolute',
+		right: 6,
+		bottom: 6,
+		backgroundColor: '#065637',
+		borderRadius: 16,
+		padding: 6,
+		elevation: 3,
 	},
-	modalView: {
-		backgroundColor: 'white',
-		padding: 20,
-		borderRadius: 10,
-		width: '80%',
-		justifyContent: 'center',
-		alignItems: 'center',
+	field: {
+		marginTop: 10,
+		marginBottom: 4,
 	},
-	modalButton: {
-		backgroundColor: '#000',
-		padding: 10,
-		borderRadius: 5,
-		marginVertical: 10,
-		width: '100%',
-		alignItems: 'center',
+	label: {
+		color: '#41585A',
+		fontSize: 14,
+		marginBottom: 8,
+		fontWeight: '600',
 	},
-	modalCancelButton: {
-		backgroundColor: '#FF6347',
-		padding: 10,
-		borderRadius: 5,
-		marginVertical: 10,
-		width: '100%',
-		alignItems: 'center',
-	},
-	modalButtonText: {
-		color: 'white',
+	input: {
+		borderBottomWidth: 1,
+		borderBottomColor: '#E6EEF0',
+		paddingVertical: 8,
 		fontSize: 16,
+		color: '#243434',
 	},
-	paymentMethodContainer: {
+	textArea: {
+		minHeight: 72,
+		textAlignVertical: 'top',
+	},
+	actionsRight: {
+		marginTop: 18,
+		alignItems: 'flex-end',
+	},
+	primaryButton: {
+		borderRadius: 12,
+		overflow: 'hidden',
+	},
+	gradient: {
+		paddingVertical: 12,
+		paddingHorizontal: 18,
+		borderRadius: 12,
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'center',
+	},
+	primaryButtonText: {
+		color: '#fff',
+		fontSize: 16,
+		fontWeight: '700',
+	},
+	optionsRow: {
 		flexDirection: 'row',
 		justifyContent: 'space-between',
-		marginTop: 5,
+		gap: 12,
+		marginBottom: 18,
 	},
-	paymentMethodButton: {
-		padding: 15,
+	paymentMethodCard: {
+		flex: 1,
+		padding: 16,
+		borderRadius: 12,
 		borderWidth: 1,
-		borderColor: '#ddd',
-		borderRadius: 10,
-		backgroundColor: '#fff',
+		borderColor: '#E7EEF0',
+		backgroundColor: '#ffffff',
 	},
-	selectedPaymentMethod: {
-		borderColor: '#18a54a',
-		backgroundColor: '#f0fff4',
+	paymentMethodSelected: {
+		borderColor: '#bfe9d6',
+		backgroundColor: '#f6fff7',
+		shadowColor: '#0a6b43',
+		shadowOpacity: 0.04,
+		elevation: 2,
 	},
-	radioContainer: {
+	optionHeader: {
 		flexDirection: 'row',
 		alignItems: 'center',
-		marginBottom: 5,
+		marginBottom: 6,
 	},
 	radioOuter: {
 		height: 20,
 		width: 20,
 		borderRadius: 10,
 		borderWidth: 2,
-		borderColor: '#ccc',
+		borderColor: '#cfdfe0',
 		alignItems: 'center',
 		justifyContent: 'center',
 		marginRight: 10,
 	},
 	radioOuterSelected: {
-		borderColor: '#18a54a',
+		borderColor: '#0b7a4a',
 	},
 	radioInner: {
 		height: 10,
 		width: 10,
 		borderRadius: 5,
-		backgroundColor: '#18a54a',
+		backgroundColor: '#0b7a4a',
 	},
 	optionText: {
 		fontSize: 16,
-		fontWeight: '500',
+		fontWeight: '600',
+		color: '#12343b',
 	},
 	optionSubtext: {
-		fontSize: 12,
-		color: '#666',
-		marginLeft: 30, // Align with radio button
+		fontSize: 13,
+		color: '#6f7c7b',
+		marginLeft: 30,
 	},
-	selectedPaymentMethod: {
-		borderColor: '#18a54a',
+	twoButtons: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		marginTop: 6,
 	},
-	paymentMethodText: {
-		fontSize: 16,
-		marginLeft: 10,
-	},
-	circle: {
-		height: 24,
-		width: 24,
-		borderRadius: 12, // makes the circle
-		borderWidth: 2,
-		borderColor: '#ccc',
+	ghostButton: {
+		paddingVertical: 12,
+		paddingHorizontal: 18,
+		borderRadius: 12,
+		borderWidth: 1,
+		borderColor: '#DCEAE5',
+		backgroundColor: '#fff',
+		minWidth: 120,
 		alignItems: 'center',
-		justifyContent: 'center',
 	},
-	selectedCircle: {
-		borderColor: '#18a54a', // green for selected state
+	ghostButtonText: {
+		color: '#254343',
+		fontSize: 15,
+		fontWeight: '600',
 	},
-	circleInner: {
-		height: 12,
-		width: 12,
-		borderRadius: 6,
-		backgroundColor: '#18a54a', // inner green dot when selected
+
+	/* Modal */
+	modalContainer: {
+		flex: 1,
+		justifyContent: 'flex-end',
+		backgroundColor: 'rgba(0,0,0,0.4)',
+	},
+	modalView: {
+		backgroundColor: 'white',
+		padding: 18,
+		borderTopLeftRadius: 14,
+		borderTopRightRadius: 14,
+	},
+	modalButton: {
+		backgroundColor: '#065637',
+		paddingVertical: 12,
+		borderRadius: 10,
+		marginBottom: 10,
+		alignItems: 'center',
+	},
+	modalCancelButton: {
+		backgroundColor: '#d9534f',
+		paddingVertical: 12,
+		borderRadius: 10,
+		alignItems: 'center',
+	},
+	modalButtonText: {
+		color: 'white',
+		fontSize: 16,
+		fontWeight: '700',
 	},
 });

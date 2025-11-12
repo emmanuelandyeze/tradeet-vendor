@@ -28,7 +28,7 @@ import axiosInstance from '@/utils/axiosInstance';
 // import InvoiceTable from '../../../components/InvoiceTable';
 import SalesTable from '../../../components/SalesTable';
 
-const InvoicesScreen = () => {
+const SalesScreen = () => {
 	const { userInfo, sendPushNotification } =
 		useContext(AuthContext);
 	const { fetchProductsByStore, loading } =
@@ -54,7 +54,7 @@ const InvoicesScreen = () => {
 
 	useEffect(() => {
 		fetchProductsByStore(storeId);
-	}, [storeId]);
+	}, [storeId]); 
 
 	useEffect(() => {
 		fetchOrders();
@@ -109,17 +109,26 @@ const InvoicesScreen = () => {
 	};
 
 	const fetchOrders = async () => {
-		try {
-			const response = await axiosInstance.get(
-				`/orders/store/${userInfo?._id}`,
-			);
-			setInvoices(response.data);
-			setInvoiceLoading(false);
-		} catch (err) {
-			setError(err.message || 'Error fetching orders');
-			setInvoiceLoading(false);
-		}
-	};
+			try {
+				setInvoiceLoading(true);
+				const response = await axiosInstance.get(
+					`/orders/store/${userInfo?._id}`,
+				);
+	
+				// Sort orders by createdAt (newest first)
+				const sortedInvoices = response.data.sort(
+					(a, b) =>
+						new Date(b.createdAt) - new Date(a.createdAt),
+				);
+	
+				setInvoices(sortedInvoices);
+				setError(null);
+			} catch (err) {
+				setError(err.message || 'Error fetching orders');
+			} finally {
+				setInvoiceLoading(false);
+			}
+		};
 
 	const createOrder = async (orderData) => {
 		try {
@@ -129,14 +138,14 @@ const InvoicesScreen = () => {
 				orderData,
 			); // API endpoint for creating order
 			ToastAndroid.show(
-				'Order placed successfully!',
+				'Sales recorded successfully!',
 				ToastAndroid.LONG,
 			);
-			await sendPushNotification(
-				userInfo?.expoPushToken,
-				'New Invoice Created 🔔',
-				'New invoice created on ' + userInfo?.name,
-			);
+			// await sendPushNotification(
+			// 	userInfo?.expoPushToken,
+			// 	'New Invoice Created 🔔',
+			// 	'New invoice created on ' + userInfo?.name,
+			// );
 
 			setModalVisible(false);
 			fetchOrders();
@@ -602,4 +611,4 @@ const styles = StyleSheet.create({
 	},
 });
 
-export default InvoicesScreen;
+export default SalesScreen;

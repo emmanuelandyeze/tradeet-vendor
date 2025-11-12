@@ -1,76 +1,83 @@
 {
-	"expo": {
-		"name": "Tradeet Business",
-		"slug": "tradeet-vendor",
-		"version": "1.2.0",
-		"orientation": "portrait",
-		"icon": "./assets/images/icon.png",
-		"scheme": "myapp",
-		"userInterfaceStyle": "automatic",
-		"splash": {
-			"image": "./assets/images/splash.png",
-			"resizeMode": "contain",
-			"backgroundColor": "#065637"
-		},
-		"ios": {
-			"supportsTablet": true
-		},
-		"android": {
-			"adaptiveIcon": {
-				"foregroundImage": "./assets/images/adaptive-icon.png",
-				"backgroundColor": "#ffffff"
-			},
-			"package": "com.tradeet.vendor",
-			"versionCode": 12,
-			"googleServicesFile": "./google-services.json",
-			"blockedPermissions": [
-				"android.permission.READ_MEDIA_IMAGES",
-				"android.permission.READ_MEDIA_VIDEO"
-			]
-		},
-		"web": {
-			"bundler": "metro",
-			"output": "static",
-			"favicon": "./assets/images/favicon.png"
-		},
-		"experiments": {
-			"typedRoutes": true
-		},
-		"extra": {
-			"router": {
-				"origin": false
-			},
-			"eas": {
-				"projectId": "cb3ec68d-4082-410c-aa02-6a6811456186"
-			}
-		},
-		"runtimeVersion": {
-			"policy": "appVersion"
-		},
-		"updates": {
-			"url": "https://u.expo.dev/cb3ec68d-4082-410c-aa02-6a6811456186"
-		},
-		"plugins": [
-			"expo-router",
-			[
-				"@rnmapbox/maps",
-				{
-					"RNMapboxMapsVersion": "11.8.0",
-					"RNMapboxMapsDownloadToken": "sk.eyJ1IjoidHJhZGVldCIsImEiOiJjbTQ2MXZncmUweDI5MmpzNzdneXBod2VsIn0.xumMX6fnM9wF-URVMRCaVw"
-				}
-			],
-			[
-				"expo-location",
-				{
-					"locationWhenInUsePermission": "Show current location on map."
-				}
-			],
-			[
-				"expo-image-picker",
-				{
-					"photosPermission": "The Tradeet Business app accesses your photos to let you upload product images."
-				}
-			]
-		]
-	}
+  "expo": {
+    "name": "Tradeet Business",
+    "slug": "tradeet-vendor",
+    "version": "1.2.0",
+    "orientation": "portrait",
+    "icon": "./assets/images/icon.png",
+    "scheme": "myapp",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/images/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#065637"
+    },
+    "ios": {
+      "supportsTablet": true
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/images/adaptive-icon.png",
+        "backgroundColor": "#fcdbb8"
+      },
+      "package": "com.tradeet.vendor",
+      "versionCode": 12,
+      "googleServicesFile": "./google-services.json",
+      "blockedPermissions": [
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO"
+      ],
+      "config": {
+        "googleMaps": {
+          "apiKey": "AIzaSyDB9u0LKWhMKSBImf97RJjD8KzNq8rfPMY"
+        }
+      }
+      
+    },
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/images/favicon.png"
+    },
+    "experiments": {
+      "typedRoutes": true
+    },
+    "extra": {
+      "router": {
+        "origin": false
+      },
+      "eas": {
+        "projectId": "cb3ec68d-4082-410c-aa02-6a6811456186"
+      }
+    },
+    "runtimeVersion": {
+      "policy": "appVersion"
+    },
+    "updates": {
+      "url": "https://u.expo.dev/cb3ec68d-4082-410c-aa02-6a6811456186"
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "@rnmapbox/maps",
+        {
+          "RNMapboxMapsVersion": "11.8.0",
+          "RNMapboxMapsDownloadToken": "sk.eyJ1IjoidHJhZGVldCIsImEiOiJjbTQ2MXZncmUweDI5MmpzNzdneXBod2VsIn0.xumMX6fnM9wF-URVMRCaVw"
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Show current location on map."
+        }
+      ],
+      [
+        "expo-image-picker",
+        {
+          "photosPermission": "The Tradeet Business app accesses your photos to let you upload product images."
+        }
+      ],
+      "expo-font"
+    ]
+  }
 }

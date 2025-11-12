@@ -1,211 +1,372 @@
+// contexts/ProductsContext.js
 import React, {
 	createContext,
 	useState,
-	useContext,
 	useEffect,
+	useContext,
 } from 'react';
-import axios from 'axios';
 import axiosInstance from '@/utils/axiosInstance';
+import { AuthContext } from '@/context/AuthContext';
 
 // Create Products Context
 const ProductsContext = createContext();
 
+// Helper to normalize server list shapes
+function normalizeListResponse(resp) {
+	// handle common response shapes:
+	// { items: [...] } | { products: [...] } | [...]
+	if (!resp) return [];
+	if (Array.isArray(resp)) return resp;
+	if (resp.items && Array.isArray(resp.items))
+		return resp.items;
+	if (resp.products && Array.isArray(resp.products))
+		return resp.products;
+	// fallback: server might return { data: [...] } but axios already unwraps data
+	return [];
+}
+
 // Products Provider
 const ProductsProvider = ({ children }) => {
+	const { selectedStore } = useContext(AuthContext);
+
 	const [products, setProducts] = useState([]);
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState(null);
 
-	// Fetch all products by storeId
-	const fetchProductsByStore = async (storeId) => {
+	// Fetch all products by storeId (optionally filtered by branchId)
+	// signature: fetchProductsByStore(storeId, branchId = null, opts = { page, q, limit })
+	const fetchProductsByStore = async (
+		storeId,
+		branchId = null,
+		opts = {},
+	) => {
 		setLoading(true);
+		setError(null);
 		try {
+			const params = {
+				...((opts.page && { page: opts.page }) || {}),
+				...((opts.limit && { limit: opts.limit }) || {}),
+				...(opts.q ? { q: opts.q } : {}),
+				...(branchId ? { branchId } : {}),
+			};
+
+			// endpoint: GET /catalog/stores/:storeId/private?branchId=...
 			const response = await axiosInstance.get(
-				`/products/store/${storeId}`,
+				`/catalog/stores/${storeId}/private`,
+				{ params },
 			);
-			setProducts(response.data);
+
+			// normalize response: prefer { items, total, page, perPage } if present
+			const data = response.data;
+			// if API returns array directly, we keep that; otherwise return structured object
+			if (Array.isArray(data)) {
+				setProducts(data);
+				setLoading(false);
+				return {
+					items: data,
+					total: data.length,
+					page: opts.page || 1,
+					perPage: opts.limit || data.length,
+				};
+			}
+
+			const items = data.items ?? data; // support both shapes
+			setProducts(items);
 			setLoading(false);
+			return data;
 		} catch (err) {
 			setError(
 				err.response?.data?.message ||
-					'Failed to fetch products',
+					err.message ||
+					'Failed to fetch product',
 			);
 			setLoading(false);
+			throw err;
 		}
 	};
 
-	// Add a new product
-	const addProduct = async (productData) => {
+	/**
+	 * addProduct
+	 * - productData: body or FormData (if uploading images)
+	 * - storeId optional override (branch-aware). If omitted uses selectedStore._id
+	 */
+	const addProduct = async (
+		productData,
+		storeId = null,
+	) => {
 		setLoading(true);
-		console.log(productData);
+		setError(null);
+
+		const resolvedStoreId = storeId || selectedStore?._id;
+		if (!resolvedStoreId) {
+			const e = new Error('No store/branch selected');
+			setError(e.message);
+			setLoading(false);
+			throw e;
+		}
+
 		try {
-			const response = await axiosInstance.post(
-				'/products',
+			const resp = await axiosInstance.post(
+				`/catalog/stores/${resolvedStoreId}`,
 				productData,
 			);
-			console.log('res: ', response);
-			// console.log(response);
-			setProducts([...products, response.data]);
+
+			// server may return the created item as resp.data.item or resp.data
+			const created =
+				resp?.data?.item ?? resp?.data ?? null;
+			if (!created) {
+				const e = new Error('Invalid response from server');
+				setError(e.message);
+				setLoading(false);
+				throw e;
+			}
+
+			// append to list
+			setProducts((prev) =>
+				Array.isArray(prev)
+					? [...prev, created]
+					: [created],
+			);
 			setLoading(false);
+			return created;
 		} catch (err) {
-			setError(
+			const msg =
 				err.response?.data?.message ||
-					'Failed to add product',
-			); 
+				err.message ||
+				'Failed to add product';
+			setError(msg);
 			setLoading(false);
+			throw err;
 		}
 	};
 
-	// Update a product by ID
+	/**
+	 * updateProduct
+	 * - id: product id
+	 * - updatedProductData: body or FormData
+	 * Note: endpoint kept as /catalog/:id (matches your server routes). No storeId needed.
+	 */
 	const updateProduct = async (id, updatedProductData) => {
 		setLoading(true);
+		setError(null);
 		try {
-			const response = await axiosInstance.put(
-				`/products/${id}`,
+			const resp = await axiosInstance.put(
+				`/catalog/${id}`,
 				updatedProductData,
 			);
-			setProducts(
-				products.map((product) =>
-					product._id === id ? response.data : product,
-				),
-			);
+
+			const updatedItem =
+				resp?.data?.item ?? resp?.data ?? null;
+
+			if (!updatedItem) {
+				throw new Error('Invalid response from server');
+			}
+
+			setProducts((prev) => {
+				if (!Array.isArray(prev)) return [updatedItem];
+				return prev.map((product) =>
+					String(product._id) === String(id)
+						? updatedItem
+						: product,
+				);
+			});
+
 			setLoading(false);
+			return updatedItem;
 		} catch (err) {
-			setError(
-				err.response?.data?.message ||
-					'Failed to update product',
-			);
+			console.error('updateProduct error', err);
+			const msg =
+				err?.response?.data?.message ||
+				err?.message ||
+				'Failed to update product';
+			setError(msg);
 			setLoading(false);
+			throw err;
 		}
 	};
 
-	// Delete a product by ID
+	/**
+	 * deleteProduct (by product id)
+	 */
 	const deleteProduct = async (id) => {
 		setLoading(true);
+		setError(null);
 		try {
-			await axiosInstance.delete(`/products/${id}`);
-			setProducts(
-				products.filter((product) => product._id !== id),
+			await axiosInstance.delete(`/catalog/${id}`);
+			setProducts((prev) =>
+				Array.isArray(prev)
+					? prev.filter((p) => String(p._id) !== String(id))
+					: [],
 			);
 			setLoading(false);
+			return true;
 		} catch (err) {
-			setError(
+			const msg =
 				err.response?.data?.message ||
-					'Failed to delete product',
-			);
+				err.message ||
+				'Failed to delete product';
+			setError(msg);
 			setLoading(false);
+			throw err;
 		}
 	};
 
-	// Update a variant in a product
+	/**
+	 * updateVariant / deleteVariant / updateAddon / deleteAddon
+	 * - These operate at product level. We'll keep the endpoints you had but adapt mapping.
+	 * - If your backend endpoints differ, adjust the paths accordingly.
+	 */
 	const updateVariant = async (
 		productId,
 		variantId,
 		updatedVariant,
 	) => {
 		setLoading(true);
+		setError(null);
 		try {
-			const response = await axiosInstance.put(
-				`/products/${productId}/variants/${variantId}`,
+			// endpoint may differ; adjust if your server uses /catalog/:productId/variants/:variantId
+			const resp = await axiosInstance.put(
+				`/catalog/${productId}/variants/${variantId}`,
 				updatedVariant,
 			);
-			const updatedProducts = products.map((product) =>
-				product._id === productId ? response.data : product,
+			const updatedProduct =
+				resp?.data?.item ?? resp?.data ?? null;
+			if (!updatedProduct)
+				throw new Error('Invalid response');
+			setProducts((prev) =>
+				prev.map((p) =>
+					String(p._id) === String(productId)
+						? updatedProduct
+						: p,
+				),
 			);
-			setProducts(updatedProducts);
 			setLoading(false);
+			return updatedProduct;
 		} catch (err) {
-			setError(
-				err.response?.data?.message ||
-					'Failed to update variant',
-			);
+			const msg =
+				err?.response?.data?.message ||
+				err?.message ||
+				'Failed to update variant';
+			setError(msg);
 			setLoading(false);
+			throw err;
 		}
 	};
 
-	// Delete a variant in a product
 	const deleteVariant = async (productId, variantId) => {
 		setLoading(true);
+		setError(null);
 		try {
 			await axiosInstance.delete(
-				`/products/${productId}/variants/${variantId}`,
+				`/catalog/${productId}/variants/${variantId}`,
 			);
-			const updatedProducts = products.map((product) => {
-				if (product._id === productId) {
+			setProducts((prev) =>
+				prev.map((p) => {
+					if (String(p._id) !== String(productId)) return p;
 					return {
-						...product,
-						variants: product.variants.filter(
-							(variant) => variant._id !== variantId,
+						...p,
+						variants: (p.variants || []).filter(
+							(v) => String(v._id) !== String(variantId),
 						),
 					};
-				}
-				return product;
-			});
-			setProducts(updatedProducts);
-			setLoading(false);
-		} catch (err) {
-			setError(
-				err.response?.data?.message ||
-					'Failed to delete variant',
+				}),
 			);
 			setLoading(false);
+			return true;
+		} catch (err) {
+			const msg =
+				err?.response?.data?.message ||
+				err?.message ||
+				'Failed to delete variant';
+			setError(msg);
+			setLoading(false);
+			throw err;
 		}
 	};
 
-	// Update an add-on in a product
 	const updateAddon = async (
 		productId,
 		addonId,
 		updatedAddon,
 	) => {
 		setLoading(true);
+		setError(null);
 		try {
-			const response = await axiosInstance.put(
-				`/products/${productId}/addons/${addonId}`,
+			const resp = await axiosInstance.put(
+				`/catalog/${productId}/addons/${addonId}`,
 				updatedAddon,
 			);
-			const updatedProducts = products.map((product) =>
-				product._id === productId ? response.data : product,
+			const updatedProduct =
+				resp?.data?.item ?? resp?.data ?? null;
+			if (!updatedProduct)
+				throw new Error('Invalid response');
+			setProducts((prev) =>
+				prev.map((p) =>
+					String(p._id) === String(productId)
+						? updatedProduct
+						: p,
+				),
 			);
-			setProducts(updatedProducts);
 			setLoading(false);
+			return updatedProduct;
 		} catch (err) {
-			setError(
-				err.response?.data?.message ||
-					'Failed to update add-on',
-			);
+			const msg =
+				err?.response?.data?.message ||
+				err?.message ||
+				'Failed to update add-on';
+			setError(msg);
 			setLoading(false);
+			throw err;
 		}
 	};
 
-	// Delete an add-on in a product
 	const deleteAddon = async (productId, addonId) => {
 		setLoading(true);
+		setError(null);
 		try {
 			await axiosInstance.delete(
-				`/products/${productId}/addons/${addonId}`,
+				`/catalog/${productId}/addons/${addonId}`,
 			);
-			const updatedProducts = products.map((product) => {
-				if (product._id === productId) {
+			setProducts((prev) =>
+				prev.map((p) => {
+					if (String(p._id) !== String(productId)) return p;
 					return {
-						...product,
-						addOns: product.addOns.filter(
-							(addon) => addon._id !== addonId,
+						...p,
+						addOns: (p.addOns || []).filter(
+							(a) => String(a._id) !== String(addonId),
 						),
 					};
-				}
-				return product;
-			});
-			setProducts(updatedProducts);
-			setLoading(false);
-		} catch (err) {
-			setError(
-				err.response?.data?.message ||
-					'Failed to delete add-on',
+				}),
 			);
 			setLoading(false);
+			return true;
+		} catch (err) {
+			const msg =
+				err?.response?.data?.message ||
+				err?.message ||
+				'Failed to delete add-on';
+			setError(msg);
+			setLoading(false);
+			throw err;
 		}
 	};
+
+	// Auto-fetch when selectedStore (branch) changes
+	useEffect(() => {
+		(async () => {
+			if (!selectedStore || !selectedStore._id) {
+				// clear products if no selection
+				setProducts([]);
+				return;
+			}
+			try {
+				await fetchProductsByStore(selectedStore._id);
+			} catch (e) {
+				// error already handled in fetchProductsByStore
+			}
+		})();
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [selectedStore?._id]);
 
 	// Context value with state and actions
 	const value = {
@@ -220,7 +381,7 @@ const ProductsProvider = ({ children }) => {
 		deleteVariant,
 		updateAddon,
 		deleteAddon,
-		setProducts,
+		setProducts, // exposed for local manipulations if needed
 	};
 
 	return (

@@ -12,15 +12,15 @@ const SkeletonLoader = () => {
                     paddingTop: 10
 				}}
 			>
-				<View
+				{/* <View
 					style={{
 						width: 70,
 						height: 70,
 						borderRadius: 35,
 						backgroundColor: '#e0e0e0',
 						marginBottom: 10,
-					}}
-				/>
+					}} 
+				/> */}
 				<View
 					style={{
 						height: 40,
@@ -110,7 +110,7 @@ const SkeletonLoader = () => {
 
 const styles = StyleSheet.create({
 	container: {
-		paddingHorizontal: 20,
+		paddingHorizontal: 10,
 		paddingVertical: 40,
         flex: 1,
         backgroundColor: '#fff'

@@ -5,6 +5,7 @@ import { TabBarIcon } from '@/components/navigation/TabBarIcon';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import LoadingScreen from '@/components/LoadingScreen';
+import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function TabLayout() {
 	const colorScheme = useColorScheme();
@@ -27,7 +28,7 @@ export default function TabLayout() {
 				},
 				tabBarLabelStyle: {
 					fontSize: 12,
-					marginTop: 10,
+					marginTop: 8,
 					fontWeight: 'bold',
 				},
 			}}
@@ -60,6 +61,21 @@ export default function TabLayout() {
 					),
 				}}
 			/>
+			{/* <Tabs.Screen
+				name="customers"
+				options={{
+					title: 'Customers',
+					tabBarIcon: ({ color, focused }) => (
+						<TabBarIcon
+							name={
+								focused ? 'people-sharp' : 'people-outline'
+							}
+							color={color}
+							size={26}
+						/>
+					),
+				}}
+			/> */}
 			<Tabs.Screen
 				name="products"
 				options={{
@@ -72,7 +88,7 @@ export default function TabLayout() {
 									: 'file-tray-stacked-outline'
 							}
 							color={color}
-							size={24}
+							size={22}
 						/>
 					),
 				}}
@@ -81,14 +97,19 @@ export default function TabLayout() {
 			<Tabs.Screen
 				name="settings"
 				options={{
-					title: 'Settings',
+					title: 'More',
 					tabBarIcon: ({ color, focused }) => (
-						<TabBarIcon
-							name={
-								focused ? 'settings' : 'settings-outline'
-							}
-							color={color}
+						// <TabBarIcon
+						// 	name={
+						// 		focused ? 'settings' : 'settings-outline'
+						// 	}
+						// 	color={color}
+						// 	size={24}
+						// />
+						<MaterialCommunityIcons
+							name={focused ? "dots-horizontal-circle" :"dots-horizontal"}
 							size={24}
+							color={color}
 						/>
 					),
 				}}

@@ -1,7 +1,9 @@
+// screens/BusinessHoursScreen.js
 import React, {
 	useContext,
 	useEffect,
 	useState,
+	useCallback,
 } from 'react';
 import {
 	View,
@@ -12,7 +14,7 @@ import {
 	Switch,
 	Platform,
 	Alert,
-	Button,
+	SafeAreaView,
 } from 'react-native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { StatusBar } from 'expo-status-bar';
@@ -21,6 +23,7 @@ import { router } from 'expo-router';
 import axiosInstance from '@/utils/axiosInstance';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthContext } from '@/context/AuthContext';
+import { Picker } from '@react-native-picker/picker';
 
 const days = [
 	'Monday',
@@ -32,144 +35,290 @@ const days = [
 	'Sunday',
 ];
 
+// Helper: convert minutes-from-midnight to Date object (same day)
+function minutesToDate(minutes) {
+	// clamp
+	const m = Number.isFinite(minutes)
+		? Math.max(0, Math.min(1440, minutes))
+		: 9 * 60;
+	const hours = Math.floor(m / 60);
+	const mins = m % 60;
+	// Use an arbitrary day for Date object (year 2024 to match prior code)
+	return new Date(2024, 0, 1, hours, mins, 0);
+}
+
+// Helper: convert Date -> minutes-from-midnight
+function dateToMinutes(d) {
+	if (!(d instanceof Date)) return 9 * 60;
+	return d.getHours() * 60 + d.getMinutes();
+}
+
 const BusinessHoursScreen = () => {
-	const { userInfo, checkLoginStatus } =
-		useContext(AuthContext);
-	const [businessData, setBusinessData] = useState(null);
+	const {
+		userInfo,
+		selectedStore: contextSelectedStore,
+		checkLoginStatus,
+	} = useContext(AuthContext);
+
+	// store selection (supports multiple stores)
+	const storesList = Array.isArray(userInfo?.stores)
+		? userInfo.stores
+		: [];
+	const [selectedStoreId, setSelectedStoreId] = useState(
+		contextSelectedStore?._id || storesList[0]?._id || null,
+	);
+
+	const [store, setStore] = useState(null);
+	const [loading, setLoading] = useState(false);
+
+	// hours state: each day: { day, open: boolean, openTime: Date, closeTime: Date }
 	const [hours, setHours] = useState(
 		days.map((day) => ({
 			day,
-			open: true,
-			openTime: new Date(2024, 0, 1, 9, 0), // Default 9:00 AM
-			closeTime: new Date(2024, 0, 1, 18, 0), // Default 6:00 PM
+			open: false,
+			openTime: minutesToDate(9 * 60),
+			closeTime: minutesToDate(18 * 60),
 		})),
 	);
 
-	const businessId = userInfo?._id;
-
-	// Function to get user information
-	const getBusinessInfo = async () => {
-		try {
-			const token = await AsyncStorage.getItem('userToken');
-			const response = await axiosInstance.get(
-				`/businesses/b/${businessId}`,
-				{
-					headers: {
-						Authorization: `Bearer ${token}`,
-					},
-				},
-			);
-
-			const fetchedBusiness = response.data.business;
-			setBusinessData(fetchedBusiness);
-
-			// Convert backend openingHours data into full Date objects
-			const updatedHours = days.map((day) => {
-				const dayData =
-					fetchedBusiness.openingHours?.[day] || null;
-				return {
-					day,
-					open: dayData !== null, // If null, it's closed
-					openTime: dayData
-						? new Date(2024, 0, 1, dayData.open, 0) // Convert hour to Date object
-						: new Date(2024, 0, 1, 9, 0), // Default to 9 AM if closed
-					closeTime: dayData
-						? new Date(2024, 0, 1, dayData.close, 0)
-						: new Date(2024, 0, 1, 18, 0), // Default to 6 PM if closed
-				};
-			});
-
-			setHours(updatedHours);
-		} catch (error) {
-			console.error(
-				'Failed to fetch user info:',
-				error.response?.data || error,
-			);
-		}
-	};
-
-	useEffect(() => {
-		getBusinessInfo();
-	}, []);
-
+	// time picker state
 	const [showPicker, setShowPicker] = useState({
 		index: null,
 		type: null,
 	});
 
+	console.log(contextSelectedStore, 'contextSelectedStore')
+
+	// fetch store detail from backend
+	const fetchStore = useCallback(
+		async (storeId) => {
+			if (!storeId) {
+				setStore(null);
+				return;
+			}
+			setLoading(true);
+			try {
+				const resp = await axiosInstance.get(
+					`/stores?id=${storeId}`,
+				);
+				const s = resp.data?.store ?? resp.data;
+				setStore(s);
+
+				// convert store.openingHours (minutes + closed flag) into UI hours
+				const openingHours = s?.branch?.openingHours ?? {};
+				const updated = days.map((day) => {
+					const dayData = openingHours?.[day];
+					// Interpret closed: treat null or { closed: true } or missing as closed
+					const closedFlag =
+						!dayData ||
+						(typeof dayData === 'object' &&
+							dayData.closed === true);
+					if (closedFlag) {
+						return {
+							day,
+							open: false,
+							openTime: minutesToDate(9 * 60),
+							closeTime: minutesToDate(18 * 60),
+						};
+					} else {
+						// dayData should have open and close (in minutes)
+						const openMin =
+							typeof dayData.open === 'number'
+								? Number(dayData.open)
+								: 9 * 60;
+						const closeMin =
+							typeof dayData.close === 'number'
+								? Number(dayData.close)
+								: 18 * 60;
+						return {
+							day,
+							open: true,
+							openTime: minutesToDate(openMin),
+							closeTime: minutesToDate(closeMin),
+						};
+					}
+				});
+				setHours(updated);
+			} catch (err) {
+				console.error(
+					'Failed to fetch store:',
+					err?.response?.data || err,
+				);
+				Alert.alert(
+					'Error',
+					'Could not load store opening hours.',
+				);
+			} finally {
+				setLoading(false);
+			}
+		},
+		[setStore],
+	);
+
+	useEffect(() => {
+		// initial selection from context
+		if (contextSelectedStore && contextSelectedStore._id) {
+			setSelectedStoreId(contextSelectedStore._id);
+		} else if (storesList.length > 0 && !selectedStoreId) {
+			setSelectedStoreId(storesList[0]._id);
+		}
+		// eslint-disable-next-line react-hooks/exhaustive-deps
+	}, [contextSelectedStore, storesList]);
+
+	// fetch whenever selectedStoreId changes
+	useEffect(() => {
+		if (selectedStoreId) fetchStore(selectedStoreId);
+	}, [selectedStoreId, fetchStore]);
+
+	// toggle open/closed
 	const toggleOpen = (index) => {
-		const updatedHours = [...hours];
-		updatedHours[index].open = !updatedHours[index].open;
-		setHours(updatedHours);
+		setHours((prev) => {
+			const next = [...prev];
+			next[index] = {
+				...next[index],
+				open: !next[index].open,
+			};
+			return next;
+		});
 	};
 
+	// update time from picker
 	const updateTime = (event, selectedTime, index, type) => {
+		// On Android, cancel selectedTime may be undefined; treat as no-op
 		if (selectedTime) {
-			const updatedHours = [...hours];
-			updatedHours[index][type] = selectedTime;
-			setHours(updatedHours);
+			setHours((prev) => {
+				const next = [...prev];
+				next[index] = {
+					...next[index],
+					[type]: selectedTime,
+				};
+				return next;
+			});
 		}
 		setShowPicker({ index: null, type: null });
 	};
 
+	// Save: build openingHours object per backend schema (minutes + closed flag)
 	const saveOpeningHours = async () => {
-		const formattedHours = {};
-		hours.forEach((item) => {
-			formattedHours[item.day] = item.open
-				? {
-						open: item.openTime.getHours(), // Send only the hour (0-23)
-						close: item.closeTime.getHours(),
-				  }
-				: null; // If closed, send null
-		});
+		if (!store || !store._id) {
+			Alert.alert('Error', 'No store selected');
+			return;
+		}
+
+		// Build object
+		const openingHours = {};
+		for (const item of hours) {
+			if (!item.open) {
+				// explicitly mark closed
+				openingHours[item.day] = { closed: true };
+			} else {
+				const openMin = dateToMinutes(item.openTime);
+				const closeMin = dateToMinutes(item.closeTime);
+
+				// Basic validation: close must be after open
+				if (closeMin <= openMin) {
+					Alert.alert(
+						'Validation',
+						`${item.day}: closing time must be after opening time`,
+					);
+					return;
+				}
+
+				openingHours[item.day] = {
+					open: openMin,
+					close: closeMin,
+					closed: false,
+				};
+			}
+		}
 
 		try {
 			const token = await AsyncStorage.getItem('userToken');
-			console.log(
-				'Sending payload:',
-				JSON.stringify(
-					{ openingHours: formattedHours },
-					null,
-					2,
-				),
-			); // Debugging
-
-			const response = await axiosInstance.put(
-				`/businesses/${businessId}/opening-hours`,
-				{ openingHours: formattedHours },
-				{
-					headers: {
-						Authorization: `Bearer ${token}`,
-						'Content-Type': 'application/json',
-					},
-				},
+			// Use PUT /stores/:id to update openingHours
+			await axiosInstance.put(
+				`/stores/branches/${contextSelectedStore._id}`,
+				{ openingHours }
 			);
 
-			console.log('Update successful:', response.data);
+			// Refresh local store/context
+			await fetchStore(contextSelectedStore._id);
+			if (typeof checkLoginStatus === 'function') {
+				// refresh global user info if needed
+				await checkLoginStatus();
+			}
+
 			Alert.alert(
 				'Success',
 				'Business hours updated successfully!',
 			);
-		} catch (error) {
+		} catch (err) {
 			console.error(
 				'Error updating opening hours:',
-				error.response?.data || error,
+				err?.response?.data || err,
 			);
 			Alert.alert(
 				'Error',
-				'Failed to update business hours. Try again.',
+				err?.response?.data?.message ||
+					'Failed to update business hours. Try again.',
 			);
 		}
 	};
 
+	const renderRow = ({ item, index }) => (
+		<View style={styles.row}>
+			<Text style={styles.day}>{item.day}</Text>
+
+			<Switch
+				value={item.open}
+				onValueChange={() => toggleOpen(index)}
+			/>
+
+			{item.open && (
+				<View style={styles.timeContainer}>
+					<TouchableOpacity
+						onPress={() =>
+							setShowPicker({
+								index,
+								type: 'openTime',
+							})
+						}
+					>
+						<Text style={styles.timeText}>
+							{item.openTime.toLocaleTimeString([], {
+								hour: '2-digit',
+								minute: '2-digit',
+							})}
+						</Text>
+					</TouchableOpacity>
+
+					<Text> - </Text>
+
+					<TouchableOpacity
+						onPress={() =>
+							setShowPicker({
+								index,
+								type: 'closeTime',
+							})
+						}
+					>
+						<Text style={styles.timeText}>
+							{item.closeTime.toLocaleTimeString([], {
+								hour: '2-digit',
+								minute: '2-digit',
+							})}
+						</Text>
+					</TouchableOpacity>
+				</View>
+			)}
+		</View>
+	);
+
 	return (
-		<View style={styles.container}>
+		<SafeAreaView style={styles.container}>
 			<StatusBar style="dark" backgroundColor="#f1f1f1" />
 			<View style={styles.header}>
 				<View style={styles.headerRow}>
-					<TouchableOpacity
-						onPress={() => router.push('/(app)/settings')}
-					>
+					<TouchableOpacity onPress={() => router.back()}>
 						<Ionicons
 							name="arrow-back-sharp"
 							size={22}
@@ -180,84 +329,69 @@ const BusinessHoursScreen = () => {
 						Business Hours
 					</Text>
 				</View>
+				{/* show selected store name */}
+				<View style={styles.storeInfoRow}>
+					<Text style={styles.storeLabel}>
+						Selected store:
+					</Text>
+					<View style={{flexDirection: 'row', alignItems: 'center', gap: 3}}>
+						<Text style={styles.storeName}>
+							{store?.name ?? store?.storeLink ?? '—'}
+						</Text>
+						<Text>--</Text>
+						<Text style={styles.storeName}>
+							{contextSelectedStore?.name ?? store?.storeLink ?? '—'}
+						</Text>
+					</View>
+				</View>
+
+				{/* if user has multiple stores allow switching */}
+				{storesList.length > 1 && (
+					<View style={styles.storePickerWrapper}>
+						<Picker
+							selectedValue={selectedStoreId}
+							onValueChange={(val) =>
+								setSelectedStoreId(val)
+							}
+							style={styles.storePicker}
+						>
+							{storesList.map((s) => (
+								<Picker.Item
+									key={s._id}
+									label={s.name || s.storeLink || s._id}
+									value={s._id}
+								/>
+							))}
+						</Picker>
+					</View>
+				)}
 			</View>
-			<View style={{ paddingHorizontal: 16 }}>
+
+			<View
+				style={{ paddingHorizontal: 16, paddingTop: 8 }}
+			>
 				<FlatList
 					data={hours}
-					keyExtractor={(item) => item.day}
-					renderItem={({ item, index }) => (
-						<View style={styles.row}>
-							<Text style={styles.day}>{item.day}</Text>
-							<Switch
-								value={item.open}
-								onValueChange={() => toggleOpen(index)}
-							/>
-							{item.open && (
-								<View style={styles.timeContainer}>
-									<TouchableOpacity
-										onPress={() =>
-											setShowPicker({
-												index,
-												type: 'openTime',
-											})
-										}
-									>
-										<Text style={styles.timeText}>
-											{item.openTime.toLocaleTimeString(
-												[],
-												{
-													hour: '2-digit',
-													minute: '2-digit',
-												},
-											)}
-										</Text>
-									</TouchableOpacity>
-									<Text> - </Text>
-									<TouchableOpacity
-										onPress={() =>
-											setShowPicker({
-												index,
-												type: 'closeTime',
-											})
-										}
-									>
-										<Text style={styles.timeText}>
-											{item.closeTime.toLocaleTimeString(
-												[],
-												{
-													hour: '2-digit',
-													minute: '2-digit',
-												},
-											)}
-										</Text>
-									</TouchableOpacity>
-								</View>
-							)}
-						</View>
-					)}
+					keyExtractor={(it) => it.day}
+					renderItem={renderRow}
 				/>
 			</View>
 
-			{/* Save Button */}
 			<View style={styles.buttonContainer}>
-				
 				<TouchableOpacity
-					style={{
-						backgroundColor: '#4CAF50',
-						paddingHorizontal: 16,
-                        borderRadius: 5,
-                        paddingVertical: 10
-					}}
+					style={styles.saveBtn}
 					onPress={saveOpeningHours}
 				>
-					<Text style={{textAlign: 'center', fontSize: 16, color: '#fff', fontWeight: 'bold'}}>Save</Text>
+					<Text style={styles.saveBtnText}>Save</Text>
 				</TouchableOpacity>
 			</View>
 
-			{/* Time Picker */}
 			{showPicker.index !== null && (
 				<DateTimePicker
-					value={hours[showPicker.index][showPicker.type]}
+					value={
+						hours[showPicker.index][showPicker.type] ??
+						minutesToDate(9 * 60)
+					}
 					mode="time"
 					display={
 						Platform.OS === 'ios' ? 'spinner' : 'default'
@@ -272,7 +406,7 @@ const BusinessHoursScreen = () => {
 					}
 				/>
 			)}
-		</View>
+		</SafeAreaView>
 	);
 };
 
@@ -280,49 +414,89 @@ const styles = StyleSheet.create({
 	container: {
 		flex: 1,
 		backgroundColor: '#fff',
-		paddingTop: 20,
 	},
 	header: {
-		paddingTop: 25,
+		paddingTop: 40,
 		elevation: 3,
 		backgroundColor: '#f1f1f1',
 		paddingHorizontal: 16,
-		paddingBottom: 20,
+		paddingBottom: 12,
 	},
 	headerRow: {
 		flexDirection: 'row',
 		alignItems: 'center',
-		gap: 5,
+		gap: 10,
 	},
 	headerText: {
-		fontSize: 24,
+		fontSize: 22,
+		marginLeft: 10,
+		fontWeight: '700',
 	},
+	storeInfoRow: {
+		marginTop: 8,
+		flexDirection: 'row',
+		alignItems: 'center',
+	},
+	storeLabel: {
+		color: '#6b7280',
+		marginRight: 8,
+	},
+	storeName: {
+		fontWeight: '600',
+		color: '#111827',
+	},
+	storePickerWrapper: {
+		marginTop: 8,
+		backgroundColor: '#fff',
+		borderRadius: 8,
+		borderWidth: 1,
+		borderColor: '#eee',
+		overflow: 'hidden',
+	},
+	storePicker: {
+		height: 40,
+		width: '100%',
+	},
+
 	row: {
 		flexDirection: 'row',
 		alignItems: 'center',
 		justifyContent: 'space-between',
-		paddingVertical: 12,
+		paddingVertical: 14,
+		paddingHorizontal: 8,
 		borderBottomWidth: 1,
-		borderColor: '#ddd',
+		borderColor: '#eee',
 	},
 	day: {
 		fontSize: 16,
-		fontWeight: 'bold',
+		fontWeight: '700',
 		flex: 1,
+		color: '#0f172a',
 	},
 	timeContainer: {
 		flexDirection: 'row',
 		alignItems: 'center',
-		gap: 10,
+		gap: 8,
 	},
 	timeText: {
-		fontSize: 16,
-		color: 'blue',
+		fontSize: 15,
+		color: '#1C99FF',
 		textDecorationLine: 'underline',
 	},
 	buttonContainer: {
-        margin: 16,
-        alignItems: 'flex-end'
+		margin: 16,
+		alignItems: 'flex-end',
+	},
+	saveBtn: {
+		backgroundColor: '#4CAF50',
+		paddingHorizontal: 18,
+		borderRadius: 8,
+		paddingVertical: 12,
+	},
+	saveBtnText: {
+		color: '#fff',
+		fontSize: 16,
+		fontWeight: '700',
 	},
 });
 

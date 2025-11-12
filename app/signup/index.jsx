@@ -48,12 +48,12 @@ export default function SplashScreen() {
 				// style={{ height: height * 0.4 }}
 				className="items-center justify-center pt-10"
 				style={{
-					width: '90%', // Increased image size
+					width: '85%', // Increased image size
 					// height: height * 0.4,
 					overflow: 'hidden',
 					borderWidth: 1,
 					borderColor: '#fcdbb8',
-					borderRadius: 50,
+					borderRadius: 10,
 					marginBottom: 20,
 				}}
 			>
@@ -63,7 +63,7 @@ export default function SplashScreen() {
 						width: '100%', // Increased image size
 						height: 400,
 						resizeMode: 'cover',
-						borderRadius: 50,
+						borderRadius: 10,
 					}}
 				/>
 			</View>

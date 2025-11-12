@@ -88,9 +88,9 @@ const ProfileScreen = () => {
 				},
 				{
 					id: '4',
-					title: 'Payment Methods',
+					title: 'Payment & Payouts',
 					icon: 'card',
-					// onPress: () => router.push('/(app)/payments'),
+					onPress: () => router.push('/(app)/payment-info'),
 				},
 			],
 		},

@@ -16,7 +16,7 @@ import { captureRef } from 'react-native-view-shot';
 import { AuthContext } from '@/context/AuthContext';
 import PlaceholderLogo from './PlaceholderLogo';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import axiosInstance from '@/utils/axiosInstance';
+import axiosInstance from '@/utils/axiosInstance'; 
 
 const ExpenseTable = ({
 	expenses,

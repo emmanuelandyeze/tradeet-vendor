@@ -7,6 +7,8 @@ import {
 import React from 'react';
 import {
 	FontAwesome6,
+	Ionicons,
+	MaterialCommunityIcons,
 	MaterialIcons,
 } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
@@ -20,56 +22,124 @@ const BusinessActions = () => {
 			<View
 				style={{
 					flexDirection: 'row',
-					gap: 10,
+					// gap: 10,
 					marginTop: 10,
+					justifyContent: 'space-between',
+					// width: '100%',
 				}}
 			>
 				<TouchableOpacity
-					style={[styles.button, styles.createInvoice]}
+					style={styles.buttonContainer}
 					onPress={() => router.push('/sales')}
 				>
-					<MaterialIcons
-						name="receipt"
-						size={14}
-						color="#212121"
-					/>
-					<Text style={styles.buttonText}>
-						Record Sales
-					</Text>
+					<View style={styles.button}>
+						<MaterialCommunityIcons
+							name="sale"
+							size={24}
+							color="#0C8C5B"
+						/>
+					</View>
+					<Text style={styles.buttonText}>Sales</Text>
 				</TouchableOpacity>
 				<TouchableOpacity
-					style={[styles.button, styles.updateInventory]}
+					style={styles.buttonContainer}
 					onPress={() => router.push('/expenses')}
 				>
-					<FontAwesome6
-						name="circle-minus"
-						size={14}
-						color="#212121"
-					/>
-					<Text style={styles.buttonText}>
-						Record expenses
-					</Text>
+					<View style={styles.button}>
+						<FontAwesome6
+							name="circle-minus"
+							size={25}
+							color="#0C8C5B"
+						/>
+					</View>
+					<Text style={styles.buttonText}>Expenses</Text>
 				</TouchableOpacity>
 				<TouchableOpacity
-					style={[
-						styles.button,
-						{ backgroundColor: '#E1F5F9', gap: 5 },
-					]}
+					style={styles.buttonContainer}
 					onPress={() => router.push('/invoices')}
 				>
-					<MaterialIcons
-						name="receipt"
-						size={14}
-						color="#212121"
-					/>
-					<Text
-						style={[
-							styles.buttonText,
-							{ color: '#212121', width: '80%', fontSize: 12},
-						]}
-					>
-						Create invoice
-					</Text>
+					<View style={styles.button}>
+						<MaterialIcons
+							name="receipt"
+							size={25}
+							color="#0C8C5B"
+						/>
+					</View>
+					<Text style={[styles.buttonText]}>Invoices</Text>
+				</TouchableOpacity>
+				<TouchableOpacity
+					style={styles.buttonContainer}
+					onPress={() => alert('Customer management coming soon!')}
+				>
+					<View style={styles.button}>
+						<MaterialIcons
+							name="people"
+							size={25}
+							color="#0C8C5B"
+						/>
+					</View>
+					<Text style={[styles.buttonText]}>Customers</Text>
+				</TouchableOpacity>
+			</View>
+			<View
+				style={{
+					flexDirection: 'row',
+					// backgroundColor: '#F5F5F5',
+					marginTop: 15,
+					justifyContent: 'space-between',
+				}}
+			>
+				<TouchableOpacity
+					style={styles.buttonContainer}
+					onPress={() => router.push('/delivery')}
+				>
+					<View style={styles.button}>
+						<MaterialCommunityIcons
+							name="bike-fast"
+							size={25}
+							color="#0C8C5B"
+						/>
+					</View>
+					<Text style={styles.buttonText}>Delivery</Text>
+				</TouchableOpacity>
+				<TouchableOpacity
+					style={styles.buttonContainer}
+					onPress={() => router.push('/(app)/setupstore')}
+				>
+					<View style={styles.button}>
+						<MaterialCommunityIcons
+							name="web"
+							size={25}
+							color="#0C8C5B"
+						/>
+					</View>
+					<Text style={styles.buttonText}>Edit Website</Text>
+				</TouchableOpacity>
+				<TouchableOpacity
+					style={styles.buttonContainer}
+					onPress={() => router.push('/(app)/discounts')}
+				>
+					<View style={styles.button}>
+						<MaterialIcons
+							name="discount"
+							size={25}
+							color="#0C8C5B"
+						/>
+					</View>
+					<Text style={[styles.buttonText]}>Discounts</Text>
+				</TouchableOpacity>
+				<TouchableOpacity
+					style={styles.buttonContainer}
+					onPress={() => alert('Marketing coming soon!')}
+				>
+					<View style={styles.button}>
+						<Ionicons
+							name="megaphone"
+							size={25}
+							color="#0C8C5B"
+						/>
+					</View>
+					<Text style={[styles.buttonText]}>Marketing</Text>
 				</TouchableOpacity>
 			</View>
 		</View>
@@ -80,41 +150,45 @@ export default BusinessActions;
 
 const styles = StyleSheet.create({
 	container: {
-		// flexDirection: 'row',
+		flexDirection: 'column',
 		// justifyContent: 'space-between',
-		paddingVertical: 16,
-		width: '100%',
 		backgroundColor: '#fff',
-		borderRadius: 10,
-		paddingHorizontal: 16,
-		elevation: 2,
+		marginTop: 15,
 		marginBottom: 5,
-		borderRightWidth: 3,
-		borderRightColor: '#fcdbb8',
-		borderBottomWidth: 1,
-		borderBottomColor: '#fcdbb8',
 	},
 	sectionTitle: {
 		fontSize: 18,
 		fontWeight: 'bold',
 		color: '#3C4043',
 	},
+	buttonContainer: {
+		// flex: 1,
+		flexDirection: 'column',
+		alignItems: 'center',
+		justifyContent: 'space-between',
+		
+	},
 	button: {
-		flex: 1,
-		flexDirection: 'row',
+		// flex: 1,
+		flexDirection: 'column',
 		alignItems: 'center',
 		justifyContent: 'center',
-		paddingVertical: 10,
-		paddingHorizontal: 5,
-		borderRadius: 5,
-		marginHorizontal: 5,
+		padding: 8,
+		borderRadius: 50,
+		marginHorizontal: 0,
 		gap: 0,
-		elevation: 1,
+		// elevation: 1,
+		backgroundColor: '#EDFBEF',
+		// width: '100%',
+		// borderWidth: 1,
+		borderColor: '#E0E0E0',
 	},
 	buttonText: {
 		color: '#212121',
-		fontSize: 12,
-		// marginLeft: 8,
+		fontSize: 13,
+		textAlign: 'center',
+		marginTop: 2,
+		fontWeight: 'semibold',
 	},
 
 	createInvoice: {

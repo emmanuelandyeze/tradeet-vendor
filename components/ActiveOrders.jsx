@@ -32,10 +32,6 @@ const ActiveOrders = ({ onCountChange, ordersData, sendPushNotification }) => {
 			
 
 			if (response.data.order) {
-				console.log(
-					'Emitting order update:',
-					response.data.order,
-				);
 
 				sendPushNotification(
 					order?.customerInfo?.expoPushToken,

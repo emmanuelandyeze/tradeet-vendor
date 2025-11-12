@@ -1,3 +1,4 @@
+// HomeScreen.jsx
 import { AuthContext } from '@/context/AuthContext';
 import axiosInstance from '@/utils/axiosInstance';
 import socket from '@/utils/socket';
@@ -12,15 +13,15 @@ import React, {
 } from 'react';
 import {
 	FlatList,
+	Linking,
 	RefreshControl,
 	TouchableWithoutFeedback,
-} from 'react-native';
-import {
 	View,
 	Text,
 	TouchableOpacity,
 	ScrollView,
 	StyleSheet,
+	Dimensions,
 } from 'react-native';
 import UpgradeButton from './UpgradeButton';
 import PaymentInfoModal from './PaymentInfoModal';
@@ -29,19 +30,54 @@ import TodoList from './TodoList';
 import Header from './Header';
 import SkeletonLoader from './SkeletonLoader';
 import BusinessActions from './BusinessActions';
+import StoreTodoBannerConnected from './StoreTodoBannerConnected';
 import { StatusBar } from 'expo-status-bar';
-import { AntDesign, Entypo } from '@expo/vector-icons';
+import {
+	AntDesign,
+	Entypo,
+	EvilIcons,
+} from '@expo/vector-icons';
 import FinancialSummaryFilter from './FinancialSummaryFilter';
 import OrderFilterDropdown from './OrderFilterDropdown';
 
-const HomeScreen = () => {
+const { width } = Dimensions.get('window');
+
+const formatOrderDate = (dateString) => {
+	if (!dateString) return '';
+	const date = new Date(dateString);
+	const day = String(date.getDate()).padStart(2, '0');
+	const monthNames = [
+		'Jan',
+		'Feb',
+		'Mar',
+		'Apr',
+		'May',
+		'Jun',
+		'Jul',
+		'Aug',
+		'Sep',
+		'Oct',
+		'Nov',
+		'Dec',
+	];
+	const month = monthNames[date.getMonth()];
+	const year = date.getFullYear();
+	const hours = String(date.getHours()).padStart(2, '0');
+	const minutes = String(date.getMinutes()).padStart(
+		2,
+		'0',
+	);
+	return `${day} ${month} ${year} ${hours}:${minutes}`;
+};
+
+const HomeScreen = ({ userInfo, setSelectedStore }) => {
 	const router = useRouter();
-	const { userInfo, checkLoginStatus } =
-		useContext(AuthContext);
 	const [orders, setOrders] = useState([]);
+	const { selectedStore } = useContext(AuthContext);
+	const [invoices, setInvoices] = useState([]); // NEW: invoices state
 	const [wallet, setWallet] = useState(0);
-	const [loading, setLoading] = useState(false);
-	const [filter, setFilter] = useState('in progress');
+	const [loading, setLoading] = useState(true);
+	const [filter, setFilter] = useState('inprogress');
 	const [filteredOrders, setFilteredOrders] =
 		useState(orders);
 	const [refreshing, setRefreshing] = useState(false);
@@ -49,76 +85,57 @@ const HomeScreen = () => {
 	const [expenses, setExpenses] = useState([]);
 	const [expensesLoading, setExpensesLoading] =
 		useState(false);
-
 	const [modalVisible, setModalVisible] = useState(false);
-
 	const [viewValues, setViewValues] = useState(true);
-
-	// New state for financial summary filter
 	const [financialFilter, setFinancialFilter] =
 		useState('allTime');
 	const [
 		selectedFinancialMonth,
 		setSelectedFinancialMonth,
 	] = useState(new Date());
+	const [selectedFinancialWeek, setSelectedFinancialWeek] =
+		useState(null);
 
-	const handleSavePaymentInfo = async (paymentInfo) => {
-		const response = await axiosInstance.post(
-			`/businesses/${userInfo?._id}/payment`,
-			{
-				bankName: paymentInfo.selectedBank.name,
-				accountNumber: paymentInfo.accountNumber,
-				accountName: paymentInfo.accountName,
-			},
-		);
-		console.log('Payment info saved:', response.data);
-		if (response.data.success === true) {
-			setModalVisible(false); // Hide the modal after saving the payment info
-			await getBusinessInfo(); // Update the user's business data with the new payment info
-		}
+	const handleWeekSelect = (range) => {
+		setSelectedFinancialWeek(range);
+		setFinancialFilter('selectedWeek');
 	};
 
-	// Effect to update the count of active orders whenever the orders list changes
 	useEffect(() => {
 		filterOrders();
 		fetchExpenses();
 	}, [orders, filter]);
 
-	// Function to get user information
 	const getBusinessInfo = async () => {
 		try {
 			setLoading(true);
 			const token = await AsyncStorage.getItem('userToken');
 			const response = await axiosInstance.get(
-				`/businesses/b/${userInfo?._id}`,
-				{
-					headers: {
-						Authorization: `Bearer ${token}`,
-					},
-				},
+				`/stores/?id=${selectedStore?._id}`,
 			);
-			// console.log('User info response:', response.data);
-			setBusinessData(response.data.business); // Update the user state with fetched data
+			setBusinessData(response.data.store);
 			setLoading(false);
 		} catch (error) {
 			console.error(
-				'Failed to fetch user info:',
+				'Failed to fetch store info:',
 				error.response?.data || error,
 			);
 			setLoading(false);
-			throw error; // Propagate error for handling in the UI
+			throw error;
 		}
 	};
-
-	// console.log('Business data:', businessData);
 
 	const fetchOrders = async () => {
 		try {
 			const response = await axiosInstance.get(
-				`/orders/store/${userInfo?._id}`,
+				`/orders/store/${selectedStore?.parent}?branchId=${selectedStore?._id}`,
 			);
-			// Reverse the fetched orders so that the newest orders are at the top
-			setOrders(response.data.reverse());
+			// if backend returns { orders: [...] } handle accordingly
+			const ordersData = Array.isArray(response.data)
+				? response.data
+				: response.data.orders ?? response.data;
+			setOrders((ordersData || []).slice().reverse());
+			console.log('orders: ', ordersData);
 			setLoading(false);
 		} catch (err) {
 			console.log(err.message || 'Error fetching orders');
@@ -126,12 +143,39 @@ const HomeScreen = () => {
 		}
 	};
 
+	// console.log('store: ', selectedStore)
+
+	// NEW: fetch invoices for the selected store
+	const fetchInvoices = async () => {
+		if (!selectedStore?._id) return;
+		try {
+			const res = await axiosInstance.get('/invoices', {
+				params: { storeId: selectedStore._id },
+			});
+			const data = Array.isArray(res.data)
+				? res.data
+				: res.data.invoices ?? res.data;
+			// ensure newest first
+			const sorted = (data || [])
+				.slice()
+				.sort(
+					(a, b) =>
+						new Date(b.createdAt) - new Date(a.createdAt),
+				);
+			setInvoices(sorted);
+		} catch (err) {
+			console.error(
+				'fetchInvoices error',
+				err?.response?.data ?? err.message,
+			);
+		}
+	};
+
 	const fetchWallet = async () => {
 		try {
 			const response = await axiosInstance.get(
-				`/businesses/wallet/${userInfo?._id}`,
+				`/businesses/wallet/${selectedStore?._id}`,
 			);
-			// Reverse the fetched orders so that the newest orders are at the top
 			setWallet(response.data.walletBalance);
 			setLoading(false);
 		} catch (err) {
@@ -145,9 +189,8 @@ const HomeScreen = () => {
 	const fetchExpenses = async () => {
 		try {
 			const response = await axiosInstance.get(
-				`/expenses/${userInfo?._id}`,
+				`/expenses/${selectedStore?._id}`,
 			);
-			console.log(response.data.expenses);
 			setExpenses(response.data.expenses);
 			setExpensesLoading(false);
 		} catch (err) {
@@ -156,10 +199,14 @@ const HomeScreen = () => {
 	};
 
 	useEffect(() => {
+		// initial load
 		getBusinessInfo();
 		fetchOrders();
 		fetchWallet();
+		fetchExpenses();
+		fetchInvoices(); // NEW: initial invoice load
 
+		// socket handlers for orders
 		const handleOrderUpdate = (updatedOrder) => {
 			setOrders((prevOrders) =>
 				prevOrders.map((order) =>
@@ -171,7 +218,6 @@ const HomeScreen = () => {
 		};
 
 		const handleNewOrder = (newOrder) => {
-			// Add new orders at the start of the array to keep the newest first
 			setOrders((prevOrders) => [newOrder, ...prevOrders]);
 		};
 
@@ -181,21 +227,57 @@ const HomeScreen = () => {
 			);
 		};
 
+		// socket handlers for invoices (NEW)
+		const handleInvoiceCreated = (newInvoice) => {
+			setInvoices((prev) => [newInvoice, ...prev]);
+		};
+		const handleInvoiceUpdated = (updatedInvoice) => {
+			setInvoices((prev) =>
+				prev.map((inv) =>
+					inv._id === updatedInvoice._id
+						? updatedInvoice
+						: inv,
+				),
+			);
+		};
+		const handleInvoiceDeleted = (invoiceId) => {
+			setInvoices((prev) =>
+				prev.filter((inv) => inv._id !== invoiceId),
+			);
+		};
+
 		socket.on('orderUpdate', handleOrderUpdate);
 		socket.on('newOrder', handleNewOrder);
 		socket.on('deleteOrder', handleDeleteOrder);
 
-		// Cleanup function
+		// invoice socket events
+		socket.on('invoiceCreated', handleInvoiceCreated);
+		socket.on('invoiceUpdated', handleInvoiceUpdated);
+		socket.on('invoiceDeleted', handleInvoiceDeleted);
+
 		return () => {
 			socket.off('orderUpdate', handleOrderUpdate);
 			socket.off('newOrder', handleNewOrder);
 			socket.off('deleteOrder', handleDeleteOrder);
+
+			socket.off('invoiceCreated', handleInvoiceCreated);
+			socket.off('invoiceUpdated', handleInvoiceUpdated);
+			socket.off('invoiceDeleted', handleInvoiceDeleted);
 		};
+		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
-	const ordersData = orders;
+	useEffect(() => {
+		if (selectedStore) {
+			setLoading(true);
+			getBusinessInfo();
+			fetchOrders();
+			fetchWallet();
+			fetchExpenses();
+			fetchInvoices(); // NEW: fetch invoices when store changes
+		}
+	}, [selectedStore]);
 
-	// Filtering logic for financial data
 	const filterFinancialData = (data, type) => {
 		const now = new Date();
 		const today = new Date(
@@ -217,7 +299,6 @@ const HomeScreen = () => {
 			59,
 			999,
 		);
-
 		const selectedMonthStart = new Date(
 			selectedFinancialMonth.getFullYear(),
 			selectedFinancialMonth.getMonth(),
@@ -232,13 +313,20 @@ const HomeScreen = () => {
 			59,
 			999,
 		);
+		const weekStart = selectedFinancialWeek?.start ?? null;
+		const weekEnd = selectedFinancialWeek?.end ?? null;
 
 		return data?.filter((item) => {
 			let itemDate;
 			if (type === 'order') {
 				itemDate = new Date(item.createdAt);
 			} else if (type === 'expense') {
-				itemDate = new Date(item.date); // Assuming expenses have a 'date' field
+				itemDate = new Date(item.date);
+			} else if (type === 'invoice') {
+				// invoices may use createdAt or issuedAt
+				itemDate = new Date(
+					item.createdAt || item.issuedAt,
+				);
 			}
 
 			if (!itemDate) return false;
@@ -261,77 +349,76 @@ const HomeScreen = () => {
 					itemDate >= selectedMonthStart &&
 					itemDate <= selectedMonthEnd
 				);
+			} else if (
+				financialFilter === 'selectedWeek' &&
+				weekStart &&
+				weekEnd
+			) {
+				return itemDate >= weekStart && itemDate <= weekEnd;
 			}
 			return true;
 		});
 	};
 
+	// filtered orders used for financial summaries: exclude cancelled orders
 	const filteredOrdersForFinancialSummary =
-		filterFinancialData(orders, 'order');
+		filterFinancialData(
+			orders.filter((o) => o?.status !== 'cancelled'),
+			'order',
+		);
+
 	const filteredExpensesForFinancialSummary =
 		filterFinancialData(expenses, 'expense');
-
-	const ongoingOrders = orders?.filter(
-		(order) =>
-			order.status === 'pending' ||
-			order.status === 'accepted',
-	);
-
-	const completedOrders = orders?.filter(
-		(order) => order.status === 'completed',
-	);
+	const filteredInvoicesForFinancialSummary =
+		filterFinancialData(invoices, 'invoice'); // NEW
 
 	const paidOrders =
 		filteredOrdersForFinancialSummary?.filter(
-			(order) => order.payment.status === 'completed',
+			(order) => order.payment.status === 'paid',
 		);
-
 	const totalAmount = paidOrders?.reduce(
 		(total, order) => total + order.totalAmount,
 		0,
 	);
-
-	const pendingOrders =
-		filteredOrdersForFinancialSummary?.filter(
-			(order) => order.payment.status === 'pending',
-		);
-
-	const totalPendingAmount =
-		filteredOrdersForFinancialSummary?.reduce(
+	// existing order outstanding calc (unchanged)
+	// existing order outstanding calc (exclude cancelled orders)
+	const totalPendingAmountOrders =
+		(filteredOrdersForFinancialSummary || []).reduce(
 			(total, order) => {
+				if (!order || order.status === 'cancelled')
+					return total;
+
 				const itemsAmount = order.itemsAmount || 0;
 				const deliveryFee = order.deliveryFee || 0;
 				const discountAmount = order.discountAmount || 0;
-				const amountPaid = order.amountPaid || 0;
-
+				const amountPaid =
+					order.payment?.providerData?.amountPaid || 0;
 				const vendorTotal =
 					itemsAmount + deliveryFee - discountAmount;
 				const balance = Math.max(
 					0,
 					vendorTotal - amountPaid,
 				);
-
 				return total + balance;
 			},
 			0,
 		) || 0;
 
-	const totalIncomeAmount =
+	// existing order income calc (unchanged for orders)
+	const totalIncomeFromOrders =
 		filteredOrdersForFinancialSummary?.reduce(
 			(total, order) => {
 				const itemsAmount = order.itemsAmount || 0;
 				const deliveryFee = order.deliveryFee || 0;
 				const discountAmount = order.discountAmount || 0;
-				const amountPaid = order.amountPaid || 0;
-
+				const amountPaid =
+					order.payment?.providerData?.amountPaid || 0;
 				const vendorTotal =
 					itemsAmount + deliveryFee - discountAmount;
-
 				const vendorIncome = Math.min(
 					vendorTotal,
 					amountPaid,
 				);
-
 				return total + vendorIncome;
 			},
 			0,
@@ -342,22 +429,113 @@ const HomeScreen = () => {
 			(total, expense) => total + expense.amount,
 			0,
 		);
-
 	const profitOrLossAmount =
-		totalIncomeAmount - totalExpensesAmount;
+		totalIncomeFromOrders - totalExpensesAmount;
+
+	// NEW: invoice-based metrics
+	// invoicePaidTotal: sum paid amounts for invoices (prefer invoice.paidAmount, else sum payments)
+	const invoicePaidTotal = (
+		filteredInvoicesForFinancialSummary || []
+	).reduce((sum, inv) => {
+		let paid = 0;
+		if (typeof inv.paidAmount === 'number') {
+			paid = inv.paidAmount;
+		} else if (
+			Array.isArray(inv.payments) &&
+			inv.payments.length
+		) {
+			paid = inv.payments.reduce(
+				(s, p) => s + (p.amount || 0),
+				0,
+			);
+		} else if (inv.payment?.providerData?.amountPaid) {
+			paid = inv.payment.providerData.amountPaid;
+		}
+		return sum + (paid || 0);
+	}, 0);
+
+	// invoiceOutstandingTotal: prefer outstandingAmount, else compute totalAmount - paid
+	const invoiceOutstandingTotal = (
+		filteredInvoicesForFinancialSummary || []
+	).reduce((sum, inv) => {
+		let outstanding = 0;
+		if (typeof inv.outstandingAmount === 'number') {
+			outstanding = inv.outstandingAmount;
+		} else {
+			const total = Number(inv.totalAmount || 0);
+			let paid = 0;
+			if (typeof inv.paidAmount === 'number') {
+				paid = inv.paidAmount;
+			} else if (
+				Array.isArray(inv.payments) &&
+				inv.payments.length
+			) {
+				paid = inv.payments.reduce(
+					(s, p) => s + (p.amount || 0),
+					0,
+				);
+			} else if (inv.payment?.providerData?.amountPaid) {
+				paid = inv.payment.providerData.amountPaid;
+			}
+			outstanding = Math.max(0, total - paid);
+		}
+		return sum + (outstanding || 0);
+	}, 0);
+
+	// combine invoice totals
+	const totalInvoiceAmount =
+		filteredInvoicesForFinancialSummary?.reduce(
+			(total, inv) => total + (inv.totalAmount || 0),
+			0,
+		) || 0;
+	const unpaidInvoicesCount =
+		filteredInvoicesForFinancialSummary?.filter(
+			(inv) => inv.status !== 'paid',
+		).length || 0;
+
+	// NOW add invoicePaidTotal to totalIncome and invoiceOutstandingTotal to outstanding
+	const totalIncomeAmount =
+		totalIncomeFromOrders + invoicePaidTotal;
+	const totalPendingAmount =
+		(totalPendingAmountOrders || 0) +
+		invoiceOutstandingTotal;
 
 	const filterOrders = () => {
-		if (filter === 'in progress') {
+		if (
+			filter === 'inprogress' ||
+			filter === 'in progress'
+		) {
+			const results = orders?.filter((order) => {
+				if (!order) return false;
+				if (order.status === 'cancelled') return false;
+				const isPaid = order?.payment?.status === 'paid';
+				const isOngoingStatus = [
+					'pending',
+					'accepted',
+					'processing',
+				].includes(order?.status);
+				return isPaid && isOngoingStatus;
+			});
+			setFilteredOrders(results);
+		} else if (
+			filter === 'notpaid' ||
+			filter === 'not paid'
+		) {
+			// show only not-paid orders that are NOT cancelled
+			const results = orders?.filter((order) => {
+				if (!order) return false;
+				if (order.status === 'cancelled') return false;
+				return order?.payment?.status !== 'paid';
+			});
+			setFilteredOrders(results);
+		} else {
+			// generic status filter, exclude cancelled results even if filter matches 'cancelled' (we might want to show cancelled in a separate tab)
 			setFilteredOrders(
 				orders?.filter(
 					(order) =>
-						order.status === 'pending' ||
-						order.status === 'accepted',
+						order.status === filter &&
+						order.status !== 'cancelled',
 				),
-			);
-		} else {
-			setFilteredOrders(
-				orders?.filter((order) => order.status === filter),
 			);
 		}
 	};
@@ -367,11 +545,12 @@ const HomeScreen = () => {
 		fetchOrders();
 		getBusinessInfo();
 		fetchWallet();
-		fetchExpenses(); // Refresh expenses as well
+		fetchExpenses();
+		fetchInvoices(); // NEW: refresh invoices too
 		setTimeout(() => {
 			setRefreshing(false);
-		}, 3000);
-	}, []);
+		}, 1500);
+	}, [selectedStore]);
 
 	const toggleView = () => {
 		setViewValues(!viewValues);
@@ -379,510 +558,401 @@ const HomeScreen = () => {
 
 	const handleFinancialFilterChange = (newFilter) => {
 		setFinancialFilter(newFilter);
-		if (newFilter === 'selectedMonth') {
-			// If selecting a month, ensure the picker is shown if not already
-			// This will be handled by the FinancialSummaryFilter component
-		}
 	};
 
 	const handleMonthSelect = (date) => {
 		setSelectedFinancialMonth(date);
-		setFinancialFilter('selectedMonth'); // Set filter to selectedMonth when a month is chosen
+		setFinancialFilter('selectedMonth');
 	};
 
 	const handleOrderFilterSelect = (selectedOption) => {
 		setFilter(selectedOption);
 	};
 
-	const quickAccessItems = [
-		{
-			label: 'Add Product',
-			icon: 'bag-add-outline',
-			route: '/(app)/(tabs)/products',
-		},
-		{
-			label: 'Manage Store',
-			icon: 'settings-outline',
-			route: '/(app)/(tabs)/settings',
-		},
-		{
-			label: 'Analytics',
-			icon: 'pie-chart-outline',
-			locked:
-				businessData?.plan.name !== 'Pro' ? true : false,
-		},
-		{
-			label: 'Discounts',
-			icon: 'pricetags-outline',
-			// locked: businessData?.plan?.name === 'Starter',
-			route: '/(app)/discounts',
-		},
-		{
-			label: 'Marketing',
-			icon: 'megaphone-outline',
-			locked:
-				businessData?.plan?.name !== 'Pro' ? true : false,
-		},
-		{
-			label: 'Help & Guides',
-			icon: 'help-circle-outline',
-			route: '/(app)/helpsandguides',
-		},
-	];
+	const handleOpenWebsite = () => {
+		Linking.openURL(
+			`https://${selectedStore?.storeLink}.tradeet.ng`,
+		);
+	};
 
 	return (
 		<View style={styles.container}>
 			<StatusBar style="light" backgroundColor="#065637" />
-			{loading ? (
-				<SkeletonLoader />
-			) : (
-				<>
-					<Header userInfo={businessData} />
-					<ScrollView
-						contentContainerStyle={styles.contentContainer}
-						refreshControl={
-							<RefreshControl
-								refreshing={refreshing}
-								onRefresh={onRefresh}
-							/>
-						}
-					>
-						{/* <View
-							style={{
-								marginBottom: 8,
-								alignItems: 'center',
-								backgroundColor: 'green',
-								borderRadius: 5,
-								paddingVertical: 6,
-							}}
-						>
-							<UpgradeButton
-								businessData={businessData}
-								getBusinessInfo={getBusinessInfo}
-							/>
-						</View> */}
-						{/* Todo List */}
-						<TodoList
-							businessData={businessData}
-							setModalVisible={setModalVisible}
+			<Header
+				loading={loading}
+				userInfo={userInfo}
+				storeInfo={businessData}
+			/>
+			<View style={styles.mainContent}>
+				<ScrollView
+					contentContainerStyle={styles.scrollContent}
+					showsVerticalScrollIndicator={false}
+					refreshControl={
+						<RefreshControl
+							refreshing={refreshing}
+							onRefresh={onRefresh}
 						/>
-
-						<PaymentInfoModal
-							visible={modalVisible}
-							onClose={() => setModalVisible(false)}
-							onSave={handleSavePaymentInfo}
-						/>
-
-						{/* Sales Overview */}
-						<View style={{}}>
-							<View
-								style={{
-									flexDirection: 'row',
-									alignItems: 'center',
-									gap: 10,
-									marginBottom: 10,
-								}}
-							>
+					}
+				>
+					{/* Business Overview Section */}
+					<View style={styles.section}>
+						<View style={styles.sectionHeader}>
+							<View style={styles.sectionTitleRow}>
 								<Text style={styles.sectionTitle}>
 									Business Overview
 								</Text>
-								<TouchableOpacity
-									onPress={() => toggleView()}
-								>
+								<TouchableOpacity onPress={toggleView}>
 									<Ionicons
 										name={
-											!viewValues
-												? 'eye-off-outline'
-												: 'eye-outline'
+											viewValues
+												? 'eye-outline'
+												: 'eye-off-outline'
 										}
 										size={20}
 										color="#3C4043"
 									/>
 								</TouchableOpacity>
 							</View>
-							<FinancialSummaryFilter
-								onFilterChange={handleFinancialFilterChange}
-								onMonthSelect={handleMonthSelect}
-								currentFilter={financialFilter}
-							/>
-							<View style={styles.statsContainer}>
+							{selectedStore?.storeLink && (
+								<TouchableOpacity
+									onPress={handleOpenWebsite}
+									style={styles.openStoreButton}
+								>
+									<Text style={styles.openStoreButtonText}>
+										Visit Store
+									</Text>
+									<EvilIcons
+										name="external-link"
+										size={22}
+										color="#065637"
+									/>
+								</TouchableOpacity>
+							)}
+						</View>
+						<FinancialSummaryFilter
+							onFilterChange={handleFinancialFilterChange}
+							onMonthSelect={handleMonthSelect}
+							onWeekSelect={handleWeekSelect}
+							currentFilter={financialFilter}
+						/>
+
+						{/* Stats: now includes invoices */}
+						<View style={styles.statsContainer}>
+							<TouchableWithoutFeedback>
 								<View
 									style={[
-										styles.statBox,
-										// { backgroundColor: '#DFF6E2' },
+										styles.statCard,
+										styles.incomeCard,
 									]}
 								>
-									<View
-										style={{
-											flexDirection: 'row',
-											alignItems: 'center',
-											gap: 1,
-										}}
-									>
+									<View style={styles.statHeader}>
 										<Entypo
-											name="arrow-bold-up"
+											name="arrow-bold-down"
 											size={16}
-											color="green"
+											color="#065637"
 										/>
 										<Text style={styles.statLabel}>
 											Income
 										</Text>
 									</View>
-									<Text
-										style={
-											!viewValues
-												? styles.blurredText
-												: styles.statValue
-										}
-									>
-										₦{totalIncomeAmount?.toLocaleString()}
-									</Text>
-								</View>
-								<TouchableWithoutFeedback
-									onPress={() => router.push('/invoices')}
-								>
-									<View
-										style={[
-											styles.statBox,
-											// { backgroundColor: '#E1F5F9' },
-										]}
-									>
-										<View
-											style={{
-												flexDirection: 'row',
-												alignItems: 'center',
-												gap: 2,
-											}}
-										>
-											<AntDesign
-												name="minuscircle"
-												size={14}
-												color="gray"
-											/>
-											<Text style={styles.statLabel}>
-												Outstanding
-											</Text>
-										</View>
+									{loading ? (
+										<View style={styles.skeletonBox} />
+									) : (
 										<Text
 											style={
-												!viewValues
-													? styles.blurredText
-													: styles.statValue
+												viewValues
+													? styles.statValue
+													: styles.blurredText
+											}
+										>
+											₦{totalIncomeAmount?.toLocaleString()}
+										</Text>
+									)}
+								</View>
+							</TouchableWithoutFeedback>
+
+							<TouchableWithoutFeedback
+								onPress={() =>
+									router.push('/(app)/invoices')
+								}
+							>
+								<View
+									style={[
+										styles.statCard,
+										styles.invoiceCard,
+									]}
+								>
+									<View style={styles.statHeader}>
+										<AntDesign
+											name="file1"
+											size={14}
+											color="#065637"
+										/>
+										<Text style={styles.statLabel}>
+											Invoices
+										</Text>
+									</View>
+									{loading ? (
+										<View style={styles.skeletonBox} />
+									) : (
+										<View>
+											<Text
+												style={
+													viewValues
+														? styles.statValue
+														: styles.blurredText
+												}
+											>
+												₦
+												{totalInvoiceAmount?.toLocaleString()}
+											</Text>
+											<View
+												style={{
+													flexDirection: 'row',
+													justifyContent: 'space-between',
+												}}
+											>
+												<Text
+													style={{
+														fontSize: 12,
+														color: '#374151',
+														marginTop: 6,
+													}}
+												>
+													{unpaidInvoicesCount} unpaid
+												</Text>
+												<Text
+													style={{
+														fontSize: 12,
+														color: '#374151',
+														marginTop: 6,
+													}}
+												>
+													View {'>'}
+												</Text>
+											</View>
+										</View>
+									)}
+								</View>
+							</TouchableWithoutFeedback>
+
+							<TouchableWithoutFeedback>
+								<View
+									style={[
+										styles.statCard,
+										styles.outstandingCard,
+									]}
+								>
+									<View style={styles.statHeader}>
+										<AntDesign
+											name="minuscircle"
+											size={16}
+											color="#6B7280"
+										/>
+										<Text style={styles.statLabel}>
+											Outstanding
+										</Text>
+									</View>
+									{loading ? (
+										<View style={styles.skeletonBox} />
+									) : (
+										<Text
+											style={
+												viewValues
+													? styles.statValue
+													: styles.blurredText
 											}
 										>
 											₦
 											{totalPendingAmount?.toLocaleString()}
 										</Text>
-									</View>
-								</TouchableWithoutFeedback>
-								<TouchableWithoutFeedback
-									onPress={() => router.push('/expenses')}
+									)}
+								</View>
+							</TouchableWithoutFeedback>
+
+							<TouchableWithoutFeedback>
+								<View
+									style={[
+										styles.statCard,
+										styles.expensesCard,
+									]}
 								>
-									<View
-										style={[
-											styles.statBox,
-											// { backgroundColor: '#FDE5E9' },
-										]}
-									>
-										<View
-											style={{
-												flexDirection: 'row',
-												alignItems: 'center',
-												gap: 1,
-											}}
-										>
-											<Entypo
-												name="arrow-bold-down"
-												size={16}
-												color="#89192F"
-											/>
-											<Text style={styles.statLabel}>
-												Expenses
-											</Text>
-										</View>
+									<View style={styles.statHeader}>
+										<Entypo
+											name="arrow-bold-up"
+											size={16}
+											color="#B91C1C"
+										/>
+										<Text style={styles.statLabel}>
+											Expenses
+										</Text>
+									</View>
+									{loading ? (
+										<View style={styles.skeletonBox} />
+									) : (
 										<Text
 											style={
-												!viewValues
-													? styles.blurredText
-													: styles.statValue
+												viewValues
+													? styles.statValue
+													: styles.blurredText
 											}
 										>
 											₦
 											{totalExpensesAmount?.toLocaleString()}
 										</Text>
-									</View>
-								</TouchableWithoutFeedback>
-							</View>
-							<View style={[styles.statsContainer]}>
-								<TouchableOpacity
-									onPress={() => router.push('/transfer')}
+									)}
+								</View>
+							</TouchableWithoutFeedback>
+						</View>
+
+						<StoreTodoBannerConnected />
+						<BusinessActions />
+					</View>
+
+					{/* Sales Management Section */}
+					<View style={styles.section}>
+						<View style={styles.sectionHeader}>
+							<Text style={styles.sectionTitle}>
+								Sales Management
+							</Text>
+						</View>
+						<View style={styles.tabsContainer}>
+							<TouchableOpacity
+								onPress={() => setFilter('inprogress')}
+								style={[
+									styles.tabButton,
+									filter === 'inprogress' &&
+										styles.activeTabButton,
+								]}
+							>
+								<Text
 									style={[
-										styles.statBox,
-										// { backgroundColor: '#EAE6F8' },
+										styles.tabText,
+										filter === 'inprogress' &&
+											styles.activeTabText,
 									]}
+								>
+									In Progress
+								</Text>
+							</TouchableOpacity>
+							<TouchableOpacity
+								onPress={() => setFilter('notpaid')}
+								style={[
+									styles.tabButton,
+									filter === 'notpaid' &&
+										styles.activeTabButton,
+								]}
+							>
+								<Text
+									style={[
+										styles.tabText,
+										filter === 'notpaid' &&
+											styles.activeTabText,
+									]}
+								>
+									Not Paid
+								</Text>
+							</TouchableOpacity>
+							<TouchableOpacity
+								onPress={() => setFilter('completed')}
+								style={[
+									styles.tabButton,
+									filter === 'completed' &&
+										styles.activeTabButton,
+								]}
+							>
+								<Text
+									style={[
+										styles.tabText,
+										filter === 'completed' &&
+											styles.activeTabText,
+									]}
+								>
+									Completed
+								</Text>
+							</TouchableOpacity>
+						</View>
+						<FlatList
+							data={filteredOrders?.slice(0, 15)}
+							keyExtractor={(item) => item._id}
+							renderItem={({ item }) => (
+								<TouchableOpacity
+									style={styles.orderCard}
+									onPress={() =>
+										router.push(`/(app)/orders/${item._id}`)
+									}
 								>
 									<View
 										style={{
 											flexDirection: 'row',
+											gap: 10,
 											alignItems: 'center',
-											justifyContent: 'space-between',
 										}}
 									>
-										<View
-											style={{
-												flexDirection: 'row',
-												alignItems: 'center',
-												gap: 2,
-											}}
-										>
-											<Ionicons
-												name="wallet"
-												size={16}
-												color="#159BBC"
-											/>
-											<Text style={styles.statLabel}>
-												Wallet
-											</Text>
-										</View>
-										<View style={{ flexDirection: 'row', gap: 1 }}>
-											<Ionicons
-												name="chevron-forward"
-												size={16}
-												color="#159BBC"
-											/>
-											{/* <Ionicons
-												name="chevron-forward"
-												size={16}
-												color="#159BBC"
-											/> */}
-										</View>
-									</View>
-									<Text
-										style={
-											!viewValues
-												? styles.blurredText
-												: styles.statValue
-										}
-									>
-										₦{wallet?.toLocaleString()}
-									</Text>
-								</TouchableOpacity>
-							</View>
-							<BusinessActions />
-						</View>
-
-						{/* Order Management */}
-						<View
-							style={{ marginTop: 10, marginBottom: 20 }}
-						>
-							<View
-								style={{
-									flexDirection: 'row',
-									justifyContent: 'space-between',
-									alignItems: 'center',
-									gap: 2,
-									marginBottom: 5,
-								}}
-							>
-								<Text style={styles.sectionTitle}>
-									Sales Management
-								</Text>
-								<OrderFilterDropdown
-									currentFilter={filter}
-									onSelectFilter={handleOrderFilterSelect}
-									ongoingCount={ongoingOrders?.length || 0}
-									completedCount={
-										completedOrders?.length || 0
-									}
-								/>
-							</View>
-
-							<FlatList
-								data={filteredOrders?.slice(0, 4)}
-								keyExtractor={(item) => item._id}
-								renderItem={({ item }) => (
-									<TouchableOpacity
-										style={styles.orderRow}
-										onPress={() =>
-											router.push(
-												`/(app)/orders/${item._id}`,
-											)
-										}
-									>
-										<Text style={styles.orderText}>
-											Order #{item.orderNumber}
+										<Text style={styles.orderName}>
+											{item.customerInfo.name}
 										</Text>
-										<View style={styles.headerRight}>
+										<Text style={styles.orderAmount}>
+											₦
+											{(
+												item.totalAmount - item.serviceFee
+											)?.toLocaleString()}
+										</Text>
+									</View>
+									<View
+										style={{
+											flexDirection: 'row',
+											justifyContent: 'space-between',
+											alignItems: 'center',
+										}}
+									>
+										<Text style={styles.orderDateText}>
+											{formatOrderDate(item.createdAt)}
+										</Text>
+										<View
+											style={styles.orderStatusContainer}
+										>
 											<View
-												style={{
-													display: 'flex',
-													flexDirection: 'row',
-													gap: 5,
-													alignItems: 'center',
-													backgroundColor:
-														item.payment.status !==
-														'completed'
-															? '#FFF7E5'
-															: 'green',
-													paddingHorizontal: 10,
-													borderRadius: 15,
-													paddingVertical: 5,
-												}}
+												style={[
+													styles.statusBadge,
+													item.payment.status !== 'paid'
+														? styles.notPaidBadge
+														: styles.paidBadge,
+												]}
 											>
-												<Text
-													style={{
-														fontSize: 10,
-														color:
-															item.payment.status !==
-															'completed'
-																? '#212121'
-																: 'white',
-
-														textTransform: 'capitalize',
-													}}
-												>
-													{item?.payment?.status !==
-													'completed'
-														? 'Not paid'
+												<Text style={styles.statusText}>
+													{item.payment.status !== 'paid'
+														? 'Not Paid'
 														: 'Paid'}
 												</Text>
 											</View>
 											<View
-												style={{
-													display: 'flex',
-													flexDirection: 'row',
-													gap: 5,
-													alignItems: 'center',
-													backgroundColor:
-														item.status === 'completed'
-															? 'green'
-															: '#FFF9CC',
-													paddingHorizontal: 10,
-													borderRadius: 15,
-													paddingVertical: 5,
-												}}
+												style={[
+													styles.statusBadge,
+													item.status === 'completed'
+														? styles.completedBadge
+														: styles.pendingBadge,
+												]}
 											>
-												<Text
-													style={{
-														fontSize: 10,
-														color:
-															item.status === 'completed'
-																? '#fff'
-																: '#121212',
-														textTransform: 'capitalize',
-													}}
-												>
-													{item?.status}
+												<Text style={styles.statusText}>
+													{item.status}
 												</Text>
 											</View>
 										</View>
-									</TouchableOpacity>
-								)}
-								ListEmptyComponent={
-									<View
-										style={{
-											justifyContent: 'center',
-											height: 50,
-										}}
-									>
-										<Text
-											style={{
-												textAlign: 'center',
-												fontSize: 14,
-											}}
-										>
-											No active orders
-										</Text>
 									</View>
-								}
-							/>
-						</View>
-
-						{/* Quick Access Buttons */}
-						<View style={{}}>
-							<Text style={styles.sectionTitle}>
-								Quick Access
-							</Text>
-							<View
-								style={{
-									flexDirection: 'row',
-									flexWrap: 'wrap',
-									justifyContent: 'space-between',
-									marginTop: 10,
-								}}
-							>
-								{quickAccessItems?.map((item, index) => (
-									<TouchableOpacity
-										key={index}
-										onPress={() =>
-											item.route && router.push(item.route)
-										}
-										style={[
-											styles.settingButton,
-											{
-												borderColor: item.locked
-													? '#ccc'
-													: '#ccc',
-											},
-										]}
-									>
-										<Text
-											style={[
-												styles.settingText,
-												{
-													color: item.locked
-														? '#ccc'
-														: '#333333',
-													fontSize: 12,
-												},
-											]}
-										>
-											{item.label}
-										</Text>
-										<Ionicons
-											name={item.icon}
-											size={20}
-											color={
-												item.locked ? '#ccc' : '#333333'
-											}
-										/>
-										{item?.locked && (
-											<View
-												style={{
-													position: 'absolute',
-													top: 0,
-													right: 0,
-													backgroundColor: 'gray',
-													borderTopRightRadius: 5,
-													padding: 1,
-													flexDirection: 'row',
-												}}
-											>
-												<Ionicons
-													name="lock-closed-outline"
-													size={12}
-													color="#ccc"
-												/>
-												<Text
-													style={{
-														color: '#ccc',
-														fontSize: 10,
-													}}
-												>
-													{businessData?.plan?.name ===
-													'Economy'
-														? 'Pro'
-														: 'Economy'}
-												</Text>
-											</View>
-										)}
-									</TouchableOpacity>
-								))}
-							</View>
-						</View>
-					</ScrollView>
-				</>
-			)}
+								</TouchableOpacity>
+							)}
+							ListEmptyComponent={
+								<View style={styles.emptyContainer}>
+									<Text style={styles.emptyText}>
+										No active orders
+									</Text>
+								</View>
+							}
+						/>
+					</View>
+				</ScrollView>
+			</View>
 		</View>
 	);
 };
@@ -890,170 +960,204 @@ const HomeScreen = () => {
 const styles = StyleSheet.create({
 	container: {
 		flex: 1,
-		backgroundColor: '#F9FAFB',
+		backgroundColor: '#F3F4F6',
 	},
-	contentContainer: {
-		padding: 20,
+	mainContent: {
+		flex: 1,
+		backgroundColor: '#065637',
 	},
-	header: {
-		marginBottom: 20,
-		padding: 15,
-		backgroundColor: 'green',
-		borderRadius: 10,
-	},
-	welcomeText: {
-		fontSize: 22,
-		fontWeight: 'bold',
-		color: '#ffffff',
-	},
-	subHeaderText: {
-		fontSize: 14,
-		color: '#e1e1e1',
+	scrollContent: {
+		paddingHorizontal: 16,
+		paddingBottom: 120,
+		backgroundColor: '#FFFFFF',
+		borderTopLeftRadius: 24,
+		borderTopRightRadius: 24,
+		marginTop: 8,
 	},
 	section: {
-		marginBottom: 20,
-		backgroundColor: '#fff',
-		borderRadius: 10,
-		padding: 15,
-		shadowColor: '#000',
-		shadowOffset: { width: 0, height: 1 },
-		shadowOpacity: 0.1,
-		shadowRadius: 5,
-		elevation: 1,
+		marginBottom: 0,
+		backgroundColor: '#FFFFFF',
+		borderRadius: 12,
+		paddingHorizontal: 6,
+		paddingVertical: 16,
+	},
+	sectionHeader: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		alignItems: 'center',
+		marginBottom: 16,
+	},
+	sectionTitleRow: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 8,
 	},
 	sectionTitle: {
 		fontSize: 18,
-		fontWeight: 'bold',
-		color: '#3C4043',
+		fontWeight: '600',
+		color: '#1F2937',
+	},
+	openStoreButton: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 4,
+		paddingVertical: 6,
+		paddingHorizontal: 12,
+		backgroundColor: '#E6F0EA',
+		borderRadius: 8,
+	},
+	openStoreButtonText: {
+		color: '#065637',
+		fontSize: 14,
+		fontWeight: '500',
 	},
 	statsContainer: {
 		flexDirection: 'row',
 		justifyContent: 'space-between',
+		gap: 12,
 		marginBottom: 10,
-		// borderWidth: 1
+		marginTop: 16,
+		flexWrap: 'wrap',
 	},
-	statBox: {
-		// alignItems: 'center',
-		width: '32%',
-		paddingVertical: 10,
-		borderWidth: 1,
-		borderColor: '#ddd',
-		gap: 5,
-		borderRadius: 8,
-		paddingHorizontal: 5,
+	statCard: {
+		flexBasis: '48%',
+		padding: 12,
+		borderRadius: 6,
+		backgroundColor: '#F9FAFB',
+		elevation: 1,
+		shadowColor: '#000',
+		shadowOffset: { width: 0, height: 1 },
+		shadowOpacity: 0.1,
+		shadowRadius: 2,
+		marginBottom: 5,
 	},
-	statValue: {
-		fontSize: 18,
-		fontWeight: 'bold',
-		color: '#1A1A1A',
+	incomeCard: {
+		backgroundColor: '#E6F0EA',
 	},
-	blurredText: {
-		fontSize: 18,
-		color: 'transparent', // Make the text transparent
-		textShadowColor: 'rgba(0, 0, 0, 1)', // Shadow color
-		textShadowOffset: { width: 0, height: 0 }, // Shadow offset
-		textShadowRadius: 30, // Blur radius
+	invoiceCard: {
+		backgroundColor: '#EEF2FF',
+	},
+	outstandingCard: {
+		backgroundColor: '#F3F4F6',
+	},
+	expensesCard: {
+		backgroundColor: '#FEF2F2',
+	},
+	statHeader: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 6,
+		marginBottom: 8,
 	},
 	statLabel: {
 		fontSize: 14,
-		color: '#212121',
+		fontWeight: '500',
+		color: '#374151',
 	},
-	orderRow: {
+	statValue: {
+		fontSize: 18,
+		fontWeight: '700',
+		color: '#1F2937',
+	},
+	blurredText: {
+		fontSize: 18,
+		color: 'transparent',
+		textShadowColor: 'rgba(0, 0, 0, 0.9)',
+		textShadowOffset: { width: 0, height: 0 },
+		textShadowRadius: 18,
+	},
+	skeletonBox: {
+		height: 20,
+		backgroundColor: '#E5E7EB',
+		borderRadius: 4,
+	},
+	tabsContainer: {
 		flexDirection: 'row',
+		gap: 8,
+		marginBottom: 6,
+	},
+	tabButton: {
+		paddingVertical: 4,
+		paddingHorizontal: 10,
+		borderRadius: 6,
+		backgroundColor: '#F3F4F6',
+		borderWidth: 1,
+		borderColor: '#E5E7EB',
+	},
+	activeTabButton: {
+		backgroundColor: '#065637',
+		borderColor: '#065637',
+	},
+	tabText: {
+		fontSize: 12,
+		fontWeight: '500',
+		color: '#374151',
+	},
+	activeTabText: {
+		color: '#FFFFFF',
+		fontWeight: '600',
+	},
+	orderCard: {
+		flexDirection: 'column',
 		justifyContent: 'space-between',
-		paddingVertical: 8,
+		gap: 6,
+		alignItems: 'start',
+		paddingVertical: 16,
+		backgroundColor: '#FFFFFF',
 		borderBottomWidth: 1,
-		borderBottomColor: '#eeeeee',
+		borderBottomColor: '#E5E7EB',
 	},
-	orderText: {
+	orderName: {
 		fontSize: 16,
-		color: '#333333',
+		fontWeight: '600',
+		color: '#1F2937',
+		letterSpacing: 0.4,
 	},
-	orderStatus: {
-		fontSize: 14,
-		color: 'green',
+	orderAmount: {
+		fontSize: 16,
+		color: '#6B7280',
 	},
-	viewAllButton: {
-		marginTop: 10,
-		padding: 10,
-		alignItems: 'center',
-		backgroundColor: 'transparent',
-		borderRadius: 8,
-		borderWidth: 1,
-		borderColor: '#ccc',
+	orderDateText: {
+		fontSize: 16,
+		color: '#6B7280',
 	},
-	viewAllText: {
+	orderStatusContainer: {
+		flexDirection: 'row',
+		gap: 8,
+	},
+	statusBadge: {
+		paddingVertical: 4,
+		paddingHorizontal: 12,
+		borderRadius: 6,
+		marginTop: 4,
+	},
+	paidBadge: {
+		backgroundColor: '#EEFAF0',
+		color: '#FFFFFF',
+	},
+	notPaidBadge: {
+		backgroundColor: '#EAEDF4',
+	},
+	completedBadge: {
+		backgroundColor: '#EEFAF0',
+	},
+	pendingBadge: {
+		backgroundColor: '#EAEDF4',
+	},
+	statusText: {
+		fontSize: 12,
+		fontWeight: '500',
 		color: '#121212',
-		fontSize: 14,
-		fontWeight: 'bold',
+		textTransform: 'capitalize',
 	},
-	quickAccessContainer: {
-		// flexDirection: 'row',
-		justifyContent: 'space-between',
-	},
-	quickButton: {
-		flex: 1,
-		padding: 15,
-		backgroundColor: 'green',
-		borderRadius: 8,
-		alignItems: 'center',
-		marginHorizontal: 5,
-	},
-	buttonText: {
-		color: '#ffffff',
-		fontSize: 14,
-		fontWeight: 'bold',
-	},
-	settingButton: {
-		flexDirection: 'column-reverse',
-		alignItems: 'center',
-		paddingVertical: 15,
-		borderWidth: 1,
-		borderColor: '#ccc',
-		width: '30%',
-		borderRadius: 8,
-		// height: 100,
+	emptyContainer: {
 		justifyContent: 'center',
 		alignItems: 'center',
-		display: 'flex',
-		marginBottom: 15,
+		paddingVertical: 20,
 	},
-	settingText: {
+	emptyText: {
 		fontSize: 14,
-		flex: 1,
-		marginTop: 5,
-		color: '#333333',
-	},
-	filterContainer: {
-		flexDirection: 'row',
-		// justifyContent: 'space-around',
-		paddingVertical: 5,
-		gap: 8,
-		marginBottom: 2,
-		marginTop: 2,
-		// left: 0,
-		// top: 0,
-		// backgroundColor: '#fff',
-		width: '100%',
-		zIndex: 100,
-	},
-	filterButton: {
-		paddingVertical: 5,
-		paddingHorizontal: 10,
-		borderRadius: 20,
-		backgroundColor: '#ddd',
-	},
-	activeFilterButton: {
-		backgroundColor: 'orange',
-	},
-	filterText: {
-		color: '#121212',
-		fontSize: 12,
-		// fontWeight: 'bold',
-	},
-	headerRight: {
-		flexDirection: 'row',
-		gap: 5,
+		color: '#6B7280',
 	},
 });
 

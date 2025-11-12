@@ -121,11 +121,11 @@ const styles = StyleSheet.create({
 		flexDirection: 'row',
 		alignItems: 'center',
 		paddingVertical: 4,
-		paddingHorizontal: 10,
+		paddingHorizontal: 0,
 		borderRadius: 5,
 		backgroundColor: '#fff',
 		borderColor: '#ddd',
-		borderWidth: 1,
+		// borderWidth: 1,
 		gap: 8,
 		// Optional shadow for a button-like look
 		// shadowColor: '#000',
