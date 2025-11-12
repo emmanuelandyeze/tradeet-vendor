@@ -114,7 +114,7 @@ const StorePaymentsScreen = ({ navigation }) => {
 					'Unable to load store details. Please try again.',
 				);
 			} finally {
-				setLoading(false);
+				setLoading(false); 
 			}
 		},
 		[setStore],
