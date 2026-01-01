@@ -1,8 +1,11 @@
+// components/BusinessActions.jsx
 import {
 	StyleSheet,
 	Text,
 	View,
 	TouchableOpacity,
+	Alert,
+	Dimensions,
 } from 'react-native';
 import React from 'react';
 import {
@@ -10,137 +13,112 @@ import {
 	Ionicons,
 	MaterialCommunityIcons,
 	MaterialIcons,
+	Feather,
 } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+
+const { width } = Dimensions.get('window');
+
+const ACTIONS = [
+	{
+		id: 'sales',
+		label: 'Sales',
+		icon: 'sale',
+		lib: MaterialCommunityIcons,
+		route: '/sales',
+		color: '#065637',
+	},
+	{
+		id: 'expenses',
+		label: 'Expenses',
+		icon: 'circle-minus',
+		lib: FontAwesome6,
+		route: '/expenses',
+		color: '#B91C1C', // distinct color for expense
+	},
+	{
+		id: 'invoices',
+		label: 'Invoices',
+		icon: 'receipt',
+		lib: MaterialIcons,
+		route: '/invoices',
+		color: '#065637',
+	},
+	{
+		id: 'msg',
+		label: 'Customers',
+		icon: 'users',
+		lib: Feather,
+		action: () => Alert.alert('Coming Soon', 'Customer management is on the way!'),
+		color: '#065637',
+	},
+	{
+		id: 'delivery',
+		label: 'Delivery',
+		icon: 'bike-fast',
+		lib: MaterialCommunityIcons,
+		route: '/delivery',
+		color: '#065637',
+	},
+	{
+		id: 'website',
+		label: 'Website',
+		icon: 'web',
+		lib: MaterialCommunityIcons,
+		route: '/(app)/setupstore',
+		color: '#065637',
+	},
+	{
+		id: 'discounts',
+		label: 'Discounts',
+		icon: 'discount',
+		lib: MaterialIcons,
+		route: '/(app)/discounts',
+		color: '#065637',
+	},
+	{
+		id: 'marketing',
+		label: 'Marketing',
+		icon: 'megaphone-outline',
+		lib: Ionicons,
+		action: () => Alert.alert('Coming Soon', 'Marketing tools are coming soon!'),
+		color: '#065637',
+	},
+];
 
 const BusinessActions = () => {
 	const router = useRouter();
 
+	const handlePress = (item) => {
+		if (item.action) {
+			item.action();
+		} else if (item.route) {
+			router.push(item.route);
+		}
+	};
+
 	return (
 		<View style={styles.container}>
-			<Text style={styles.sectionTitle}>Quick actions</Text>
-			<View
-				style={{
-					flexDirection: 'row',
-					// gap: 10,
-					marginTop: 10,
-					justifyContent: 'space-between',
-					// width: '100%',
-				}}
-			>
-				<TouchableOpacity
-					style={styles.buttonContainer}
-					onPress={() => router.push('/sales')}
-				>
-					<View style={styles.button}>
-						<MaterialCommunityIcons
-							name="sale"
-							size={24}
-							color="#0C8C5B"
-						/>
-					</View>
-					<Text style={styles.buttonText}>Sales</Text>
-				</TouchableOpacity>
-				<TouchableOpacity
-					style={styles.buttonContainer}
-					onPress={() => router.push('/expenses')}
-				>
-					<View style={styles.button}>
-						<FontAwesome6
-							name="circle-minus"
-							size={25}
-							color="#0C8C5B"
-						/>
-					</View>
-					<Text style={styles.buttonText}>Expenses</Text>
-				</TouchableOpacity>
-				<TouchableOpacity
-					style={styles.buttonContainer}
-					onPress={() => router.push('/invoices')}
-				>
-					<View style={styles.button}>
-						<MaterialIcons
-							name="receipt"
-							size={25}
-							color="#0C8C5B"
-						/>
-					</View>
-					<Text style={[styles.buttonText]}>Invoices</Text>
-				</TouchableOpacity>
-				<TouchableOpacity
-					style={styles.buttonContainer}
-					onPress={() => alert('Customer management coming soon!')}
-				>
-					<View style={styles.button}>
-						<MaterialIcons
-							name="people"
-							size={25}
-							color="#0C8C5B"
-						/>
-					</View>
-					<Text style={[styles.buttonText]}>Customers</Text>
-				</TouchableOpacity>
-			</View>
-			<View
-				style={{
-					flexDirection: 'row',
-					// backgroundColor: '#F5F5F5',
-					marginTop: 15,
-					justifyContent: 'space-between',
-				}}
-			>
-				<TouchableOpacity
-					style={styles.buttonContainer}
-					onPress={() => router.push('/delivery')}
-				>
-					<View style={styles.button}>
-						<MaterialCommunityIcons
-							name="bike-fast"
-							size={25}
-							color="#0C8C5B"
-						/>
-					</View>
-					<Text style={styles.buttonText}>Delivery</Text>
-				</TouchableOpacity>
-				<TouchableOpacity
-					style={styles.buttonContainer}
-					onPress={() => router.push('/(app)/setupstore')}
-				>
-					<View style={styles.button}>
-						<MaterialCommunityIcons
-							name="web"
-							size={25}
-							color="#0C8C5B"
-						/>
-					</View>
-					<Text style={styles.buttonText}>Edit Website</Text>
-				</TouchableOpacity>
-				<TouchableOpacity
-					style={styles.buttonContainer}
-					onPress={() => router.push('/(app)/discounts')}
-				>
-					<View style={styles.button}>
-						<MaterialIcons
-							name="discount"
-							size={25}
-							color="#0C8C5B"
-						/>
-					</View>
-					<Text style={[styles.buttonText]}>Discounts</Text>
-				</TouchableOpacity>
-				<TouchableOpacity
-					style={styles.buttonContainer}
-					onPress={() => alert('Marketing coming soon!')}
-				>
-					<View style={styles.button}>
-						<Ionicons
-							name="megaphone"
-							size={25}
-							color="#0C8C5B"
-						/>
-					</View>
-					<Text style={[styles.buttonText]}>Marketing</Text>
-				</TouchableOpacity>
+			<Text style={styles.sectionTitle}>Quick Actions</Text>
+			<View style={styles.grid}>
+				{ACTIONS.map((item) => {
+					const IconLib = item.lib;
+					return (
+						<TouchableOpacity
+							key={item.id}
+							style={styles.actionItem}
+							onPress={() => handlePress(item)}
+							activeOpacity={0.7}
+						>
+							<View style={[styles.iconBox, { backgroundColor: '#F9FAFB' }]}>
+								<IconLib name={item.icon} size={22} color="#374151" />
+							</View>
+							<Text style={styles.actionLabel} numberOfLines={1}>
+								{item.label}
+							</Text>
+						</TouchableOpacity>
+					);
+				})}
 			</View>
 		</View>
 	);
@@ -150,56 +128,47 @@ export default BusinessActions;
 
 const styles = StyleSheet.create({
 	container: {
-		flexDirection: 'column',
-		// justifyContent: 'space-between',
 		backgroundColor: '#fff',
-		marginTop: 15,
-		marginBottom: 5,
+		borderRadius: 12,
+		padding: 16,
+		marginBottom: 16,
+		// Shadow for professional feel
+		shadowColor: '#000',
+		shadowOffset: { width: 0, height: 1 },
+		shadowOpacity: 0.05,
+		shadowRadius: 2,
+		elevation: 1,
 	},
 	sectionTitle: {
-		fontSize: 18,
-		fontWeight: 'bold',
-		color: '#3C4043',
+		fontSize: 16,
+		fontWeight: '700',
+		color: '#111827',
+		marginBottom: 16,
 	},
-	buttonContainer: {
-		// flex: 1,
-		flexDirection: 'column',
-		alignItems: 'center',
+	grid: {
+		flexDirection: 'row',
+		flexWrap: 'wrap',
 		justifyContent: 'space-between',
-		
+		rowGap: 20,
 	},
-	button: {
-		// flex: 1,
-		flexDirection: 'column',
+	actionItem: {
+		width: '23%', // 4 items per row
 		alignItems: 'center',
+		gap: 8,
+	},
+	iconBox: {
+		width: 48,
+		height: 48,
+		borderRadius: 12,
 		justifyContent: 'center',
-		padding: 8,
-		borderRadius: 50,
-		marginHorizontal: 0,
-		gap: 0,
-		// elevation: 1,
-		backgroundColor: '#EDFBEF',
-		// width: '100%',
-		// borderWidth: 1,
-		borderColor: '#E0E0E0',
+		alignItems: 'center',
+		borderWidth: 1,
+		borderColor: '#F3F4F6',
 	},
-	buttonText: {
-		color: '#212121',
-		fontSize: 13,
+	actionLabel: {
+		fontSize: 11,
+		fontWeight: '600',
+		color: '#4B5563',
 		textAlign: 'center',
-		marginTop: 2,
-		fontWeight: 'semibold',
-	},
-
-	createInvoice: {
-		backgroundColor: '#6BD48A', // Blue
-		gap: 3,
-		width: '40%',
-	},
-	updateInventory: {
-		backgroundColor: '#FFC4B0', // Red
-		gap: 2,
-		width: '50%',
-		paddingHorizontal: 10,
 	},
 });

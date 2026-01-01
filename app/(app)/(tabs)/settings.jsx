@@ -1,26 +1,23 @@
-import React, { useContext } from 'react';
+import React, { useContext, useState } from 'react';
 import {
 	View,
 	Text,
-	Image,
 	TouchableOpacity,
 	StyleSheet,
 	ScrollView,
 	Linking,
-	FlatList,
 	Alert,
 	Switch,
+	Image,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AuthContext } from '@/context/AuthContext';
 import { useRouter } from 'expo-router';
-import PlaceholderLogo from '../../../components/PlaceholderLogo';
-import { useState } from 'react';
 import { StatusBar } from 'expo-status-bar';
 
 const ProfileScreen = () => {
 	const router = useRouter();
-	const { logout, userInfo } = useContext(AuthContext);
+	const { logout, userInfo, selectedStore, switchSelectedStore } = useContext(AuthContext);
 	const [darkMode, setDarkMode] = useState(false);
 
 	// Open website
@@ -51,17 +48,22 @@ const ProfileScreen = () => {
 		);
 	};
 
+	const handleSwitchStore = async (store) => {
+		try {
+			// switchSelectedStore uses the same methodsignature: storeId or storeObj
+			// Since we have the store object here, we can pass it directly or its id
+			await switchSelectedStore(store);
+			// Optionally show a toast, but UI update should be enough
+		} catch (error) {
+			Alert.alert('Error', 'Failed to switch store');
+		}
+	};
+
 	// Settings categories
 	const settingsSections = [
 		{
 			title: 'Account Settings',
 			data: [
-				// {
-				// 	id: '1',
-				// 	title: 'Edit Profile',
-				// 	icon: 'person',
-				// 	onPress: () => router.push('/(app)/editprofile'),
-				// },
 				{
 					id: '2',
 					title: 'Change Password',
@@ -73,6 +75,12 @@ const ProfileScreen = () => {
 		{
 			title: 'Store Settings',
 			data: [
+				{
+					id: '8',
+					title: 'Custom Domain',
+					icon: 'globe-outline', // Updated icon
+					onPress: () => router.push('/(app)/domain-settings'),
+				},
 				{
 					id: '3',
 					title: 'Website Settings',
@@ -109,8 +117,6 @@ const ProfileScreen = () => {
 					id: '6',
 					title: 'Notifications (coming soon)',
 					icon: 'notifications',
-					// onPress: () =>
-					// 	router.push('/(app)/notifications'),
 				},
 			],
 		},
@@ -148,13 +154,57 @@ const ProfileScreen = () => {
 					}}
 				>
 					<Text style={{ fontSize: 24, color: '#f1f1f1', fontWeight: 'bold' }}>Settings</Text>
-					<TouchableOpacity>
-						{/* <Ionicons name="search-outline" size={22} color="black" /> */}
-					</TouchableOpacity>
 				</View>
 			</View>
 
-			<ScrollView>
+			<ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+				{/* My Businesses Section */}
+				<View style={styles.section}>
+					<Text style={styles.sectionTitle}>My Businesses</Text>
+					{userInfo?.stores?.map((store) => (
+						<TouchableOpacity
+							key={store._id}
+							style={[
+								styles.businessItem,
+								selectedStore?._id === store._id && styles.selectedBusiness,
+							]}
+							onPress={() => handleSwitchStore(store)}
+						>
+							<View style={styles.businessInfo}>
+								{store.logoUrl ? (
+									<Image
+										source={{ uri: store.logoUrl }}
+										style={styles.businessLogo}
+									/>
+								) : (
+									<View style={styles.placeholderLogo}>
+										<Text style={styles.placeholderText}>
+											{store.name ? store.name.charAt(0).toUpperCase() : '?'}
+										</Text>
+									</View>
+								)}
+								<View style={{ flex: 1 }}>
+									<Text style={styles.businessName} numberOfLines={1}>{store.name}</Text>
+									<Text style={styles.businessLink} numberOfLines={1}>
+										{store.storeLink || 'No link'}
+									</Text>
+								</View>
+							</View>
+							{selectedStore?._id === store._id && (
+								<Ionicons name="checkmark-circle" size={24} color="#065637" />
+							)}
+						</TouchableOpacity>
+					))}
+
+					<TouchableOpacity
+						style={styles.addBusinessButton}
+						onPress={() => router.push('/(app)/create-business')}
+					>
+						<Ionicons name="add-circle-outline" size={20} color="#065637" />
+						<Text style={styles.addBusinessText}>Add New Business</Text>
+					</TouchableOpacity>
+				</View>
+
 				{/* Settings Sections */}
 				{settingsSections.map((section) => (
 					<View key={section.title} style={styles.section}>
@@ -208,8 +258,8 @@ const ProfileScreen = () => {
 const styles = StyleSheet.create({
 	container: {
 		flex: 1,
-		backgroundColor: '#fff',
-		paddingTop: 20,
+		backgroundColor: '#f5f5f5',
+		paddingTop: 0,
 		paddingBottom: 0,
 	},
 	header: {
@@ -222,43 +272,31 @@ const styles = StyleSheet.create({
 		borderBottomColor: '#ccc',
 		paddingVertical: 10,
 	},
-	logo: {
-		height: 50,
-		width: 50,
-		borderRadius: 50,
-		borderWidth: 1,
-		borderColor: 'gray',
-	},
-	name: { fontSize: 22, fontWeight: 'bold' },
-	contact: { fontSize: 16, color: '#777' },
-	storeLink: {
-		color: 'blue',
-		textDecorationLine: 'underline',
-		fontSize: 16,
-	},
 	section: {
 		padding: 15,
 		backgroundColor: '#fff',
 		marginBottom: 10,
+		marginTop: 10,
 	},
 	sectionTitle: {
 		fontSize: 18,
 		fontWeight: 'bold',
 		marginBottom: 10,
+		color: '#333',
 	},
 	settingButton: {
 		flexDirection: 'row',
 		alignItems: 'center',
 		padding: 15,
 		borderBottomWidth: 1,
-		borderBottomColor: '#ccc',
+		borderBottomColor: '#eee',
 		gap: 10,
 	},
-	settingText: { fontSize: 16, flex: 1 },
+	settingText: { fontSize: 16, flex: 1, color: '#333' },
 	logoutButton: {
 		flexDirection: 'row',
 		padding: 15,
-		marginTop: 0,
+		marginTop: 20,
 		alignItems: 'center',
 		justifyContent: 'center',
 		marginBottom: 30,
@@ -274,6 +312,75 @@ const styles = StyleSheet.create({
 		color: 'red',
 		marginRight: 5,
 		fontWeight: 'bold',
+	},
+	// My Business Styles
+	businessItem: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'space-between',
+		padding: 12,
+		borderRadius: 8,
+		borderWidth: 1,
+		borderColor: '#eee',
+		marginBottom: 8,
+		backgroundColor: '#fafafa',
+	},
+	selectedBusiness: {
+		borderColor: '#065637',
+		backgroundColor: '#e8f5e9',
+	},
+	businessInfo: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 10,
+		flex: 1,
+	},
+	businessLogo: {
+		width: 40,
+		height: 40,
+		borderRadius: 20,
+		borderWidth: 1,
+		borderColor: '#ddd',
+	},
+	placeholderLogo: {
+		width: 40,
+		height: 40,
+		borderRadius: 20,
+		backgroundColor: '#eee',
+		alignItems: 'center',
+		justifyContent: 'center',
+		borderWidth: 1,
+		borderColor: '#ddd',
+	},
+	placeholderText: {
+		fontSize: 18,
+		fontWeight: 'bold',
+		color: '#555',
+	},
+	businessName: {
+		fontSize: 16,
+		fontWeight: '600',
+		color: '#333',
+	},
+	businessLink: {
+		fontSize: 12,
+		color: '#666',
+	},
+	addBusinessButton: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'center',
+		padding: 12,
+		marginTop: 5,
+		borderWidth: 1,
+		borderColor: '#065637',
+		borderRadius: 8,
+		borderStyle: 'dashed',
+	},
+	addBusinessText: {
+		marginLeft: 5,
+		color: '#065637',
+		fontWeight: '600',
 	},
 });
 

@@ -10,20 +10,20 @@ import {
     Alert,
     ScrollView,
     ToastAndroid,
-    ActivityIndicator, // Make sure this is imported
-    KeyboardAvoidingView, // Added for better keyboard handling
-    Platform // To check OS for KeyboardAvoidingView behavior
+    ActivityIndicator,
+    KeyboardAvoidingView,
+    Platform,
+    StatusBar
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Feather from '@expo/vector-icons/Feather';
 import { useRouter } from 'expo-router';
 import { AuthContext } from '@/context/AuthContext';
 import axiosInstance from '@/utils/axiosInstance';
-// Assuming ExpenseTable is a component you have, or will create
 import ExpenseTable from '../../../components/ExpenseTable';
 
 const ExpensesScreen = () => {
-    const { userInfo } = useContext(AuthContext);
+    const { userInfo, selectedStore } = useContext(AuthContext);
     const router = useRouter();
 
     const [expenses, setExpenses] = useState([]);
@@ -34,16 +34,12 @@ const ExpensesScreen = () => {
 
     const [newExpense, setNewExpense] = useState({
         title: '',
-        category: 'Inventory', // Default category
+        category: 'Inventory',
         amount: '',
         description: '',
     });
 
-    // State for input validation errors
     const [validationErrors, setValidationErrors] = useState({});
-
-    const businessId = userInfo?._id;
-
     const [categoryDropdownVisible, setCategoryDropdownVisible] = useState(false);
 
     const categories = [
@@ -62,18 +58,24 @@ const ExpensesScreen = () => {
     ];
 
     useEffect(() => {
-        fetchExpenses();
-    }, []);
+        if (selectedStore) {
+            fetchExpenses();
+        }
+    }, [selectedStore]);
 
     const fetchExpenses = async () => {
+        if (!selectedStore?._id) return;
+
         setExpensesLoading(true);
         setError(null);
         try {
-            const response = await axiosInstance.get(`/expenses/${userInfo?._id}`);
+            // Using parent store ID if it's a branch, or the store ID itself
+            const storeId = selectedStore.parent || selectedStore._id;
+            const response = await axiosInstance.get(`/expenses/${storeId}`);
             setExpenses(response.data.expenses);
         } catch (err) {
             console.error('Error fetching expenses:', err);
-            setError(err.message || 'Failed to fetch expenses. Please try again.');
+            setError(err.message || 'Failed to fetch expenses.');
         } finally {
             setExpensesLoading(false);
         }
@@ -84,18 +86,18 @@ const ExpensesScreen = () => {
         let isValid = true;
 
         if (!newExpense.title.trim()) {
-            errors.title = 'Expense name is required.';
+            errors.title = 'Expense name is required';
             isValid = false;
         }
-        if (!newExpense.category || newExpense.category === 'Select Category') { // Added check for default placeholder
-            errors.category = 'Category is required.';
+        if (!newExpense.category) {
+            errors.category = 'Category is required';
             isValid = false;
         }
         if (!newExpense.amount.trim()) {
-            errors.amount = 'Amount is required.';
+            errors.amount = 'Amount is required';
             isValid = false;
         } else if (isNaN(Number(newExpense.amount)) || Number(newExpense.amount) <= 0) {
-            errors.amount = 'Please enter a valid amount (must be a positive number).';
+            errors.amount = 'Enter a valid amount';
             isValid = false;
         }
 
@@ -105,30 +107,35 @@ const ExpensesScreen = () => {
 
     const handleCreateExpense = async () => {
         if (!validateForm()) {
-            ToastAndroid.show('Please correct the errors in the form.', ToastAndroid.LONG);
             return;
         }
 
         setIsCreatingExpense(true);
         try {
+            const storeId = selectedStore.parent || selectedStore._id;
+            const branchId = selectedStore.parent ? selectedStore._id : null;
+
             await axiosInstance.post('/expenses/create', {
                 ...newExpense,
                 amount: Number(newExpense.amount),
-                businessId,
+                businessId: storeId, // Backend maps this to storeId
+                branchId,
+                createdBy: userInfo?._id
             });
-            ToastAndroid.show('Expense recorded successfully!', ToastAndroid.SHORT);
+            ToastAndroid.show('Expense saved successfully', ToastAndroid.SHORT);
             fetchExpenses();
             setNewExpense({
                 title: '',
-                category: 'Inventory', // Reset to a sensible default or empty
+                category: 'Inventory',
                 amount: '',
                 description: '',
             });
-            setValidationErrors({}); // Clear validation errors on success
+            setValidationErrors({});
             setModalVisible(false);
         } catch (error) {
             console.error('Error creating expense:', error);
-            ToastAndroid.show('Failed to record expense. Please try again.', ToastAndroid.LONG);
+            const errorMessage = error.response?.data?.message || 'Failed to save expense';
+            ToastAndroid.show(errorMessage, ToastAndroid.LONG);
         } finally {
             setIsCreatingExpense(false);
         }
@@ -136,14 +143,20 @@ const ExpensesScreen = () => {
 
     const renderCategoryItem = ({ item }) => (
         <TouchableOpacity
-            style={styles.categoryItem}
+            style={[
+                styles.categoryItem,
+                newExpense.category === item && styles.categoryItemSelected
+            ]}
             onPress={() => {
                 setNewExpense({ ...newExpense, category: item });
                 setCategoryDropdownVisible(false);
-                setValidationErrors(prev => ({ ...prev, category: undefined })); // Clear category error
+                setValidationErrors(prev => ({ ...prev, category: undefined }));
             }}
         >
-            <Text style={styles.categoryText}>{item}</Text>
+            <Text style={[
+                styles.categoryText,
+                newExpense.category === item && styles.categoryTextSelected
+            ]}>{item}</Text>
             {newExpense.category === item && (
                 <Ionicons name="checkmark-circle" size={20} color="#007BFF" />
             )}
@@ -152,15 +165,19 @@ const ExpensesScreen = () => {
 
     return (
         <View style={styles.container}>
+            <StatusBar barStyle="dark-content" backgroundColor="#fff" />
+
             {/* Header Section */}
             <View style={styles.headerContainer}>
-                <TouchableOpacity onPress={() => router.push('/(tabs)')} style={styles.backButton}>
-                    <Ionicons name="arrow-back" size={26} color="#333" />
-                </TouchableOpacity>
-                <Text style={styles.headerTitle}>Expenses</Text>
+                <View style={styles.headerLeft}>
+                    <TouchableOpacity onPress={() => router.push('/(tabs)')} style={styles.backButton}>
+                        <Ionicons name="arrow-back" size={24} color="#1A1A1A" />
+                    </TouchableOpacity>
+                    <Text style={styles.headerTitle}>Expenses</Text>
+                </View>
                 {expenses?.length > 0 && (
                     <TouchableOpacity
-                        style={styles.recordExpenseHeaderButton}
+                        style={styles.addButtonHeader}
                         onPress={() => {
                             setNewExpense({
                                 title: '',
@@ -168,51 +185,48 @@ const ExpensesScreen = () => {
                                 amount: '',
                                 description: '',
                             });
-                            setValidationErrors({}); // Clear errors when opening
+                            setValidationErrors({});
                             setModalVisible(true);
                         }}
                     >
-                        <Text style={styles.recordExpenseHeaderText}>Record Expense</Text>
+                        <Ionicons name="add" size={24} color="#fff" />
+                        <Text style={styles.addButtonHeaderText}>New</Text>
                     </TouchableOpacity>
                 )}
             </View>
 
             {/* Main Content Area */}
             {expensesLoading ? (
-                <View style={styles.loadingContainer}>
+                <View style={styles.centerContainer}>
                     <ActivityIndicator size="large" color="#007BFF" />
-                    <Text style={styles.loadingText}>Loading Expenses...</Text>
                 </View>
             ) : error ? (
-                <View style={styles.errorContainer}>
-                    <Ionicons name="alert-circle-outline" size={30} color="#DC3545" />
+                    <View style={styles.centerContainer}>
+                        <View style={styles.errorIconContainer}>
+                            <Ionicons name="alert-outline" size={32} color="#DC3545" />
+                        </View>
                     <Text style={styles.errorText}>{error}</Text>
                     <TouchableOpacity style={styles.retryButton} onPress={fetchExpenses}>
-                        <Text style={styles.retryButtonText}>Retry</Text>
+                            <Text style={styles.retryButtonText}>Try Again</Text>
                     </TouchableOpacity>
                 </View>
             ) : expenses.length === 0 ? (
-                <View style={styles.emptyStateContainer}>
-                    <Ionicons name="cash-outline" size={80} color="#CCC" />
-                    <Text style={styles.emptyStateText}>No expenses recorded yet.</Text>
-                    <Text style={styles.emptyStateSubtitle}>
-                        Start by adding your first business expense.
+                        <View style={styles.emptyContainer}>
+                            <View style={styles.emptyIconCircle}>
+                                <Ionicons name="receipt-outline" size={64} color="#007BFF" />
+                            </View>
+                            <Text style={styles.emptyTitle}>No Expenses Yet</Text>
+                            <Text style={styles.emptySubtitle}>
+                                Record your business expenses to track your spending and calculate your net profit.
                     </Text>
                     <TouchableOpacity
-                        style={styles.createExpenseButton}
-                        onPress={() => {
-                            setNewExpense({
-                                title: '',
-                                category: 'Inventory',
-                                amount: '',
-                                description: '',
-                            });
-                            setValidationErrors({}); // Clear errors when opening
+                                style={styles.createButtonLarge}
+                                onPress={() => {
                             setModalVisible(true);
+                                    setValidationErrors({});
                         }}
                     >
-                        <Ionicons name="add-circle-outline" size={24} color="#FFF" style={{ marginRight: 8 }} />
-                        <Text style={styles.createExpenseButtonText}>Record New Expense</Text>
+                                <Text style={styles.createButtonLargeText}>Record First Expense</Text>
                     </TouchableOpacity>
                 </View>
             ) : (
@@ -223,124 +237,119 @@ const ExpensesScreen = () => {
                 />
             )}
 
-            {/* Record Expense Modal */}
+            {/* Create Expense Modal */}
             <Modal
                 visible={modalVisible}
-                animationType="slide" // Keeping slide as requested, but fade also works well
+                animationType="slide"
                 transparent={true}
                 onRequestClose={() => setModalVisible(false)}
             >
                 <KeyboardAvoidingView
-                    style={styles.keyboardAvoidingContainer}
+                    style={styles.modalOverlay}
                     behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
                 >
-                    <View style={styles.modalOverlay}>
-                        <View style={styles.modalContent}>
-                            <ScrollView showsVerticalScrollIndicator={false}>
-                                <View style={styles.modalHeader}>
-                                    <Text style={styles.modalTitle}>Record New Expense</Text>
-                                    <TouchableOpacity onPress={() => setModalVisible(false)}>
-                                        <Ionicons name="close-circle" size={30} color="#999" />
-                                    </TouchableOpacity>
-                                </View>
+                    <View style={styles.modalContent}>
+                        <View style={styles.modalHeaderBar}>
+                            <Text style={styles.modalTitle}>New Expense</Text>
+                            <TouchableOpacity
+                                onPress={() => setModalVisible(false)}
+                                style={styles.closeModalButton}
+                            >
+                                <Ionicons name="close" size={24} color="#666" />
+                            </TouchableOpacity>
+                        </View>
 
-                                <View style={styles.inputGroup}>
-                                    <Text style={styles.inputLabel}>Expense Name</Text>
+                        <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.formScroll}>
+
+                            <View style={styles.formSection}>
+                                <Text style={styles.label}>Amount</Text>
+                                <View style={[styles.amountInputContainer, validationErrors.amount && styles.inputError]}>
+                                    <Text style={styles.currencySymbol}>₦</Text>
                                     <TextInput
-                                        style={[styles.input, validationErrors.title && styles.inputError]}
-                                        placeholder="e.g., Office Supplies"
-                                        placeholderTextColor="#A0A0A0"
-                                        value={newExpense.title}
+                                        style={styles.amountInput}
+                                        placeholder="0.00"
+                                        placeholderTextColor="#ccc"
+                                        value={newExpense.amount}
+                                        keyboardType="numeric"
                                         onChangeText={(text) => {
-                                            setNewExpense({ ...newExpense, title: text });
-                                            setValidationErrors(prev => ({ ...prev, title: undefined }));
+                                            setNewExpense({ ...newExpense, amount: text });
+                                            setValidationErrors(prev => ({ ...prev, amount: undefined }));
                                         }}
+                                        autoFocus={false}
                                     />
-                                    {validationErrors.title && (
-                                        <Text style={styles.errorTextSmall}>{validationErrors.title}</Text>
-                                    )}
                                 </View>
+                                {validationErrors.amount && (
+                                    <Text style={styles.errorTextSmall}>{validationErrors.amount}</Text>
+                                )}
+                            </View>
 
-                                <View style={styles.inputGroup}>
-                                    <Text style={styles.inputLabel}>Category</Text>
-                                    <TouchableOpacity
-                                        style={[styles.dropdownButton, validationErrors.category && styles.inputError]}
-                                        onPress={() =>
-                                            setCategoryDropdownVisible(!categoryDropdownVisible)
-                                        }
-                                    >
-                                        <Text style={[
-                                            styles.dropdownButtonText,
-                                            newExpense.category === 'Select Category' && { color: '#A0A0A0' } // Placeholder style
-                                        ]}>
-                                            {newExpense.category || 'Select Category'}
-                                        </Text>
-                                        <Feather
-                                            name={categoryDropdownVisible ? "chevron-up" : "chevron-down"}
-                                            size={20}
-                                            color="#777"
-                                        />
-                                    </TouchableOpacity>
-                                    {validationErrors.category && (
-                                        <Text style={styles.errorTextSmall}>{validationErrors.category}</Text>
-                                    )}
-                                    {categoryDropdownVisible && (
+                            <View style={styles.formGroup}>
+                                <Text style={styles.label}>Name</Text>
+                                <TextInput
+                                    style={[styles.input, validationErrors.title && styles.inputError]}
+                                    placeholder="What did you pay for?"
+                                    placeholderTextColor="#999"
+                                    value={newExpense.title}
+                                    onChangeText={(text) => {
+                                        setNewExpense({ ...newExpense, title: text });
+                                        setValidationErrors(prev => ({ ...prev, title: undefined }));
+                                    }}
+                                />
+                                {validationErrors.title && (
+                                    <Text style={styles.errorTextSmall}>{validationErrors.title}</Text>
+                                )}
+                            </View>
+
+                            <View style={styles.formGroup}>
+                                <Text style={styles.label}>Category</Text>
+                                <TouchableOpacity
+                                    style={[styles.input, styles.dropdownTrigger, validationErrors.category && styles.inputError]}
+                                    onPress={() => setCategoryDropdownVisible(!categoryDropdownVisible)}
+                                >
+                                    <Text style={styles.inputText}>{newExpense.category}</Text>
+                                    <Feather name={categoryDropdownVisible ? "chevron-up" : "chevron-down"} size={20} color="#666" />
+                                </TouchableOpacity>
+
+                                {categoryDropdownVisible && (
+                                    <View style={styles.dropdownContainer}>
                                         <FlatList
                                             data={categories}
                                             renderItem={renderCategoryItem}
                                             keyExtractor={(item) => item}
-                                            style={styles.dropdownList}
-                                            nestedScrollEnabled={true} // Important for scrollable FlatList inside ScrollView
+                                            scrollEnabled={true}
+                                            nestedScrollEnabled={true}
+                                            style={{ maxHeight: 200 }}
                                         />
-                                    )}
-                                </View>
+                                    </View>
+                                )}
+                            </View>
 
-                                <View style={styles.inputGroup}>
-                                    <Text style={styles.inputLabel}>Amount (NGN)</Text>
-                                    <TextInput
-                                        style={[styles.input, validationErrors.amount && styles.inputError]}
-                                        placeholder="e.g., 5000.00"
-                                        placeholderTextColor="#A0A0A0"
-                                        value={newExpense.amount}
-                                        onChangeText={(text) => {
-                                            setNewExpense({ ...newExpense, amount: text.replace(/[^0-9.]/g, '') });
-                                            setValidationErrors(prev => ({ ...prev, amount: undefined }));
-                                        }}
-                                        keyboardType="numeric"
-                                    />
-                                    {validationErrors.amount && (
-                                        <Text style={styles.errorTextSmall}>{validationErrors.amount}</Text>
-                                    )}
-                                </View>
+                            <View style={styles.formGroup}>
+                                <Text style={styles.label}>Description (Optional)</Text>
+                                <TextInput
+                                    style={[styles.input, styles.textArea]}
+                                    placeholder="Add notes..."
+                                    placeholderTextColor="#999"
+                                    value={newExpense.description}
+                                    multiline
+                                    numberOfLines={3}
+                                    onChangeText={(text) => setNewExpense({ ...newExpense, description: text })}
+                                />
+                            </View>
 
-                                <View style={styles.inputGroup}>
-                                    <Text style={styles.inputLabel}>Description (Optional)</Text>
-                                    <TextInput
-                                        style={[styles.input, styles.descriptionInput]}
-                                        placeholder="Brief details about the expense, e.g., Purchase for Q3 inventory"
-                                        placeholderTextColor="#A0A0A0"
-                                        value={newExpense.description}
-                                        onChangeText={(text) =>
-                                            setNewExpense({ ...newExpense, description: text })
-                                        }
-                                        multiline
-                                        numberOfLines={4}
-                                    />
-                                </View>
+                            <TouchableOpacity
+                                style={styles.saveButton}
+                                onPress={handleCreateExpense}
+                                disabled={isCreatingExpense}
+                            >
+                                {isCreatingExpense ? (
+                                    <ActivityIndicator color="#fff" />
+                                ) : (
+                                    <Text style={styles.saveButtonText}>Save Expense</Text>
+                                )}
+                            </TouchableOpacity>
 
-                                <TouchableOpacity
-                                    onPress={handleCreateExpense}
-                                    style={styles.submitButton}
-                                    disabled={isCreatingExpense}
-                                >
-                                    {isCreatingExpense ? (
-                                        <ActivityIndicator color="#FFFFFF" size="small" />
-                                    ) : (
-                                        <Text style={styles.submitButtonText}>Record Expense</Text>
-                                    )}
-                                </TouchableOpacity>
-                            </ScrollView>
-                        </View>
+                        </ScrollView>
                     </View>
                 </KeyboardAvoidingView>
             </Modal>
@@ -351,261 +360,271 @@ const ExpensesScreen = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F7F9FC',
-        padding: 16,
+        backgroundColor: '#F8F9FA',
     },
     headerContainer: {
         flexDirection: 'row',
-        alignItems: 'center',
         justifyContent: 'space-between',
-        paddingTop: 45,
-        paddingBottom: 18,
+        alignItems: 'center',
+        paddingHorizontal: 16,
+        paddingTop: 60,
+        paddingBottom: 12,
+        backgroundColor: '#fff',
         borderBottomWidth: 1,
-        borderBottomColor: '#EBEBEB',
+        borderBottomColor: '#eee',
     },
-    backButton: {
-        padding: 5,
-        marginRight: 10,
+    headerLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 12,
     },
     headerTitle: {
-        fontSize: 28,
-        fontWeight: '800',
-        color: '#2C3E50',
-        flex: 1,
+        fontSize: 20,
+        fontWeight: '700',
+        color: '#1A1A1A',
+        letterSpacing: -0.5,
     },
-    recordExpenseHeaderButton: {
-        backgroundColor: '#007BFF',
-        paddingVertical: 9,
-        paddingHorizontal: 18,
-        borderRadius: 25,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.15,
-        shadowRadius: 3,
-        elevation: 4,
+    backButton: {
+        padding: 4,
+        marginLeft: -4,
+    },
+    addButtonHeader: {
         flexDirection: 'row',
         alignItems: 'center',
+        backgroundColor: '#1A1A1A',
+        paddingVertical: 8,
+        paddingHorizontal: 16,
+        borderRadius: 100,
+        gap: 4,
     },
-    recordExpenseHeaderText: {
-        color: '#FFFFFF',
-        fontSize: 15,
+    addButtonHeaderText: {
+        color: '#fff',
         fontWeight: '600',
+        fontSize: 14,
     },
-    loadingContainer: {
+    centerContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
+        padding: 24,
     },
-    loadingText: {
-        marginTop: 10,
-        fontSize: 16,
-        color: '#6C757D',
-    },
-    errorContainer: {
+    emptyContainer: {
         flex: 1,
         justifyContent: 'center',
         alignItems: 'center',
-        padding: 20,
+        padding: 40,
     },
-    errorText: {
-        fontSize: 18,
-        color: '#DC3545',
-        textAlign: 'center',
-        marginBottom: 15,
-    },
-    retryButton: {
-        backgroundColor: '#007BFF',
-        paddingVertical: 10,
-        paddingHorizontal: 20,
-        borderRadius: 8,
-    },
-    retryButtonText: {
-        color: '#FFFFFF',
-        fontSize: 16,
-        fontWeight: 'bold',
-    },
-    emptyStateContainer: {
-        flex: 1,
+    emptyIconCircle: {
+        width: 100,
+        height: 100,
+        borderRadius: 50,
+        backgroundColor: '#EAF4FF',
         justifyContent: 'center',
         alignItems: 'center',
-        padding: 20,
-        // backgroundColor: '#FFFFFF',
-        // borderRadius: 15,
-        // margin: 20,
-        // shadowColor: '#000',
-        // shadowOffset: { width: 0, height: 5 },
-        // shadowOpacity: 0.05,
-        // shadowRadius: 10,
-        // elevation: 3,
+        marginBottom: 24,
     },
-    emptyStateText: {
+    emptyTitle: {
         fontSize: 22,
         fontWeight: '700',
-        color: '#34495E',
-        marginTop: 20,
-        marginBottom: 8,
+        color: '#1A1A1A',
+        marginBottom: 12,
     },
-    emptyStateSubtitle: {
+    emptySubtitle: {
         fontSize: 16,
-        color: '#7F8C8D',
+        color: '#666',
         textAlign: 'center',
-        marginBottom: 30,
-        lineHeight: 22,
+        lineHeight: 24,
+        marginBottom: 32,
     },
-    createExpenseButton: {
-        backgroundColor: '#28A745',
-        flexDirection: 'row',
+    createButtonLarge: {
+        backgroundColor: '#007BFF',
+        paddingVertical: 16,
+        paddingHorizontal: 32,
+        borderRadius: 12,
+        width: '100%',
         alignItems: 'center',
-        paddingVertical: 14,
-        paddingHorizontal: 30,
-        borderRadius: 30,
-        shadowColor: '#000',
+        shadowColor: "#007BFF",
         shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 5,
-        elevation: 6,
+        shadowOpacity: 0.3,
+        shadowRadius: 12,
+        elevation: 8,
     },
-    createExpenseButtonText: {
-        color: '#FFFFFF',
-        fontSize: 18,
-        fontWeight: 'bold',
+    createButtonLargeText: {
+        color: '#fff',
+        fontSize: 16,
+        fontWeight: '700',
     },
-
-    // --- Modal Specific Styles ---
-    keyboardAvoidingContainer: {
-        flex: 1,
-        justifyContent: 'center', // Center content vertically
+    errorIconContainer: {
+        marginBottom: 16,
     },
+    errorText: {
+        fontSize: 16,
+        color: '#666',
+        textAlign: 'center',
+        marginBottom: 24,
+    },
+    retryButton: {
+        paddingVertical: 10,
+        paddingHorizontal: 24,
+        borderRadius: 8,
+        borderWidth: 1,
+        borderColor: '#007BFF',
+    },
+    retryButtonText: {
+        color: '#007BFF',
+        fontWeight: '600',
+    },
+    // Modal Styles
     modalOverlay: {
         flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        backgroundColor: 'rgba(0, 0, 0, 0.6)', // Slightly lighter overlay
+        justifyContent: 'flex-end',
+        backgroundColor: 'rgba(0,0,0,0.4)',
     },
     modalContent: {
-        backgroundColor: '#FFFFFF',
-        padding: 25,
-        borderRadius: 15, // Slightly less rounded for a crisp look
-        width: '90%',
-        maxHeight: '80%', // Reduced max height to prevent over-stretching on larger screens
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 6 }, // Adjusted shadow
-        shadowOpacity: 0.25,
-        shadowRadius: 10,
-        elevation: 10,
+        backgroundColor: '#fff',
+        borderTopLeftRadius: 24,
+        borderTopRightRadius: 24,
+        height: '85%',
+        paddingBottom: 20,
     },
-    modalHeader: {
+    modalHeaderBar: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 20, // Slightly less space
-        paddingBottom: 15,
+        padding: 24,
         borderBottomWidth: 1,
-        borderBottomColor: '#F5F5F5', // Lighter separator
+        borderBottomColor: '#f5f5f5',
     },
     modalTitle: {
-        fontSize: 24, // Slightly smaller title font for better fit
+        fontSize: 18,
         fontWeight: '700',
-        color: '#2C3E50',
+        color: '#1A1A1A',
     },
-    inputGroup: {
-        marginBottom: 18, // Adjusted spacing
+    closeModalButton: {
+        padding: 4,
+        backgroundColor: '#f5f5f5',
+        borderRadius: 50,
     },
-    inputLabel: {
-        fontSize: 16, // Adjusted label font size
+    formScroll: {
+        padding: 24,
+    },
+    formSection: {
+        marginBottom: 24,
+        alignItems: 'center',
+        marginBottom: 32,
+    },
+    amountInputContainer: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'center',
+        borderBottomWidth: 1,
+        borderBottomColor: '#ddd',
+        paddingBottom: 8,
+        width: '80%',
+    },
+    currencySymbol: {
+        fontSize: 24,
         fontWeight: '600',
-        color: '#34495E',
-        marginBottom: 6, // Reduced space below label
+        color: '#333',
+        marginRight: 8,
+    },
+    amountInput: {
+        fontSize: 40,
+        fontWeight: '700',
+        color: '#1A1A1A',
+        minWidth: 100,
+        textAlign: 'center',
+    },
+    formGroup: {
+        marginBottom: 20,
+    },
+    label: {
+        fontSize: 14,
+        fontWeight: '600',
+        color: '#444',
+        marginBottom: 8,
+        marginLeft: 4,
     },
     input: {
+        backgroundColor: '#F9FAFB',
         borderWidth: 1,
-        borderColor: '#D8DCE6',
-        borderRadius: 10, // Slightly less rounded inputs
-        padding: 14, // Adjusted padding
-        fontSize: 15, // Adjusted font size
-        color: '#333333',
-        backgroundColor: '#FFFFFF', // Pure white background for inputs
-        elevation: 1, // Subtle shadow for inputs
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 1,
+        borderColor: '#E5E7EB',
+        borderRadius: 12,
+        padding: 16,
+        fontSize: 16,
+        color: '#1A1A1A',
     },
     inputError: {
-        borderColor: '#E74C3C',
-        borderWidth: 2,
+        borderColor: '#DC3545',
+        backgroundColor: '#FEF2F2',
     },
     errorTextSmall: {
-        color: '#E74C3C',
-        fontSize: 12, // Slightly smaller error text
-        marginTop: 4,
-        marginLeft: 5,
+        color: '#DC3545',
+        fontSize: 12,
+        marginTop: 6,
+        marginLeft: 4,
     },
-    descriptionInput: {
-        minHeight: 90, // Adjusted height
-        textAlignVertical: 'top',
-        lineHeight: 20,
-    },
-    dropdownButton: {
+    dropdownTrigger: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        borderWidth: 1,
-        borderColor: '#D8DCE6',
-        borderRadius: 10,
-        padding: 14,
-        backgroundColor: '#FFFFFF',
-        elevation: 1, // Subtle shadow
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 1 },
-        shadowOpacity: 0.05,
-        shadowRadius: 1,
     },
-    dropdownButtonText: {
-        fontSize: 15,
-        color: '#333333',
-        flex: 1,
+    inputText: {
+        fontSize: 16,
+        color: '#1A1A1A',
     },
-    dropdownList: {
+    dropdownContainer: {
+        marginTop: 8,
+        backgroundColor: '#fff',
+        borderRadius: 12,
         borderWidth: 1,
-        borderColor: '#D8DCE6',
-        borderRadius: 10,
-        maxHeight: 180, // Adjusted max height
-        backgroundColor: '#FFFFFF',
-        marginTop: 6,
-        shadowColor: '#000',
+        borderColor: '#E5E7EB',
+        maxHeight: 200,
+        shadowColor: "#000",
         shadowOffset: { width: 0, height: 4 },
         shadowOpacity: 0.1,
-        shadowRadius: 8,
-        elevation: 8,
+        shadowRadius: 12,
+        elevation: 4,
     },
     categoryItem: {
-        padding: 14, // Adjusted padding
-        borderBottomWidth: 1,
-        borderBottomColor: '#F0F0F0', // Slightly more visible separator
-        flexDirection: 'row', // Align checkmark
+        flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
+        paddingVertical: 14,
+        paddingHorizontal: 16,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F3F4F6',
+    },
+    categoryItemSelected: {
+        backgroundColor: '#F0F7FF',
     },
     categoryText: {
-        fontSize: 15,
+        fontSize: 16,
         color: '#333333',
     },
-    submitButton: {
-        backgroundColor: '#007BFF',
-        paddingVertical: 15, // Adjusted padding
-        borderRadius: 10, // Adjusted border radius
-        alignItems: 'center',
-        marginTop: 20, // Adjusted margin
-        shadowColor: '#007BFF',
-        shadowOffset: { width: 0, height: 5 },
-        shadowOpacity: 0.25, // Adjusted shadow
-        shadowRadius: 8,
-        elevation: 8,
+    categoryTextSelected: {
+        fontWeight: '600',
+        color: '#007BFF',
     },
-    submitButtonText: {
-        color: '#FFFFFF',
-        fontSize: 18,
+    textArea: {
+        minHeight: 100,
+        textAlignVertical: 'top',
+    },
+    saveButton: {
+        backgroundColor: '#1A1A1A',
+        borderRadius: 12,
+        paddingVertical: 18,
+        alignItems: 'center',
+        marginTop: 24,
+        shadowColor: "#000",
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 6,
+    },
+    saveButtonText: {
+        color: '#fff',
+        fontSize: 16,
         fontWeight: '700',
     },
 });

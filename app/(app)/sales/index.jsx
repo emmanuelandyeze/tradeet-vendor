@@ -42,6 +42,9 @@ const SalesScreen = () => {
 		{ name: '', price: 0, quantity: 1 },
 	]);
 	const [totalPrice, setTotalPrice] = useState(0);
+	const [addTax, setAddTax] = useState(false);
+	const [taxPercent, setTaxPercent] = useState(0);
+	const [taxInput, setTaxInput] = useState('0'); // String state for input
 
 	const storeId = userInfo?._id;
 
@@ -184,8 +187,10 @@ const SalesScreen = () => {
 			},
 			items: products,
 			userId: null,
-			totalAmount: totalPrice,
+			totalAmount: totalPrice + (addTax ? (totalPrice * taxPercent) / 100 : 0),
 			itemsAmount: totalPrice,
+			taxPercent: addTax ? taxPercent : 0,
+			taxAmount: addTax ? (totalPrice * taxPercent) / 100 : 0,
 			discountCode: null,
 			status: 'pending',
 		};
@@ -415,6 +420,70 @@ const SalesScreen = () => {
 								Total Amount: ₦
 								{totalPrice?.toLocaleString()}
 							</Text>
+
+							{/* Tax Section */}
+							<View style={{ marginBottom: 20 }}>
+								<View
+									style={{
+										flexDirection: 'row',
+										alignItems: 'center',
+										justifyContent: 'space-between',
+										marginBottom: 10,
+									}}
+								>
+									<Text style={{ fontSize: 16 }}>Apply Tax?</Text>
+									<TouchableOpacity
+										onPress={() => setAddTax(!addTax)}
+									>
+										<Ionicons
+											name={
+												addTax
+													? 'checkbox'
+													: 'checkbox-outline'
+											}
+											size={24}
+											color={addTax ? '#4CAF50' : '#888'}
+										/>
+									</TouchableOpacity>
+								</View>
+								{addTax && (
+									<View
+										style={{
+											flexDirection: 'row',
+											alignItems: 'center',
+											gap: 10,
+										}}
+									>
+										<Text>Tax (%):</Text>
+										<TextInput
+											style={[styles.input, { width: 80, marginBottom: 0 }]}
+											placeholder="7.5"
+											keyboardType="numeric"
+											value={taxInput}
+											onChangeText={(v) => {
+												setTaxInput(v);
+												setTaxPercent(parseFloat(v) || 0);
+											}}
+										/>
+										<Text>
+											Amount: ₦
+											{(
+												(totalPrice * taxPercent) /
+												100
+											).toLocaleString()}
+										</Text>
+									</View>
+								)}
+								<Text style={[styles.total, { marginTop: 10, fontSize: 20 }]}>
+									Grand Total: ₦
+									{(
+										totalPrice +
+										(addTax
+											? (totalPrice * taxPercent) / 100
+											: 0)
+									).toLocaleString()}
+								</Text>
+							</View>
 
 							{/* Submit Button */}
 

@@ -24,7 +24,7 @@ const ExpenseTable = ({
 	fetchExpenses,
 }) => {
 	const { sendPushNotification } = useContext(AuthContext);
-	const [selectedInvoice, setSelectedInvoice] =
+	const [selectedExpense, setSelectedExpense] =
 		useState(null);
 	const [isModalVisible, setModalVisible] = useState(false);
 	const [isPaymentModalVisible, setPaymentModalVisible] =
@@ -36,17 +36,17 @@ const ExpenseTable = ({
 	const [selectedMethod, setSelectedMethod] =
 		useState('transfer');
 
-	const openModal = (invoice) => {
-		setSelectedInvoice(invoice);
+	const openModal = (expense) => {
+		setSelectedExpense(expense);
 		setModalVisible(true);
 	};
 
-	const openPaymentModal = (invoice) => {
+	const openPaymentModal = (expense) => {
 		setPaymentModalVisible(true);
 	};
 
 	const closeModal = () => {
-		setSelectedInvoice(null);
+		setSelectedExpense(null);
 		setModalVisible(false);
 	};
 
@@ -109,7 +109,7 @@ const ExpenseTable = ({
 		const response = await axiosInstance.post(
 			'/orders/add-payment',
 			{
-				orderId: selectedInvoice._id,
+				orderId: selectedExpense._id,
 				amount: amountPaid,
 				method: selectedMethod,
 			},
@@ -129,7 +129,7 @@ const ExpenseTable = ({
 			);
 	};
 
-	const handleShareInvoice = async (invoice) => {
+	const handleShareExpense = async (expense) => {
 		try {
 			const uri = await captureRef(invoiceRef.current, {
 				format: 'jpg',
@@ -137,626 +137,118 @@ const ExpenseTable = ({
 			});
 			await Sharing.shareAsync(uri);
 		} catch (error) {
-			console.error('Error sharing invoice:', error);
-			Alert.alert('Error', 'Failed to share invoice');
+			console.error('Error sharing expense:', error);
+			Alert.alert('Error', 'Failed to share expense');
 		}
 	};
+	// ...
 
 	const renderItem = ({ item }) => (
 		<TouchableOpacity
-			style={styles.row}
-			// onPress={() => openModal(item)}
+			style={styles.card}
+			onPress={() => openModal(item)}
+			activeOpacity={0.7}
 		>
-			<Text style={styles.cell}>
-				{formatDate(item.date)}
-			</Text>
-			{/* <Text style={styles.cell}>
-				{formatDate(item.createdAt)}
-			</Text> */}
-			<Text style={styles.cell}>{item.title}</Text>
-			<Text style={styles.cell}>{item.category}</Text>
-			<Text style={styles.cell}>
-				₦{item.amount.toLocaleString()}
-			</Text>
+			<View style={styles.cardHeader}>
+				<View style={styles.cardIconContainer}>
+					<Ionicons name="receipt-outline" size={24} color="#007BFF" />
+				</View>
+				<View style={styles.cardTitleContainer}>
+					<Text style={styles.cardTitle}>{item.title}</Text>
+					<Text style={styles.cardDate}>{formatDate(item.date)}</Text>
+				</View>
+				<View>
+					<Text style={styles.cardAmount}>
+						₦{item.amount.toLocaleString()}
+					</Text>
+				</View>
+			</View>
+			<View style={styles.cardFooter}>
+				<View style={styles.categoryBadge}>
+					<Text style={styles.categoryText}>{item.category}</Text>
+				</View>
+				<Ionicons name="chevron-forward" size={20} color="#C7C7CC" />
+			</View>
 		</TouchableOpacity>
 	);
 
 	return (
 		<View style={styles.container}>
-			{/* Table Header */}
-			<View style={styles.header}>
-				<Text style={styles.headerCell}>Date</Text>
-				<Text style={styles.headerCell}>Name</Text>
-				<Text style={styles.headerCell}>Category</Text>
-				<Text style={styles.headerCell}>Amount</Text>
-			</View>
-
-			{/* Table Body */}
 			<FlatList
 				data={expenses}
 				renderItem={renderItem}
 				keyExtractor={(item) => item._id}
+				contentContainerStyle={styles.listContent}
+				showsVerticalScrollIndicator={false}
 			/>
-
 			{/* Modal for Invoice Details */}
-			{selectedInvoice && (
+			{selectedExpense && (
 				<Modal
 					visible={isModalVisible}
-					animationType="slide"
+					animationType="fade"
 					transparent
 					onRequestClose={closeModal}
 				>
 					<View style={styles.modalContainer}>
-						<View style={styles.modalContent}>
-							<View
-								style={{
-									width: '100%',
-									backgroundColor: '#fff',
-									borderRadius: 10,
-									padding: 10,
-								}}
-								ref={invoiceRef}
-							>
-								<View
-									style={{
-										flexDirection: 'row',
-										width: '100%',
-										justifyContent: 'space-between',
-										alignItems: 'flex-start',
-									}}
-								>
-									<View>
-										<Text
-											style={{
-												fontSize: 16,
-												fontWeight: 'bold',
-											}}
-										>
-											#{selectedInvoice?.orderNumber}
-										</Text>
-										<Text
-											style={{
-												fontSize: 12,
-												fontWeight: 'normal',
-											}}
-										>
-											{formatDate(
-												selectedInvoice?.createdAt,
-											)}
-										</Text>
-										<Text
-											style={{
-												marginTop: 2,
-												textAlign: 'center',
-												backgroundColor:
-													selectedInvoice?.payment
-														?.status === 'completed'
-														? 'green'
-														: selectedInvoice?.payment
-																?.status === 'partial'
-														? '#FF7E09'
-														: 'red',
-												color: '#fff',
-												// width: '30%',
-												borderRadius: 2,
-												paddingVertical: 2,
-												fontSize: 12,
-												textTransform: 'capitalize',
-											}}
-										>
-											{selectedInvoice.payment.status}
-										</Text>
-									</View>
-									<View
-										style={{
-											flexDirection: 'column',
-											// width: '100%',
-											justifyContent: 'flex-end',
-											alignItems: 'flex-end',
-										}}
-									>
-										{userInfo?.logoUrl ? (
-											<Image
-												source={{ uri: userInfo.logoUrl }}
-												style={{
-													marginBottom: 4,
-													resizeMode: 'cover',
-													height: 50,
-													width: 50,
-													borderRadius: 50,
-													borderWidth: 1,
-													borderColor: 'gray',
-													elevation: 3,
-													justifyContent: 'flex-end',
-													alignItems: 'flex-end',
-													marginRight: -5,
-												}}
-											/>
-										) : (
-											<View
-												style={{
-													justifyContent: 'flex-end',
-													alignItems: 'flex-end',
-													marginRight: -5,
-												}}
-											>
-												<PlaceholderLogo
-													name={userInfo?.name}
-												/>
-											</View>
-										)}
-										<Text
-											style={{
-												fontSize: 16,
-												fontWeight: 'bold',
-											}}
-										>
-											{userInfo?.name}
-										</Text>
-										<Text
-											style={{
-												fontSize: 12,
-												fontWeight: 'normal',
-											}}
-										>
-											{userInfo?.address}
-										</Text>
-										<Text
-											style={{
-												fontSize: 12,
-												fontWeight: 'normal',
-											}}
-										>
-											{userInfo?.phone}
-										</Text>
-									</View>
-								</View>
-								<View
-									style={{
-										flexDirection: 'row',
-										width: '100%',
-										justifyContent: 'flex-start',
-										paddingVertical: 10,
-									}}
-								>
-									<View
-										style={{
-											flexDirection: 'column',
-											// width: '100%',
-											justifyContent: 'flex-start',
-											alignItems: 'flex-start',
-										}}
-									>
-										<Text
-											style={{
-												fontSize: 14,
-												fontWeight: 'bold',
-											}}
-										>
-											Billed to:
-										</Text>
-										<Text
-											style={{
-												fontSize: 16,
-												fontWeight: 'bold',
-											}}
-										>
-											{selectedInvoice?.customerInfo?.name}
-										</Text>
-										{selectedInvoice?.customerInfo
-											?.address && (
-											<Text
-												style={{
-													fontSize: 12,
-													fontWeight: 'normal',
-												}}
-											>
-												{
-													selectedInvoice?.customerInfo
-														?.address
-												}
-											</Text>
-										)}
-										<Text
-											style={{
-												fontSize: 12,
-												fontWeight: 'normal',
-											}}
-										>
-											{
-												selectedInvoice?.customerInfo
-													?.contact
-											}
-										</Text>
-									</View>
-								</View>
-								<Text style={styles.modalTitle}>
-									Invoice Details
-								</Text>
-								{selectedInvoice?.items?.map(
-									(item, index) => (
-										<View
-											key={index}
-											style={{
-												paddingBottom: 10,
-												borderBottomWidth: 1,
-												borderColor: '#f0f0f0',
-												marginBottom: 10,
-											}}
-										>
-											<View style={styles.header}>
-												<Text
-													style={[
-														styles.headerCell,
-														{ textAlign: 'left' },
-													]}
-												>
-													Item
-												</Text>
-												<Text style={styles.headerCell}>
-													Quantity
-												</Text>
-												<Text style={styles.headerCell}>
-													Amount
-												</Text>
-											</View>
-											<View style={styles.row}>
-												<Text
-													style={[
-														styles.cell,
-														{ textAlign: 'left' },
-													]}
-												>
-													{item?.name || item?.product}
-												</Text>
-												<Text style={styles.cell}>
-													{item?.quantity}
-												</Text>
-												<Text style={styles.cell}>
-													₦
-													{item?.total?.toLocaleString() ||
-														item?.totalPrice?.toLocaleString()}
-												</Text>
-											</View>
-											{/* {item?.variants?.map(
-												(variant, index) => (
-													<Text
-														style={{ fontSize: 14 }}
-														key={index}
-													>
-														(x
-														{variant.quantity}){' '}
-														{variant.name}
-													</Text>
-												),
-											)}
-											{item?.addOns?.map((addon, index) => (
-												<Text
-													style={{ fontSize: 14 }}
-													key={index}
-												>
-													(x{addon.quantity}) {addon.name}
-												</Text>
-											))} */}
-										</View>
-									),
-								)}
-								<View
-									style={{
-										flexDirection: 'row',
-										justifyContent: 'space-between',
-										alignItems: 'center',
-									}}
-								>
-									<Text
-										style={{
-											fontSize: 18,
-											fontWeight: 'bold',
-										}}
-									>
-										Total
-									</Text>
-									<Text
-										style={{
-											fontSize: 18,
-											fontWeight: 'bold',
-										}}
-									>
-										₦
-										{selectedInvoice?.totalAmount?.toLocaleString()}
-									</Text>
-								</View>
-								{selectedInvoice?.amountPaid > 0 && (
-									<View
-										style={{
-											flexDirection: 'row',
-											justifyContent: 'space-between',
-											alignItems: 'center',
-										}}
-									>
-										<Text
-											style={{
-												fontSize: 16,
-												// fontWeight: 'bold',
-											}}
-										>
-											Balance
-										</Text>
-										<Text
-											style={{
-												fontSize: 16,
-												// fontWeight: 'bold',
-											}}
-										>
-											₦
-											{(
-												selectedInvoice?.totalAmount -
-												selectedInvoice?.amountPaid
-											)?.toLocaleString()}
-										</Text>
-									</View>
-								)}
-								{selectedInvoice?.amountPaid > 0 && (
-									<View style={{ marginTop: 10 }}>
-										<Text
-											style={{
-												borderBottomWidth: 0.5,
-												borderColor: '#ccc',
-												paddingBottom: 5,
-											}}
-										>
-											Payment History
-										</Text>
-										{selectedInvoice?.payments?.map(
-											(item, index) => (
-												<View key={index}>
-													<View
-														style={{
-															flexDirection: 'row',
-															justifyContent:
-																'space-between',
-															alignItems: 'center',
-															marginTop: 5,
-														}}
-													>
-														<Text>
-															{formatDate(item.date)}
-														</Text>
-														<Text
-															style={{
-																textTransform: 'capitalize',
-															}}
-														>
-															{item.method}
-														</Text>
-														<Text>
-															₦
-															{item.amount.toLocaleString()}
-														</Text>
-													</View>
-												</View>
-											),
-										)}
-									</View>
-								)}
+						<View
+							ref={invoiceRef}
+							collapsable={false}
+							style={styles.modalContent}
+						>
+							<View style={styles.modalHeader}>
+								<Text style={styles.modalTitleDetail}>Expense Details</Text>
+								<TouchableOpacity onPress={closeModal} style={styles.closeIcon}>
+									<Ionicons name="close" size={24} color="#555" />
+								</TouchableOpacity>
 							</View>
-							<View
-								style={{
-									flexDirection: 'row',
-									justifyContent: 'space-between',
-									alignItems: 'center',
-								}}
-							>
-								<View>
-									<TouchableOpacity
-										style={[
-											styles.closeButton,
-											{ backgroundColor: '#121212' },
-										]}
-										onPress={openPaymentModal}
-									>
-										<Text
-											style={[
-												styles.closeButtonText,
-												{ color: '#f1f1f1' },
-											]}
-										>
-											Record payment
-										</Text>
-									</TouchableOpacity>
+
+							<View style={styles.detailSection}>
+								<Text style={styles.detailLabel}>Title</Text>
+								<Text style={styles.detailValue}>{selectedExpense?.title}</Text>
+							</View>
+
+							<View style={styles.detailRow}>
+								<View style={styles.detailSectionHalf}>
+									<Text style={styles.detailLabel}>Date</Text>
+									<Text style={styles.detailValue}>{formatDate(selectedExpense?.date)}</Text>
 								</View>
-								<View
-									style={{
-										flexDirection: 'row',
-										justifyContent: 'flex-end',
-										gap: 10,
-									}}
+								<View style={styles.detailSectionHalf}>
+									<Text style={styles.detailLabel}>Amount</Text>
+									<Text style={styles.detailValueHighlight}>
+										₦{selectedExpense?.amount?.toLocaleString()}
+									</Text>
+								</View>
+							</View>
+
+							<View style={styles.detailSection}>
+								<Text style={styles.detailLabel}>Category</Text>
+								<View style={styles.categoryBadgeLarge}>
+									<Text style={styles.categoryTextLarge}>{selectedExpense?.category}</Text>
+								</View>
+							</View>
+
+							{selectedExpense?.description && (
+								<View style={styles.detailSection}>
+									<Text style={styles.detailLabel}>Description</Text>
+									<Text style={styles.detailDescription}>
+										{selectedExpense?.description}
+									</Text>
+								</View>
+							)}
+
+							<View style={styles.divider} />
+
+							<View style={styles.modalActions}>
+								<TouchableOpacity
+									style={styles.shareButton}
+									onPress={() => handleShareExpense(selectedExpense)}
 								>
-									<TouchableOpacity
-										style={[
-											styles.closeButton,
-											{ backgroundColor: '#f0f0f0' },
-										]}
-										onPress={closeModal}
-									>
-										<Text
-											style={[
-												styles.closeButtonText,
-												{ color: '#000' },
-											]}
-										>
-											Close
-										</Text>
-									</TouchableOpacity>
-									<TouchableOpacity
-										style={styles.closeButton}
-										onPress={() => handleShareInvoice()}
-									>
-										<Text
-											style={{
-												color: '#fff',
-												fontWeight: 'bold',
-											}}
-										>
-											Share
-										</Text>
-									</TouchableOpacity>
-								</View>
+									<Ionicons name="share-outline" size={20} color="#fff" />
+									<Text style={styles.shareButtonText}>Share Receipt</Text>
+								</TouchableOpacity>
 							</View>
 						</View>
 					</View>
-					<Modal
-						visible={isPaymentModalVisible}
-						animationType="slide"
-						transparent
-						onRequestClose={closePaymentModal}
-					>
-						<View style={styles.modalContainer}>
-							<View style={styles.modalContent}>
-								<View
-									style={{
-										flexDirection: 'row',
-										justifyContent: 'space-between',
-										alignItems: 'center',
-										marginBottom: 10,
-									}}
-								>
-									<Text
-										style={{
-											fontSize: 18,
-											fontWeight: 600,
-										}}
-									>
-										Record payment
-									</Text>
-									<TouchableOpacity
-										onPress={closePaymentModal}
-									>
-										<Ionicons
-											name="close-sharp"
-											size={24}
-											color="black"
-										/>
-									</TouchableOpacity>
-								</View>
-								<View style={{ width: '100%' }}>
-									<Text
-										style={{
-											fontSize: 16,
-											marginBottom: 5,
-										}}
-									>
-										Amount Paid
-									</Text>
-									<TextInput
-										style={[styles.input]}
-										placeholder="Amount (NGN)"
-										value={amountPaid?.toLocaleString()}
-										keyboardType="numeric"
-										onChangeText={(value) =>
-											setAmountPaid(value)
-										}
-									/>
-								</View>
-								<Text
-									style={{ fontSize: 16 }}
-									className="text-lg mt-5"
-								>
-									Method of payment
-								</Text>
-								<View style={styles.paymentMethodContainer}>
-									{/* Wallet Payment Option */}
-									<TouchableOpacity
-										style={[
-											styles.paymentMethodButton,
-											selectedMethod === 'transfer' &&
-												styles.selectedPaymentMethod,
-										]}
-										onPress={() =>
-											setSelectedMethod('transfer')
-										}
-									>
-										<View
-											style={[
-												styles.circle,
-												selectedMethod === 'transfer' &&
-													styles.selectedCircle,
-											]}
-										>
-											{selectedMethod === 'transfer' && (
-												<View style={styles.circleInner} />
-											)}
-										</View>
-										<View>
-											<Text
-												style={styles.paymentMethodText}
-											>
-												Bank transfer
-											</Text>
-										</View>
-									</TouchableOpacity>
-
-									{/* Services Option */}
-									<TouchableOpacity
-										style={[
-											styles.paymentMethodButton,
-											selectedMethod === 'cash' &&
-												styles.selectedPaymentMethod,
-										]}
-										onPress={() =>
-											setSelectedMethod('cash')
-										}
-									>
-										<View
-											style={[
-												styles.circle,
-												selectedMethod === 'cash' &&
-													styles.selectedCircle,
-											]}
-										>
-											{selectedMethod === 'cash' && (
-												<View style={styles.circleInner} />
-											)}
-										</View>
-										<View>
-											<Text
-												style={styles.paymentMethodText}
-											>
-												Cash
-											</Text>
-										</View>
-									</TouchableOpacity>
-								</View>
-								<View
-									style={{
-										flexDirection: 'row',
-										justifyContent: 'flex-end',
-										gap: 10,
-									}}
-								>
-									<TouchableOpacity
-										style={{
-											marginTop: 10,
-											paddingVertical: 10,
-											paddingHorizontal: 20,
-											backgroundColor: '#121212',
-											borderRadius: 5,
-										}}
-										onPress={() => handleRecordPayment()}
-									>
-										<Text
-											style={{
-												color: '#fff',
-												fontWeight: 'bold',
-											}}
-										>
-											Record
-										</Text>
-									</TouchableOpacity>
-								</View>
-							</View>
-						</View>
-					</Modal>
 				</Modal>
 			)}
 		</View>
@@ -766,107 +258,184 @@ const ExpenseTable = ({
 const styles = StyleSheet.create({
 	container: {
 		flex: 1,
-		padding: 10,
+		backgroundColor: '#F8F9FA',
+	},
+	listContent: {
+		paddingBottom: 20,
+		paddingTop: 10,
+	},
+	card: {
 		backgroundColor: '#fff',
+		borderRadius: 16,
+		padding: 16,
+		marginVertical: 8,
+		marginHorizontal: 4,
+		shadowColor: '#000',
+		shadowOffset: { width: 0, height: 2 },
+		shadowOpacity: 0.05,
+		shadowRadius: 8,
+		elevation: 2,
+		borderWidth: 1,
+		borderColor: '#F0F0F0',
 	},
-	header: {
+	cardHeader: {
 		flexDirection: 'row',
-		borderBottomWidth: 1,
-		borderBottomColor: '#ccc',
-		paddingBottom: 5,
-		marginBottom: 10,
-	},
-	headerCell: {
-		flex: 1,
-		fontWeight: 'bold',
-		textAlign: 'center',
-	},
-	row: {
-		flexDirection: 'row',
-		paddingVertical: 10,
-		// borderBottomWidth: 1,
-		borderBottomColor: '#f0f0f0',
 		alignItems: 'center',
+		justifyContent: 'space-between',
+		marginBottom: 12,
 	},
-	cell: {
+	cardIconContainer: {
+		width: 48,
+		height: 48,
+		borderRadius: 12,
+		backgroundColor: '#F0F7FF',
+		justifyContent: 'center',
+		alignItems: 'center',
+		marginRight: 12,
+	},
+	cardTitleContainer: {
 		flex: 1,
-		textAlign: 'center',
 	},
+	cardTitle: {
+		fontSize: 16,
+		fontWeight: '700',
+		color: '#1A1A1A',
+		marginBottom: 4,
+	},
+	cardDate: {
+		fontSize: 12,
+		color: '#8E8E93',
+	},
+	cardAmount: {
+		fontSize: 16,
+		fontWeight: '800',
+		color: '#1A1A1A',
+	},
+	cardFooter: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		alignItems: 'center',
+		paddingTop: 12,
+		borderTopWidth: 1,
+		borderTopColor: '#F5F5F5',
+	},
+	categoryBadge: {
+		backgroundColor: '#F2F2F7',
+		paddingHorizontal: 10,
+		paddingVertical: 4,
+		borderRadius: 6,
+	},
+	categoryText: {
+		fontSize: 12,
+		fontWeight: '600',
+		color: '#636366',
+	},
+	// Modal Styles
 	modalContainer: {
 		flex: 1,
 		justifyContent: 'center',
 		alignItems: 'center',
-		backgroundColor: 'rgba(0, 0, 0, 0.65)',
+		backgroundColor: 'rgba(0, 0, 0, 0.5)',
+		padding: 20,
 	},
 	modalContent: {
-		width: '80%',
+		width: '100%',
+		maxWidth: 400,
 		backgroundColor: '#fff',
-		borderRadius: 10,
-		padding: 20,
-		// alignItems: 'center',
+		borderRadius: 24,
+		padding: 24,
+		shadowColor: '#000',
+		shadowOffset: { width: 0, height: 10 },
+		shadowOpacity: 0.1,
+		shadowRadius: 20,
+		elevation: 10,
 	},
-	modalTitle: {
-		fontSize: 18,
-		fontWeight: 'bold',
-		marginBottom: 15,
-		textAlign: 'center',
-	},
-	closeButton: {
-		marginTop: 20,
-		padding: 10,
-		backgroundColor: '#007BFF',
-		borderRadius: 5,
-	},
-	closeButtonText: {
-		color: '#fff',
-		fontWeight: 'bold',
-	},
-	input: {
-		borderWidth: 1,
-		borderColor: '#ccc',
-		padding: 10,
-		marginBottom: 0,
-		borderRadius: 5,
-	},
-	paymentMethodContainer: {
+	modalHeader: {
 		flexDirection: 'row',
 		justifyContent: 'space-between',
-		marginTop: 5,
-		marginBottom: 10,
+		alignItems: 'center',
+		marginBottom: 24,
 	},
-	paymentMethodButton: {
+	modalTitleDetail: {
+		fontSize: 20,
+		fontWeight: '800',
+		color: '#1A1A1A',
+	},
+	closeIcon: {
+		padding: 4,
+		backgroundColor: '#F2F2F7',
+		borderRadius: 50,
+	},
+	detailSection: {
+		marginBottom: 20,
+	},
+	detailRow: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		marginBottom: 20,
+	},
+	detailSectionHalf: {
+		flex: 1,
+	},
+	detailLabel: {
+		fontSize: 12,
+		fontWeight: '600',
+		color: '#8E8E93',
+		marginBottom: 6,
+		textTransform: 'uppercase',
+		letterSpacing: 0.5,
+	},
+	detailValue: {
+		fontSize: 16,
+		fontWeight: '600',
+		color: '#1A1A1A',
+	},
+	detailValueHighlight: {
+		fontSize: 20,
+		fontWeight: '800',
+		color: '#007BFF',
+	},
+	detailDescription: {
+		fontSize: 15,
+		color: '#3C3C43',
+		lineHeight: 22,
+	},
+	categoryBadgeLarge: {
+		alignSelf: 'flex-start',
+		backgroundColor: '#EAF4FF',
+		paddingHorizontal: 16,
+		paddingVertical: 8,
+		borderRadius: 100,
+		borderWidth: 1,
+		borderColor: '#007BFF20',
+	},
+	categoryTextLarge: {
+		color: '#007BFF',
+		fontWeight: '700',
+		fontSize: 14,
+	},
+	divider: {
+		height: 1,
+		backgroundColor: '#F0F0F0',
+		marginVertical: 20,
+	},
+	modalActions: {
+		flexDirection: 'row',
+		justifyContent: 'flex-end',
+	},
+	shareButton: {
 		flexDirection: 'row',
 		alignItems: 'center',
-		padding: 10,
-		borderWidth: 1,
-		borderColor: '#ccc',
-		borderRadius: 10,
-		width: '48%', // for equal width buttons side by side
+		backgroundColor: '#1A1A1A',
+		paddingVertical: 12,
+		paddingHorizontal: 20,
+		borderRadius: 12,
+		gap: 8,
 	},
-	selectedPaymentMethod: {
-		borderColor: '#18a54a',
-	},
-	paymentMethodText: {
-		fontSize: 14,
-		marginLeft: 10,
-	},
-	circle: {
-		height: 20,
-		width: 20,
-		borderRadius: 12, // makes the circle
-		borderWidth: 2,
-		borderColor: '#ccc',
-		alignItems: 'center',
-		justifyContent: 'center',
-	},
-	selectedCircle: {
-		borderColor: '#18a54a', // green for selected state
-	},
-	circleInner: {
-		height: 10,
-		width: 10,
-		borderRadius: 6,
-		backgroundColor: '#18a54a', // inner green dot when selected
+	shareButtonText: {
+		color: '#fff',
+		fontWeight: '600',
+		fontSize: 15,
 	},
 });
 

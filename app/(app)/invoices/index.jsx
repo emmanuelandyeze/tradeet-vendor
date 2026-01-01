@@ -57,7 +57,7 @@ const InvoicesScreen = () => {
 	// tax
 	const [taxEnabled, setTaxEnabled] = useState(false);
 	const [taxPercent, setTaxPercent] = useState(0);
-
+	const [taxInput, setTaxInput] = useState('0');
 	// derived totals
 	const [subTotal, setSubTotal] = useState(0);
 	const [taxAmount, setTaxAmount] = useState(0);
@@ -134,9 +134,16 @@ const InvoicesScreen = () => {
 	const fetchInvoices = async () => {
 		if (!storeId) return;
 		try {
+			const isBranch = selectedStore?._isBranch === true;
+			const actualStoreId = isBranch ? selectedStore.parent || selectedStore._storeId : selectedStore._id;
+			const actualBranchId = isBranch ? selectedStore._id : undefined;
+
 			setLoadingInvoices(true);
 			const res = await axiosInstance.get('/invoices', {
-				params: { storeId },
+				params: {
+					storeId: actualStoreId,
+					branchId: actualBranchId
+				},
 			});
 			const data = Array.isArray(res.data)
 				? res.data
@@ -208,8 +215,13 @@ const InvoicesScreen = () => {
 			meta: { createdFrom: 'mobile_app' },
 		}));
 
+		const isBranch = selectedStore?._isBranch === true;
+		const actualStoreId = isBranch ? selectedStore.parent || selectedStore._storeId : selectedStore._id;
+		const actualBranchId = isBranch ? selectedStore._id : undefined;
+
 		const payload = {
-			storeId,
+			storeId: actualStoreId,
+			branchId: actualBranchId,
 			orderId: null, // standalone invoice
 			lines: normalizedLines,
 			note: note || undefined,
@@ -334,322 +346,246 @@ const InvoicesScreen = () => {
 			<Modal
 				visible={modalVisible}
 				animationType="slide"
-				transparent
+				presentationStyle="pageSheet"
 				onRequestClose={() => setModalVisible(false)}
 			>
 				<KeyboardAvoidingView
 					style={styles.modalContainer}
-					behavior={
-						Platform.OS === 'ios' ? 'padding' : 'height'
-					}
+					behavior={Platform.OS === 'ios' ? 'padding' : undefined}
 				>
 					<View style={styles.modalContent}>
+						{/* Modal Header */}
 						<View style={styles.modalHeader}>
-							<Text style={styles.modalTitle}>
-								Create Invoice
-							</Text>
+							<Text style={styles.modalTitle}>New Invoice</Text>
 							<TouchableOpacity
 								onPress={() => setModalVisible(false)}
 								style={styles.closeButton}
 							>
 								<Ionicons
-									name="close-circle-outline"
-									size={30}
-									color="#555"
+									name="close"
+									size={24}
+									color="#1F2937"
 								/>
 							</TouchableOpacity>
 						</View>
 
 						<ScrollView
 							style={styles.scrollViewContent}
-							contentContainerStyle={{ paddingBottom: 140 }}
+							contentContainerStyle={{ paddingBottom: 120, paddingHorizontal: 20 }}
 							showsVerticalScrollIndicator={false}
 						>
-							<View style={styles.section}>
-								<Text style={styles.label}>
-									Customer Name
-								</Text>
-								<TextInput
-									style={styles.input}
-									placeholder="Enter customer name"
-									value={customer.name}
-									onChangeText={(v) =>
-										setCustomer((s) => ({ ...s, name: v }))
-									}
-								/>
-								<Text style={styles.label}>
-									Phone Number
-								</Text>
-								<TextInput
-									style={styles.input}
-									placeholder="Enter phone number"
-									value={customer.phone}
-									keyboardType="phone-pad"
-									onChangeText={(v) =>
-										setCustomer((s) => ({ ...s, phone: v }))
-									}
-								/>
-								<Text style={styles.label}>
-									Address (optional)
-								</Text>
-								<TextInput
-									style={styles.input}
-									placeholder="Customer address"
-									value={customer.address}
-									onChangeText={(v) =>
-										setCustomer((s) => ({
-											...s,
-											address: v,
-										}))
-									}
-								/>
-								<Text style={styles.label}>
-									Email (optional)
-								</Text>
-								<TextInput
-									style={styles.input}
-									placeholder="customer@example.com"
-									value={customer.email}
-									keyboardType="email-address"
-									onChangeText={(v) =>
-										setCustomer((s) => ({ ...s, email: v }))
-									}
-								/>
-							</View>
-
-							<Text style={styles.modalSubTitle}>
-								Items
-							</Text>
-
-							<FlatList
-								data={lines}
-								keyExtractor={(_, i) => String(i)}
-								renderItem={({ item, index }) => (
-									<View style={styles.productItem}>
-										<Text style={styles.label}>
-											Description
-										</Text>
+							{/* Customer Section */}
+							<View style={styles.sectionContainer}>
+								<Text style={styles.sectionHeaderTitle}>Customer Details</Text>
+								<View style={styles.card}>
+									<View style={styles.inputGroup}>
+										<Text style={styles.inputLabel}>Name *</Text>
 										<TextInput
-											style={styles.input}
-											placeholder="Item description"
-											value={item.description}
-											multiline={true}
+											style={styles.inputField}
+											placeholder="e.g. John Doe"
+											value={customer.name}
 											onChangeText={(v) =>
-												handleLineChange(
-													index,
-													'description',
-													v,
-												)
+												setCustomer((s) => ({ ...s, name: v }))
 											}
 										/>
+									</View>
+									<View style={styles.inputGroup}>
+										<Text style={styles.inputLabel}>Phone *</Text>
+										<TextInput
+											style={styles.inputField}
+											placeholder="e.g. 08012345678"
+											value={customer.phone}
+											keyboardType="phone-pad"
+											onChangeText={(v) =>
+												setCustomer((s) => ({ ...s, phone: v }))
+											}
+										/>
+									</View>
+									<View style={styles.rowInputs}>
+										<View style={[styles.inputGroup, { flex: 1, marginRight: 10 }]}>
+											<Text style={styles.inputLabel}>Email (Optional)</Text>
+											<TextInput
+												style={styles.inputField}
+												placeholder="john@example.com"
+												value={customer.email}
+												keyboardType="email-address"
+												autoCapitalize="none"
+												onChangeText={(v) =>
+													setCustomer((s) => ({ ...s, email: v }))
+												}
+											/>
+										</View>
+										<View style={[styles.inputGroup, { flex: 1 }]}>
+											<Text style={styles.inputLabel}>Address (Optional)</Text>
+											<TextInput
+												style={styles.inputField}
+												placeholder="City, State"
+												value={customer.address}
+												onChangeText={(v) =>
+													setCustomer((s) => ({ ...s, address: v }))
+												}
+											/>
+										</View>
+									</View>
+								</View>
+							</View>
 
-										<View style={styles.priceQuantityRow}>
-											<View style={styles.priceColumn}>
-												<Text style={styles.label}>
-													Amount
-												</Text>
-												<TextInput
-													style={styles.input}
-													placeholder="Unit price"
-													keyboardType="numeric"
-													value={String(item.unitPrice)}
-													onChangeText={(v) =>
-														handleLineChange(
-															index,
-															'unitPrice',
-															v,
-														)
-													}
-												/>
+							{/* Items Section */}
+							<View style={styles.sectionContainer}>
+								<Text style={styles.sectionHeaderTitle}>Items</Text>
+
+								{lines.map((item, index) => (
+									<View key={index} style={styles.itemCard}>
+										<View style={styles.itemHeaderRow}>
+											<Text style={styles.itemNumber}>Item #{index + 1}</Text>
+											{lines.length > 1 && (
+												<TouchableOpacity
+													onPress={() => removeLine(index)}
+													style={styles.removeIconBtn}
+												>
+													<Ionicons name="trash-outline" size={18} color="#EF4444" />
+												</TouchableOpacity>
+											)}
+										</View>
+
+										<View style={styles.inputGroup}>
+											<TextInput
+												style={[styles.inputField, styles.descriptionInput]}
+												placeholder="Item description (e.g. Web Design Service)"
+												value={item.description}
+												multiline={true}
+												onChangeText={(v) =>
+													handleLineChange(index, 'description', v)
+												}
+											/>
+										</View>
+
+										<View style={styles.rowInputs}>
+											<View style={[styles.inputGroup, { flex: 1, marginRight: 10 }]}>
+												<Text style={styles.inputLabel}>Price</Text>
+												<View style={styles.currencyInputContainer}>
+													<Text style={styles.currencyPrefix}>₦</Text>
+													<TextInput
+														style={styles.currencyInput}
+														placeholder="0.00"
+														keyboardType="numeric"
+														value={item.unitPrice === 0 ? '' : String(item.unitPrice)}
+														onChangeText={(v) =>
+															handleLineChange(index, 'unitPrice', v)
+														}
+													/>
+												</View>
 											</View>
-											<View style={styles.quantityColumn}>
-												<Text style={styles.label}>
-													Quantity
-												</Text>
+											<View style={[styles.inputGroup, { flex: 0.8 }]}>
+												<Text style={styles.inputLabel}>Qty</Text>
 												<TextInput
-													style={styles.input}
-													placeholder="Qty"
+													style={[styles.inputField, { textAlign: 'center' }]}
+													placeholder="1"
 													keyboardType="numeric"
 													value={String(item.quantity)}
 													onChangeText={(v) =>
-														handleLineChange(
-															index,
-															'quantity',
-															v,
-														)
+														handleLineChange(index, 'quantity', v)
 													}
 												/>
 											</View>
 										</View>
-
-										<View style={styles.productActions}>
-											<TouchableOpacity
-												onPress={() => removeLine(index)}
-												style={styles.removeButton}
-											>
-												<Ionicons
-													name="trash"
-													size={20}
-													color="#fff"
-												/>
-												<Text
-													style={styles.removeButtonText}
-												>
-													Remove
-												</Text>
-											</TouchableOpacity>
-											<Text style={styles.itemTotal}>
-												Total: ₦
-												{(
-													item.unitPrice * item.quantity
-												).toLocaleString()}
+										<View style={styles.itemTotalRow}>
+											<Text style={styles.itemTotalLabel}>Line Total:</Text>
+											<Text style={styles.itemTotalValue}>
+												₦{(item.unitPrice * item.quantity).toLocaleString()}
 											</Text>
 										</View>
 									</View>
-								)}
-							/>
+								))}
 
-							<TouchableOpacity
-								onPress={addLine}
-								style={styles.addProductButton}
-							>
-								<Ionicons
-									name="add-circle-outline"
-									size={20}
-									color="#fff"
-								/>
-								<Text style={styles.addProductButtonText}>
-									Add New Item
-								</Text>
-							</TouchableOpacity>
+								<TouchableOpacity onPress={addLine} style={styles.addItemButton}>
+									<Ionicons name="add" size={20} color="#059669" />
+									<Text style={styles.addItemText}>Add Another Item</Text>
+								</TouchableOpacity>
+							</View>
 
-							<View
-								style={[styles.section, { marginTop: 10 }]}
-							>
-								<View
-									style={{
-										flexDirection: 'row',
-										alignItems: 'center',
-										justifyContent: 'space-between',
-										marginBottom: 10,
-									}}
-								>
-									<Text
-										style={[
-											styles.label,
-											{ marginBottom: 0 },
-										]}
-									>
-										Apply tax?
-									</Text>
-									<Switch
-										value={taxEnabled}
-										onValueChange={(v) => setTaxEnabled(v)}
-									/>
+							{/* Financials Section */}
+							<View style={styles.sectionContainer}>
+								<Text style={styles.sectionHeaderTitle}>Summary</Text>
+								<View style={styles.card}>
+									<View style={styles.summaryRow}>
+										<Text style={styles.summaryLabel}>Subtotal</Text>
+										<Text style={styles.summaryValue}>₦{subTotal.toLocaleString()}</Text>
+									</View>
+
+									<View style={[styles.summaryRow, { alignItems: 'center', marginTop: 12 }]}>
+										<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+											<Text style={styles.summaryLabel}>Add Tax?</Text>
+											<Switch
+												value={taxEnabled}
+												onValueChange={(v) => setTaxEnabled(v)}
+												trackColor={{ false: '#E5E7EB', true: '#D1FAE5' }}
+												thumbColor={taxEnabled ? '#10B981' : '#F9FAFB'}
+												style={{ transform: [{ scaleX: 0.8 }, { scaleY: 0.8 }], marginLeft: 8 }}
+											/>
+										</View>
+										{taxEnabled && (
+											<View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: '#F3F4F6', borderRadius: 6, paddingHorizontal: 8 }}>
+												<TextInput
+													style={{ width: 40, paddingVertical: 4, textAlign: 'right', fontSize: 13, fontWeight: '600' }}
+													placeholder="0"
+													keyboardType="numeric"
+													value={taxInput}
+													onChangeText={(v) => {
+														setTaxInput(v);
+														const n = parseFloat(v);
+														setTaxPercent(isNaN(n) ? 0 : n);
+													}}
+												/>
+												<Text style={{ fontSize: 13, color: '#6B7280', marginLeft: 2 }}>%</Text>
+											</View>
+										)}
+									</View>
+
+									{taxEnabled && (
+										<View style={styles.summaryRow}>
+											<Text style={styles.summaryLabel}>Tax Amount</Text>
+											<Text style={styles.summaryValue}>₦{taxAmount.toLocaleString()}</Text>
+										</View>
+									)}
+
+									<View style={styles.totalDivider} />
+
+									<View style={styles.summaryRow}>
+										<Text style={styles.totalLabel}>Total</Text>
+										<Text style={styles.totalValue}>₦{totalPrice.toLocaleString()}</Text>
+									</View>
 								</View>
+							</View>
 
-								{taxEnabled && (
-									<>
-										<Text style={styles.label}>
-											Tax percentage (%)
-										</Text>
-										<TextInput
-											style={styles.input}
-											placeholder="e.g. 7.5"
-											keyboardType="numeric"
-											value={String(taxPercent)}
-											onChangeText={(v) => {
-												const n = v.replace(/[^0-9.]/g, '');
-												setTaxPercent(
-													n === '' ? 0 : Number(n),
-												);
-											}}
-										/>
-									</>
-								)}
-
-								<Text style={styles.label}>
-									Note (optional)
-								</Text>
+							{/* Notes */}
+							<View style={styles.sectionContainer}>
+								<Text style={styles.sectionHeaderTitle}>Notes</Text>
 								<TextInput
-									style={[
-										styles.input,
-										{
-											height: 80,
-											textAlignVertical: 'top',
-										},
-									]}
-									placeholder="Add a note or terms"
+									style={styles.notesInput}
+									placeholder="Add any notes or payment terms..."
 									value={note}
 									onChangeText={setNote}
 									multiline
 								/>
 							</View>
 
-							<View style={styles.totalsBox}>
-								<View style={styles.totalsRow}>
-									<Text style={styles.totalsLabel}>
-										Sub-total
-									</Text>
-									<Text style={styles.totalsValue}>
-										₦{subTotal?.toLocaleString()}
-									</Text>
-								</View>
-								{taxEnabled && (
-									<View style={styles.totalsRow}>
-										<Text style={styles.totalsLabel}>
-											Tax ({taxPercent}%)
-										</Text>
-										<Text style={styles.totalsValue}>
-											₦{taxAmount?.toLocaleString()}
-										</Text>
-									</View>
-								)}
-								<View
-									style={[
-										styles.totalsRow,
-										{
-											borderTopWidth: 1,
-											borderTopColor: '#eee',
-											paddingTop: 10,
-										},
-									]}
-								>
-									<Text
-										style={[
-											styles.totalsLabel,
-											{ fontWeight: '700' },
-										]}
-									>
-										Total
-									</Text>
-									<Text
-										style={[
-											styles.totalsValue,
-											{ fontWeight: '700' },
-										]}
-									>
-										₦{totalPrice?.toLocaleString()}
-									</Text>
-								</View>
-							</View>
 						</ScrollView>
 
-						<TouchableOpacity
-							onPress={createInvoice}
-							style={styles.submitButtonFixed}
-							disabled={invoiceLoading}
-						>
-							{invoiceLoading ? (
-								<Text style={styles.submitButtonText}>
-									Creating Invoice...
-								</Text>
-							) : (
-								<Text style={styles.submitButtonText}>
-									Create Invoice
-								</Text>
-							)}
-						</TouchableOpacity>
+						{/* Footer Actions */}
+						<View style={styles.modalFooter}>
+							<TouchableOpacity
+								onPress={createInvoice}
+								style={styles.submitButtonFixed}
+								disabled={invoiceLoading}
+							>
+								{invoiceLoading ? (
+									<ActivityIndicator color="#fff" size="small" />
+								) : (
+									<Text style={styles.submitButtonText}>Create Invoice</Text>
+								)}
+							</TouchableOpacity>
+						</View>
 					</View>
 				</KeyboardAvoidingView>
 			</Modal>
@@ -660,218 +596,293 @@ const InvoicesScreen = () => {
 const styles = StyleSheet.create({
 	container: {
 		flex: 1,
-		padding: 16,
-		backgroundColor: '#f8f8f8',
+		paddingTop: Platform.OS === 'android' ? 30 : 0,
+		backgroundColor: '#F9FAFB',
 	},
 	headerContainer: {
-		paddingTop: Platform.OS === 'android' ? 30 : 0,
+		paddingHorizontal: 16,
+		paddingBottom: 16,
+		paddingTop: 10,
 		flexDirection: 'row',
 		alignItems: 'center',
-		marginBottom: 20,
+		backgroundColor: '#fff',
+		borderBottomWidth: 1,
+		borderBottomColor: '#E5E7EB',
 	},
 	headerContent: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		justifyContent: 'space-between',
 		flex: 1,
-		paddingLeft: 8,
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		alignItems: 'center',
+		paddingLeft: 12,
 	},
 	headerText: {
-		fontSize: 24,
-		fontWeight: 'bold',
-		color: '#333',
+		fontSize: 20,
+		fontWeight: '700',
+		color: '#111827',
 	},
 	createButtonHeader: {
-		backgroundColor: '#121212',
+		backgroundColor: '#065637',
 		paddingVertical: 8,
+		paddingHorizontal: 14,
 		borderRadius: 8,
-		paddingHorizontal: 15,
 	},
 	createButtonText: {
 		color: '#fff',
-		fontSize: 15,
+		fontSize: 13,
 		fontWeight: '600',
-	},
-	loadingText: {
-		textAlign: 'center',
-		marginTop: 50,
-		fontSize: 16,
-		color: '#666',
 	},
 	noInvoicesContainer: {
 		flex: 1,
 		justifyContent: 'center',
 		alignItems: 'center',
-		padding: 20,
+		padding: 32,
 	},
 	noInvoicesText: {
-		fontSize: 18,
-		marginBottom: 20,
-		color: '#777',
+		fontSize: 16,
+		color: '#6B7280',
+		marginBottom: 16,
+		marginTop: 8,
 		textAlign: 'center',
 	},
 	createButton: {
-		backgroundColor: '#4CAF50',
+		backgroundColor: '#065637',
 		paddingVertical: 12,
-		paddingHorizontal: 25,
-		borderRadius: 10,
-		elevation: 3,
+		paddingHorizontal: 24,
+		borderRadius: 8,
+		marginTop: 16,
 	},
+	// Modal Styles
 	modalContainer: {
 		flex: 1,
 		justifyContent: 'flex-end',
-		backgroundColor: 'rgba(0,0,0,0.6)',
+		backgroundColor: 'rgba(0,0,0,0.5)',
 	},
 	modalContent: {
-		backgroundColor: '#fff',
-		padding: 20,
-		height: '100%',
-		width: '100%',
-		position: 'relative',
+		backgroundColor: '#F3F4F6',
+		flex: 1,
+		marginTop: Platform.OS === 'ios' ? 40 : 0,
+		borderTopLeftRadius: 16,
+		borderTopRightRadius: 16,
 	},
 	modalHeader: {
 		flexDirection: 'row',
 		justifyContent: 'space-between',
 		alignItems: 'center',
-		marginBottom: 20,
-		paddingBottom: 10,
+		paddingHorizontal: 16,
+		paddingVertical: 14,
+		backgroundColor: '#fff',
 		borderBottomWidth: 1,
-		borderBottomColor: '#eee',
+		borderBottomColor: '#E5E7EB',
+		borderTopLeftRadius: 16,
+		borderTopRightRadius: 16,
 	},
 	modalTitle: {
-		fontSize: 26,
-		fontWeight: 'bold',
-		color: '#333',
+		fontSize: 17,
+		fontWeight: '600',
+		color: '#111827',
 	},
-	closeButton: { padding: 5 },
-	scrollViewContent: { flexGrow: 1, paddingBottom: 80 },
-	section: {
-		marginBottom: 25,
-		backgroundColor: '#f0f4f7',
-		padding: 15,
-		borderRadius: 10,
+	closeButton: {
+		padding: 4,
 	},
-	label: {
+	scrollViewContent: {
+		paddingTop: 20,
+	},
+	sectionContainer: {
+		marginBottom: 24,
+	},
+	sectionHeaderTitle: {
+		fontSize: 13,
+		fontWeight: '600',
+		color: '#6B7280',
+		marginBottom: 8,
+		textTransform: 'uppercase',
+		letterSpacing: 0.5,
+		marginLeft: 4,
+	},
+	card: {
+		backgroundColor: '#fff',
+		borderRadius: 12,
+		padding: 16,
+		borderWidth: 1,
+		borderColor: '#E5E7EB',
+		shadowColor: '#000',
+		shadowOffset: { width: 0, height: 1 },
+		shadowOpacity: 0.05,
+		shadowRadius: 2,
+		elevation: 1,
+	},
+	inputGroup: {
+		marginBottom: 12,
+	},
+	rowInputs: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+	},
+	inputLabel: {
+		fontSize: 13,
+		fontWeight: '500',
+		color: '#374151',
+		marginBottom: 6,
+	},
+	inputField: {
+		borderWidth: 1,
+		borderColor: '#D1D5DB',
+		borderRadius: 8,
+		paddingHorizontal: 12,
+		paddingVertical: 10,
 		fontSize: 15,
-		color: '#555',
-		marginBottom: 5,
+		color: '#111827',
+		backgroundColor: '#fff',
+	},
+	// Item Styles
+	itemCard: {
+		backgroundColor: '#fff',
+		borderRadius: 12,
+		padding: 16,
+		marginBottom: 12,
+		borderWidth: 1,
+		borderColor: '#E5E7EB',
+	},
+	itemHeaderRow: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		alignItems: 'center',
+		marginBottom: 12,
+	},
+	itemNumber: {
+		fontSize: 13,
+		fontWeight: '600',
+		color: '#9CA3AF',
+	},
+	removeIconBtn: {
+		padding: 4,
+	},
+	descriptionInput: {
+		minHeight: 40,
+	},
+	currencyInputContainer: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		borderWidth: 1,
+		borderColor: '#D1D5DB',
+		borderRadius: 8,
+		paddingHorizontal: 12,
+		backgroundColor: '#fff',
+		height: 48,
+	},
+	currencyPrefix: {
+		fontSize: 15,
+		color: '#9CA3AF',
+		marginRight: 4,
 		fontWeight: '500',
 	},
-	input: {
-		borderWidth: 1,
-		borderColor: '#ddd',
-		padding: 12,
-		marginBottom: 15,
-		borderRadius: 8,
-		fontSize: 16,
-		backgroundColor: '#fff',
-	},
-	productItem: {
-		marginBottom: 30,
-		padding: 15,
-		borderRadius: 10,
-		backgroundColor: '#fdfdfd',
-		borderWidth: 1,
-		borderColor: '#e0e0e0',
-	},
-	priceQuantityRow: {
-		flexDirection: 'row',
-		justifyContent: 'space-between',
-		gap: 15,
-		marginBottom: 15,
-	},
-	priceColumn: { flex: 2 },
-	quantityColumn: { flex: 1 },
-	productActions: {
-		flexDirection: 'row',
-		justifyContent: 'space-between',
-		alignItems: 'center',
-		marginTop: 10,
-		borderTopWidth: 1,
-		borderTopColor: '#eee',
-		paddingTop: 10,
-	},
-	removeButton: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		backgroundColor: '#dc3545',
-		paddingVertical: 8,
-		paddingHorizontal: 12,
-		borderRadius: 8,
-	},
-	removeButtonText: {
-		color: '#fff',
-		fontWeight: '600',
-		marginLeft: 5,
-	},
-	itemTotal: {
-		fontSize: 17,
-		fontWeight: 'bold',
-		color: '#333',
-	},
-	addProductButton: {
-		backgroundColor: '#28a745',
-		padding: 14,
-		alignItems: 'center',
-		borderRadius: 10,
-		flexDirection: 'row',
-		justifyContent: 'center',
-		marginBottom: 20,
-		elevation: 3,
-	},
-	addProductButtonText: {
-		color: '#fff',
-		fontWeight: 'bold',
-		fontSize: 16,
-		marginLeft: 8,
-	},
-	modalSubTitle: {
-		fontSize: 20,
-		fontWeight: 'bold',
-		marginBottom: 15,
-		color: '#444',
-	},
-	totalsBox: {
-		marginTop: 10,
-		backgroundColor: '#fff',
-		padding: 12,
-		borderRadius: 8,
-		borderWidth: 1,
-		borderColor: '#eee',
-	},
-	totalsRow: {
-		flexDirection: 'row',
-		justifyContent: 'space-between',
-		paddingVertical: 6,
-	},
-	totalsLabel: { color: '#555' },
-	totalsValue: { fontWeight: '600' },
-	overallTotal: {
-		fontSize: 20,
-		fontWeight: 'bold',
-		color: '#121212',
-		textAlign: 'right',
-		marginTop: 10,
+	currencyInput: {
+		flex: 1,
+		fontSize: 15,
+		color: '#111827',
 		paddingVertical: 10,
-		paddingHorizontal: 5,
-		backgroundColor: '#e6f7ff',
-		borderRadius: 8,
+	},
+	itemTotalRow: {
+		flexDirection: 'row',
+		justifyContent: 'flex-end',
+		alignItems: 'center',
+		marginTop: 8,
+		paddingTop: 8,
+		borderTopWidth: 1,
+		borderTopColor: '#F3F4F6',
+	},
+	itemTotalLabel: {
+		fontSize: 13,
+		color: '#6B7280',
+		marginRight: 8,
+	},
+	itemTotalValue: {
+		fontSize: 15,
+		fontWeight: '600',
+		color: '#111827',
+	},
+	addItemButton: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'center',
+		paddingVertical: 12,
+		backgroundColor: '#ECFDF5',
+		borderRadius: 10,
+		borderWidth: 1,
+		borderColor: '#D1FAE5',
+		borderStyle: 'dashed',
+		marginTop: 4,
+	},
+	addItemText: {
+		color: '#059669',
+		fontWeight: '600',
+		fontSize: 14,
+		marginLeft: 6,
+	},
+	// Summary Styles
+	summaryRow: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		marginBottom: 8,
+	},
+	summaryLabel: {
+		fontSize: 14,
+		color: '#4B5563',
+	},
+	summaryValue: {
+		fontSize: 14,
+		fontWeight: '500',
+		color: '#111827',
+	},
+	totalDivider: {
+		height: 1,
+		backgroundColor: '#E5E7EB',
+		marginVertical: 12,
+	},
+	totalLabel: {
+		fontSize: 16,
+		fontWeight: '700',
+		color: '#111827',
+	},
+	totalValue: {
+		fontSize: 18,
+		fontWeight: '700',
+		color: '#065637',
+	},
+	notesInput: {
+		backgroundColor: '#fff',
+		borderWidth: 1,
+		borderColor: '#D1D5DB',
+		borderRadius: 12,
+		padding: 12,
+		height: 100,
+		textAlignVertical: 'top',
+		fontSize: 14,
+		color: '#111827',
+	},
+	// Footer
+	modalFooter: {
+		padding: 16,
+		backgroundColor: '#fff',
+		borderTopWidth: 1,
+		borderTopColor: '#E5E7EB',
 	},
 	submitButtonFixed: {
-		backgroundColor: '#121212',
-		padding: 16,
+		backgroundColor: '#065637',
+		paddingVertical: 16,
+		borderRadius: 12,
 		alignItems: 'center',
-		borderRadius: 10,
-		position: 'absolute',
-		bottom: 20,
-		left: 20,
-		right: 20,
-		elevation: 5,
+		shadowColor: '#065637',
+		shadowOffset: { width: 0, height: 2 },
+		shadowOpacity: 0.1,
+		shadowRadius: 4,
+		elevation: 3,
 	},
 	submitButtonText: {
 		color: '#fff',
-		fontWeight: 'bold',
-		fontSize: 18,
+		fontWeight: '600',
+		fontSize: 16,
 	},
 });
 

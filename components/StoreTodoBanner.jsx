@@ -1,4 +1,4 @@
-// components/StoreTodoBanner.js
+// components/StoreTodoBanner.jsx
 import React from 'react';
 import {
 	View,
@@ -7,27 +7,23 @@ import {
 	TouchableOpacity,
 	StyleSheet,
 	Dimensions,
+	Platform,
 } from 'react-native';
-import Ionicons from '@expo/vector-icons/Ionicons';
+import { Ionicons, Feather } from '@expo/vector-icons';
 import PropTypes from 'prop-types';
 
 const { width: screenWidth } = Dimensions.get('window');
-const CARD_WIDTH = Math.min(
-	340,
-	Math.round(screenWidth * 0.78),
-);
-const CARD_HEIGHT = 130;
+// Slightly wider card for better readability
+const CARD_WIDTH = Math.min(360, Math.round(screenWidth * 0.85));
+const CARD_HEIGHT = 140;
 
 function formatDueText(due) {
 	if (!due) return null;
-	// due can be a Date string or Date object
 	try {
 		const d = typeof due === 'string' ? new Date(due) : due;
 		if (isNaN(d)) return null;
 		const now = new Date();
-		const diff = Math.ceil(
-			(d - now) / (1000 * 60 * 60 * 24),
-		); // days
+		const diff = Math.ceil((d - now) / (1000 * 60 * 60 * 24));
 		if (diff < 0) return 'Overdue';
 		if (diff === 0) return 'Due today';
 		if (diff === 1) return 'Due tomorrow';
@@ -37,23 +33,9 @@ function formatDueText(due) {
 	}
 }
 
-/**
- * tasks: [
- *  {
- *    id: string|number,
- *    title: string,
- *    subtitle?: string,
- *    due?: Date|string,
- *    urgent?: boolean,
- *    progress?: number, // 0..1
- *    actionLabel?: string, // e.g. "Complete", "Edit"
- *    onPress?: () => void
- *  }
- * ]
- */
 const StoreTodoBanner = ({ tasks, style }) => {
 	if (!Array.isArray(tasks) || tasks.length === 0) {
-		return null; // nothing to show
+		return null;
 	}
 
 	const renderItem = ({ item }) => {
@@ -65,90 +47,55 @@ const StoreTodoBanner = ({ tasks, style }) => {
 
 		return (
 			<View style={styles.cardWrapper}>
-				<View style={styles.card}>
+				<TouchableOpacity
+					style={styles.card}
+					activeOpacity={0.9}
+					onPress={() => item.onPress && item.onPress(item)}
+				>
+					{/* Header: Title + Badge/Due */}
 					<View style={styles.cardHeader}>
-						<View style={styles.titleBlock}>
-							<Text style={styles.title} numberOfLines={1}>
-								{item.title}
-							</Text>
-							{item.subtitle ? (
-								<Text
-									style={styles.subtitle}
-									numberOfLines={1}
-								>
-									{item.subtitle}
-								</Text>
-							) : null}
+						<View style={styles.headerTopRow}>
+							{item.urgent ? (
+								<View style={styles.urgentBadge}>
+									<Text style={styles.urgentText}>URGENT</Text>
+								</View>
+							) : dueText ? (
+								<View style={styles.dueBadge}>
+									<Text style={styles.dueText}>{dueText}</Text>
+								</View>
+							) : (
+								<View style={styles.setupBadge}>
+									<Text style={styles.setupText}>SETUP</Text>
+								</View>
+							)}
+							{/* Action Arrow (top right) */}
+							<Feather name="arrow-right" size={16} color="#9CA3AF" />
 						</View>
 
-						{item.urgent ? (
-							<View
-								style={styles.urgentBadge}
-								accessibilityLabel="Urgent"
-							>
-								<Text style={styles.urgentText}>
-									URGENT
-								</Text>
-							</View>
-						) : dueText ? (
-							<Text style={styles.dueText}>{dueText}</Text>
-						) : null}
-					</View>
-
-					<View style={styles.progressRow}>
-						<View style={styles.progressBarBackground}>
-							<View
-								style={[
-									styles.progressBarFill,
-									{ width: `${progress * 100}%` },
-								]}
-							/>
-						</View>
-						<Text style={styles.progressLabel}>
-							{Math.round(progress * 100)}%
+						<Text style={styles.title} numberOfLines={1}>
+							{item.title}
+						</Text>
+						<Text style={styles.subtitle} numberOfLines={2}>
+							{item.subtitle}
 						</Text>
 					</View>
 
+					{/* Footer: Progress + Button */}
 					<View style={styles.cardFooter}>
-						<TouchableOpacity
-							style={styles.actionButton}
-							activeOpacity={0.75}
-							onPress={() => {
-								if (typeof item.onPress === 'function')
-									item.onPress(item);
-							}}
-							accessibilityRole="button"
-							accessibilityLabel={
-								item.actionLabel || 'Take action'
-							}
-						>
-							<Ionicons
-								name="checkmark-circle-outline"
-								size={18}
-								color="#fff"
-							/>
-							<Text style={styles.actionLabel}>
-								{item.actionLabel || 'Take action'}
-							</Text>
-						</TouchableOpacity>
+						{/* Progress Bar */}
+						<View style={styles.progressContainer}>
+							<View style={styles.progressBarBg}>
+								<View style={[styles.progressBarFill, { width: `${progress * 100}%` }]} />
+							</View>
+							<Text style={styles.progressText}>{Math.round(progress * 100)}%</Text>
+						</View>
 
-						<TouchableOpacity
-							style={styles.chev}
-							onPress={() => {
-								if (typeof item.onPress === 'function')
-									item.onPress(item);
-							}}
-							accessibilityRole="button"
-							accessibilityLabel="Open item"
-						>
-							<Ionicons
-								name="chevron-forward"
-								size={22}
-								color="#1C2634"
-							/>
-						</TouchableOpacity>
+						{/* Action Button */}
+						<View style={styles.actionBtn}>
+							<Text style={styles.actionBtnText}>{item.actionLabel || 'Start'}</Text>
+						</View>
 					</View>
-				</View>
+				</TouchableOpacity>
 			</View>
 		);
 	};
@@ -164,10 +111,10 @@ const StoreTodoBanner = ({ tasks, style }) => {
 				renderItem={renderItem}
 				snapToAlignment="start"
 				decelerationRate="fast"
-				snapToInterval={CARD_WIDTH + 16} // card width + margin
+				snapToInterval={CARD_WIDTH + 12}
 				getItemLayout={(_, index) => ({
-					length: CARD_WIDTH + 16,
-					offset: (CARD_WIDTH + 16) * index,
+					length: CARD_WIDTH + 12,
+					offset: (CARD_WIDTH + 12) * index,
 					index,
 				})}
 			/>
@@ -180,122 +127,134 @@ StoreTodoBanner.propTypes = {
 	style: PropTypes.any,
 };
 
-StoreTodoBanner.defaultProps = {
-	tasks: [],
-	style: undefined,
-};
+export default StoreTodoBanner;
 
 const styles = StyleSheet.create({
 	container: {
 		paddingVertical: 12,
-		backgroundColor: 'transparent',
 	},
 	listContent: {
-		paddingLeft: 4,
-		paddingRight: 12,
+		paddingHorizontal: 16, // Use padding instead of valid margin for first item
 	},
 	cardWrapper: {
 		width: CARD_WIDTH,
-		paddingRight: 16,
+		marginRight: 12,
 	},
 	card: {
 		height: CARD_HEIGHT,
-		borderRadius: 14,
 		backgroundColor: '#fff',
-		padding: 14,
-		// shadowColor: '#000',
-		// shadowOffset: { width: 0, height: 6 },
-		// shadowOpacity: 0.08,
-		// shadowRadius: 14,
-		// elevation: 6,
-		borderWidth: 1,
-		borderColor: '#f0f0f3',
+		borderRadius: 12,
+		padding: 16,
 		justifyContent: 'space-between',
+		borderWidth: 1,
+		borderColor: '#E5E7EB',
+		// Soft shadow
+		shadowColor: '#000',
+		shadowOffset: { width: 0, height: 2 },
+		shadowOpacity: 0.03,
+		shadowRadius: 8,
+		elevation: 2,
 	},
 	cardHeader: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		justifyContent: 'space-between',
-	},
-	titleBlock: {
 		flex: 1,
-		paddingRight: 8,
 	},
-	title: {
-		fontSize: 16,
-		fontWeight: '700',
-		color: '#1C2634',
-	},
-	subtitle: {
-		fontSize: 13,
-		color: '#6b7280',
-		marginTop: 4,
+	headerTopRow: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		alignItems: 'center',
+		marginBottom: 8,
 	},
 	urgentBadge: {
-		backgroundColor: '#ff4d6d',
-		paddingHorizontal: 8,
-		paddingVertical: 4,
-		borderRadius: 12,
-		alignSelf: 'flex-start',
+		backgroundColor: '#FEF2F2',
+		paddingHorizontal: 6,
+		paddingVertical: 2,
+		borderRadius: 4,
+		borderWidth: 0.5,
+		borderColor: '#FECACA',
 	},
 	urgentText: {
-		color: '#fff',
+		color: '#DC2626',
+		fontSize: 10,
 		fontWeight: '700',
-		fontSize: 11,
+		letterSpacing: 0.5,
+	},
+	dueBadge: {
+		backgroundColor: '#FFF7ED',
+		paddingHorizontal: 6,
+		paddingVertical: 2,
+		borderRadius: 4,
+		borderWidth: 0.5,
+		borderColor: '#FED7AA',
 	},
 	dueText: {
-		color: '#ef8a00',
-		fontWeight: '600',
+		color: '#EA580C',
+		fontSize: 10,
+		fontWeight: '700',
+	},
+	setupBadge: {
+		backgroundColor: '#F3F4F6',
+		paddingHorizontal: 6,
+		paddingVertical: 2,
+		borderRadius: 4,
+		borderWidth: 0.5,
+		borderColor: '#E5E7EB',
+	},
+	setupText: {
+		color: '#4B5563',
+		fontSize: 10,
+		fontWeight: '700',
+		letterSpacing: 0.5,
+	},
+	title: {
+		fontSize: 15,
+		fontWeight: '700',
+		color: '#111827',
+		marginBottom: 4,
+	},
+	subtitle: {
 		fontSize: 12,
+		color: '#6B7280',
+		lineHeight: 18,
 	},
-	progressRow: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		marginTop: 8,
-	},
-	progressBarBackground: {
-		flex: 1,
-		height: 8,
-		backgroundColor: '#f1f5f9',
-		borderRadius: 8,
-		overflow: 'hidden',
-		marginRight: 10,
-	},
-	progressBarFill: {
-		height: '100%',
-		backgroundColor: '#007bff',
-	},
-	progressLabel: {
-		minWidth: 36,
-		textAlign: 'right',
-		color: '#374151',
-		fontWeight: '600',
-		fontSize: 12,
-	},
+
 	cardFooter: {
 		flexDirection: 'row',
 		alignItems: 'center',
 		justifyContent: 'space-between',
-		marginTop: 8,
+		marginTop: 12,
 	},
-	actionButton: {
+	progressContainer: {
 		flexDirection: 'row',
 		alignItems: 'center',
-		backgroundColor: '#1C99FF',
-		paddingVertical: 8,
+		gap: 8,
+		flex: 1,
+		paddingRight: 12,
+	},
+	progressBarBg: {
+		flex: 1,
+		height: 6,
+		backgroundColor: '#F3F4F6',
+		borderRadius: 3,
+		overflow: 'hidden',
+	},
+	progressBarFill: {
+		height: '100%',
+		backgroundColor: '#10B981', // Success Green
+	},
+	progressText: {
+		fontSize: 11,
+		fontWeight: '600',
+		color: '#6B7280',
+	},
+	actionBtn: {
+		backgroundColor: '#065637',
 		paddingHorizontal: 12,
-		borderRadius: 10,
+		paddingVertical: 6,
+		borderRadius: 6,
 	},
-	actionLabel: {
+	actionBtnText: {
 		color: '#fff',
-		fontWeight: '700',
-		marginLeft: 8,
-		fontSize: 13,
-	},
-	chev: {
-		padding: 6,
-		borderRadius: 8,
+		fontSize: 12,
+		fontWeight: '600',
 	},
 });
-
-export default StoreTodoBanner;
