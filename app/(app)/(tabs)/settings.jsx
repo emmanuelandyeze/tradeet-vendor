@@ -22,9 +22,18 @@ const ProfileScreen = () => {
 
 	// Open website
 	const handleOpenWebsite = () => {
-		Linking.openURL(
-			`https://tradeet.ng/store/${userInfo?.storeLink}`,
-		);
+		const storeStart = selectedStore || userInfo;
+		if (storeStart?.customDomain) {
+			let url = storeStart.customDomain;
+			if (!url.startsWith('http')) {
+				url = 'https://' + url;
+			}
+			Linking.openURL(url);
+		} else if (storeStart?.storeLink) {
+			Linking.openURL(`https://tradeet.ng/store/${storeStart.storeLink}`);
+		} else {
+			Alert.alert('Info', 'No store link available.');
+		}
 	};
 
 	// Open support chat
