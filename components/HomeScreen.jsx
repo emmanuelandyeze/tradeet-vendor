@@ -215,8 +215,9 @@ const HomeScreen = ({ userInfo }) => {
 	// Income (Orders + Invoices Paid)
 	const ordersIncome = financialOrders?.reduce((acc, o) => {
 		const paid = o.payment?.providerData?.amountPaid || 0;
-		// vendor logic: min(total, paid) - usually we just take paid if it matches logic
-		return acc + paid;
+		// Deduct platform service fee from vendor income view
+		const fee = o.serviceFee || 0;
+		return acc + Math.max(0, paid - fee);
 	}, 0) || 0;
 
 	const invoicesIncome = (financialInvoices || []).reduce((acc, inv) => {
@@ -228,9 +229,58 @@ const HomeScreen = ({ userInfo }) => {
 
 	// Outstanding (Orders + Invoices Unpaid)
 	const ordersOutstanding = (financialOrders || []).reduce((acc, o) => {
+		const fee = o.serviceFee || 0;
 		const total = (o.itemsAmount || 0) + (o.deliveryFee || 0) - (o.discountAmount || 0);
+		// Note: total usually includes serviceFee in backend totalAmount, but here we construct it from components?
+		// Let's check how totalAmount is stored. In Order model, totalAmount includes serviceFee.
+		// If using o.totalAmount directly:
+		const grossTotal = o.totalAmount || 0;
+		const netTotal = Math.max(0, grossTotal - fee);
+
 		const paid = o.payment?.providerData?.amountPaid || 0;
-		return acc + Math.max(0, total - paid);
+		// If paid includes fee, we subtract fee from paid too for "net paid".
+		// Actually outstanding = NetTotal - NetPaid. 
+		// If paid >= grossTotal, outstanding is 0.
+		// If paid < grossTotal, outstanding is grossTotal - paid. 
+		// We want vendor outstanding: (grossTotal - fee) - (paid - fee_paid).
+		// Simplest: Outstanding = max(0, totalAmount - paid). If totalAmount = 105 (100 item + 5 fee) and paid = 105. Outstanding = 0. Vendor gets 100.
+		// If totalAmount = 105, paid = 0. Outstanding = 105. Vendor View: Outstanding = 100.
+		// So yes, subtract fee from outstanding too.
+		const realUniqueOutstanding = Math.max(0, grossTotal - paid);
+		// If part paid, e.g. paid 50. Outstanding 55. Fee 5. Vendor share of outstanding? 
+		// Let's just subtract fee from total outstanding if not fully paid? 
+		// Actually, simpler: Vendor Revenue = Total - Fee. Vendor Outstanding = max(0, (Total - Fee) - (Paid - FeeAllocated)).
+		// Assuming Fee is paid first.
+		// Let's stick to simple: Vendor Outstanding = TotalOutstanding - RemainingFee. 
+		// If TotalOutstanding > Fee, then VendorOutstanding = TotalOutstanding - Fee. (Assumes Fee is unpaid).
+		// If TotalOutstanding <= Fee, then VendorOutstanding = 0 (only fee left).
+		// BUT usually platform fee is deducted at payout or source.
+		// Let's just do: NetOrderValue = Total - Fee. PaidValue = Paid. 
+		// Outstanding = max(0, NetOrderValue - Paid). (This assumes Paid pays for vendor items first? No usually fee first).
+		// If Fee is first: Paid 5. Fee 5. Net Paid to Vendor 0. Net Order Value 100. Outstanding 100.
+		// Correct logc: Outstanding = max(0, totalAmount - paid).
+		// Display Outstanding = max(0, Outstanding - (Fee - Paid_towards_fee)).
+		// If paid covers fee (paid >= fee), then DisplayOutstanding = Outstanding.
+		// If paid < fee, then DisplayOutstanding = Outstanding - (Fee - Paid).
+		// actually:
+		// Vendor Total = T - F
+		// Vendor Paid = max(0, P - F)
+		// Vendor Outstanding = Vendor Total - Vendor Paid = (T-F) - (P-F) = T-P = Normal Outstanding.
+		// WAIT. If P < F. Vendor Paid = 0. Vendor Total = T-F. Vendor Outstanding = T-F.
+		// Normal Outstanding = T - P.
+		// Diff = (T-F) - (T-P) = P - F. (Negative).
+		// Example: T=105, F=5, P=2. 
+		// Normal Out = 103.
+		// Vendor Total = 100. Vendor Paid = 0. Vendor Out = 100.
+		// So if P < F, Vendor Out < Normal Out.
+
+		// To be safe and simple given the prompt "only vendor earnings":
+		// We will treat "Income" as "Net Paid to Vendor" (Paid - Fee).
+		// And "Outstanding" as "Net Receivable" (TotalNet - NetPaid).
+
+		const paidNet = Math.max(0, paid - fee);
+		const totalNet = Math.max(0, (o.totalAmount || 0) - fee);
+		return acc + Math.max(0, totalNet - paidNet);
 	}, 0);
 
 	const invoicesOutstanding = (financialInvoices || []).reduce((acc, inv) => {

@@ -8,6 +8,8 @@ import {
 	RefreshControl,
 	ActivityIndicator,
 	TextInput,
+	Platform,
+	Modal,
 } from 'react-native';
 import React, {
 	useContext,
@@ -18,133 +20,93 @@ import React, {
 import { router } from 'expo-router';
 import { AuthContext } from '@/context/AuthContext';
 import axiosInstance from '@/utils/axiosInstance';
-import { Ionicons } from '@expo/vector-icons';
+import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
-import { Picker } from '@react-native-picker/picker';
+
+// Helper for "Time Ago"
+const formatTimeAgo = (dateString) => {
+	if (!dateString) return '';
+	const date = new Date(dateString);
+	const now = new Date();
+	const seconds = Math.floor((now - date) / 1000);
+
+	let interval = seconds / 31536000;
+	if (interval > 1) return Math.floor(interval) + 'y ago';
+	interval = seconds / 2592000;
+	if (interval > 1) return Math.floor(interval) + 'mo ago';
+	interval = seconds / 86400;
+	if (interval > 1) return Math.floor(interval) + 'd ago';
+	interval = seconds / 3600;
+	if (interval > 1) return Math.floor(interval) + 'h ago';
+	interval = seconds / 60;
+	if (interval > 1) return Math.floor(interval) + 'm ago';
+	return 'Just now';
+};
 
 const Orders = () => {
 	const {
 		userInfo,
-		selectedStore /*, switchSelectedStore */,
+		selectedStore,
+		switchSelectedBranch, // Assuming this is available in AuthContext if not, we use local state or similar logic
 	} = useContext(AuthContext);
 
-	// Build stores list from userInfo (defensive)
-	const storesList = Array.isArray(userInfo?.stores)
-		? userInfo.stores
-		: [];
+	// Build stores list
+	const storesList = Array.isArray(userInfo?.stores) ? userInfo.stores : [];
 
-	// Selected store & branch local state (initialised from context.selectedStore if set)
-	const initialStoreId =
-		selectedStore && selectedStore.parent
-			? selectedStore.parent // if selectedStore is a branch, parent points to store id (common pattern)
-			: selectedStore?._id ?? storesList[0]?._id ?? null;
-
-	const initialBranchId = selectedStore
-		? selectedStore._id
-		: null;
-
-	const [storeId, setStoreId] = useState(initialStoreId);
-	const [branchId, setBranchId] = useState(initialBranchId);
-	const [branches, setBranches] = useState([]);
-
-	// Orders and UI state
+	// Local State for Filtering & UI
 	const [orders, setOrders] = useState([]);
-	const [statusFilter, setStatusFilter] =
-		useState('in progress'); // 'in progress' | 'completed' | 'cancelled' | 'all'
-	const [paymentFilter, setPaymentFilter] = useState('all'); // 'all' | 'paid' | 'unpaid'
+	const [statusFilter, setStatusFilter] = useState('in progress');
+	const [paymentFilter, setPaymentFilter] = useState('all');
 	const [searchQuery, setSearchQuery] = useState('');
 	const [filteredOrders, setFilteredOrders] = useState([]);
 	const [loading, setLoading] = useState(false);
 	const [refreshing, setRefreshing] = useState(false);
 
-	// When storeId or userInfo changes, derive branches array
-	useEffect(() => {
-		if (!storeId) {
-			setBranches([]);
-			setBranchId(null);
-			return;
-		}
-		const store = storesList.find(
-			(s) => String(s._id) === String(storeId),
-		);
-		if (!store) {
-			setBranches([]);
-			setBranchId(null);
-			return;
-		}
-		// store.branches may be array of ids or array of objects.
-		const normalized =
-			Array.isArray(store.branches) &&
-			store.branches.length > 0
-				? store.branches.map((b) =>
-						typeof b === 'string' || typeof b === 'number'
-							? { _id: String(b), name: String(b) }
-							: {
-									_id: b._id || b.id,
-									name:
-										b.name || b.branchKey || String(b._id),
-							  },
-				  )
-				: [];
+	// Store Selection Modal State
+	const [storeModalVisible, setStoreModalVisible] = useState(false);
+	
+	// Determine current active identifiers
+	// If selectedStore is set, use it. Otherwise default to first store.
+	const activeStoreId = selectedStore?.parent /* if branch */ || selectedStore?._id /* if store */ || storesList[0]?._id;
+	const activeBranchId = selectedStore?._id; 
+	const isActiveIsBranch = !!selectedStore?.parent; // heuristic
 
-		setBranches(normalized);
+	// Display Name Logic
+	const displayStoreName = selectedStore?.parentStoreName || selectedStore?.name || 'Select Store';
+	const displayBranchName = isActiveIsBranch ? (selectedStore?.name || selectedStore?.branchKey || 'Branch') : (selectedStore?.defaultBranch ? 'Main Branch check' : null);
 
-		// If current branchId belongs to another store, reset to default branch for this store
-		const belongsToStore = normalized.some(
-			(b) => String(b._id) === String(branchId),
-		);
-		if (!belongsToStore) {
-			// prefer defaultBranch if present on store object
-			const defaultBranchId =
-				store.defaultBranch || normalized[0]?._id || null;
-			setBranchId(defaultBranchId);
-		}
-	}, [storeId, userInfo]);
-
-	// Robust helper to compute final total (subtract discount and service fees)
-	const computeNetTotal = (order) => {
-		const rawTotal = Number(
-			order.totalAmount ?? 0,
-		);
-
-		// discount could be named or nested in different shapes
-		const discount = order.discountAmount
-
-		// serviceFee candidates
-		const serviceFee = order.serviceFee
-
-		let net = rawTotal - serviceFee;
-		if (!isFinite(net)) net = 0;
-		// ensure not negative
-		return Math.max(0, Math.round(net * 100) / 100);
-	};
-
-	// Fetch orders from the API (branch-aware)
+	// Fetch orders based on CURRENT selectedStore from Context
+	// We rely on AuthContext.selectedStore being the source of truth for "Current Context"
 	const fetchOrders = useCallback(async () => {
+		if (!selectedStore) return;
 		setLoading(true);
 		try {
 			let url = `/orders`;
 			const params = [];
-			if (branchId)
-				params.push(
-					`branchId=${encodeURIComponent(branchId)}`,
-				);
-			if (storeId)
-				params.push(
-					`storeId=${encodeURIComponent(storeId)}`,
-				);
+			
+			// logic: if selectedStore is a Branch, pass branchId & storeId
+			// if selectedStore is a Store, pass storeId
+			
+			if (selectedStore.parent) {
+				// It's a branch
+				params.push(`storeId=${encodeURIComponent(selectedStore.parent)}`);
+				params.push(`branchId=${encodeURIComponent(selectedStore._id)}`);
+			} else {
+				// It's a store
+				params.push(`storeId=${encodeURIComponent(selectedStore._id)}`);
+				// Optionally, if the store has a default branch or we want all branch orders?
+				// Typically standard is: if no branchId, might return all orders for store or just store-level ones
+			}
+
 			if (params.length) url = `${url}?${params.join('&')}`;
 
 			const response = await axiosInstance.get(url);
-
-			// Normalize response shape: prefer response.data.orders or response.data.items
 			const fetched =
 				response?.data?.orders ??
 				response?.data?.items ??
 				response?.data ??
 				[];
 
-			// Sort orders by createdAt in descending order (newest first)
 			const sortedOrders = Array.isArray(fetched)
 				? fetched.sort(
 						(a, b) =>
@@ -154,455 +116,308 @@ const Orders = () => {
 
 			setOrders(sortedOrders);
 		} catch (err) {
-			console.error(
-				'Error fetching orders:',
-				err?.response?.data ?? err.message ?? err,
-			);
+			console.error('Error fetching orders:', err);
 		} finally {
 			setLoading(false);
 		}
-	}, [branchId, storeId]);
+	}, [selectedStore]);
 
-	// Refresh orders
+	// Load on mount or context change
+	useEffect(() => {
+		fetchOrders();
+	}, [fetchOrders]);
+
 	const onRefresh = useCallback(async () => {
 		setRefreshing(true);
 		await fetchOrders();
 		setRefreshing(false);
 	}, [fetchOrders]);
 
-	// Filter and search orders
+	// Filter Logic (Same as before)
 	const applyFiltersAndSearch = useCallback(() => {
-		let currentFiltered = Array.isArray(orders)
-			? [...orders]
-			: [];
+		let currentFiltered = Array.isArray(orders) ? [...orders] : [];
 
-		// Apply status filter
 		if (statusFilter === 'in progress') {
 			currentFiltered = currentFiltered.filter((order) =>
-				[
-					'pending',
-					'accepted',
-					'processing',
-					'out-for-delivery',
-				].includes(String(order.status)),
+				['pending', 'accepted', 'processing', 'out-for-delivery'].includes(String(order.status)),
 			);
 		} else if (statusFilter === 'completed') {
-			currentFiltered = currentFiltered.filter(
-				(order) => String(order.status) === 'completed',
-			);
+			currentFiltered = currentFiltered.filter((order) => String(order.status) === 'completed');
 		} else if (statusFilter === 'cancelled') {
-			currentFiltered = currentFiltered.filter(
-				(order) => String(order.status) === 'cancelled',
-			);
-		} // 'all' -> no filtering
-
-		// Apply payment filter
-		if (paymentFilter === 'paid') {
-			currentFiltered = currentFiltered.filter(
-				(order) => String(order.payment?.status) === 'paid',
-			);
-		} else if (paymentFilter === 'unpaid') {
-			currentFiltered = currentFiltered.filter(
-				(order) => String(order.payment?.status) !== 'paid',
-			);
+			currentFiltered = currentFiltered.filter((order) => String(order.status) === 'cancelled');
 		}
 
-		// Apply search query (robust against different order shapes)
+		if (paymentFilter === 'paid') {
+			currentFiltered = currentFiltered.filter((order) => String(order.payment?.status) === 'paid');
+		} else if (paymentFilter === 'unpaid') {
+			currentFiltered = currentFiltered.filter((order) => String(order.payment?.status) !== 'paid');
+		}
+
 		if (searchQuery && searchQuery.trim().length > 0) {
 			const q = searchQuery.trim().toLowerCase();
 			currentFiltered = currentFiltered.filter((order) => {
-				const orderNumber = String(
-					order.orderNumber ?? order._id ?? '',
-				).toLowerCase();
-				const customerName = String(
-					order.customerInfo?.name ??
-						order.customerName ??
-						'',
-				).toLowerCase();
-				const customerContact = String(
-					order.customerInfo?.contact ??
-						order.customerPhone ??
-						order.customerInfo?.phone ??
-						'',
-				).toLowerCase();
-
-				return (
-					orderNumber.includes(q) ||
-					customerName.includes(q) ||
-					customerContact.includes(q)
-				);
+				const orderNumber = String(order.orderNumber ?? order._id ?? '').toLowerCase();
+				const customerName = String(order.customerInfo?.name ?? order.customerName ?? '').toLowerCase();
+				return orderNumber.includes(q) || customerName.includes(q);
 			});
 		}
 
 		setFilteredOrders(currentFiltered);
 	}, [orders, statusFilter, paymentFilter, searchQuery]);
 
-	// Apply filters when dependencies change
 	useEffect(() => {
 		applyFiltersAndSearch();
-	}, [
-		orders,
-		statusFilter,
-		paymentFilter,
-		searchQuery,
-		applyFiltersAndSearch,
-	]);
+	}, [orders, statusFilter, paymentFilter, searchQuery, applyFiltersAndSearch]);
 
-	// Initial fetch on mount and when branchId / storeId change
-	useEffect(() => {
-		fetchOrders();
-	}, [fetchOrders, branchId, storeId]);
+	// Handling Store Switching
+	const handleSelectStoreBranch = async (obj) => {
+		try {
+			if (!obj) return;
+			// If obj is a branch, it usually has .parent
+			// If obj is a store, check standard fields
+			// We assume switchSelectedBranch works as (branchId, storeId) or similar. 
+			// Adapting to AuthContext signature from analysis: switchSelectedBranch(branchId, storeId)
+			
+			if (obj.type === 'branch') {
+				await switchSelectedBranch(obj._id, obj.storeObj?._id || obj.parent);
+			} else {
+				// Switching to a Store (Brand) directly - behavior depends on app logic
+				// Assuming we switch to its default branch or just the store context
+				// For safety, if switchSelectedBranch expects an ID, pass it.
+				
+				// Checking if AuthContext handles store-only switch. 
+				// Usually we select the store object itself.
+				// Based on products.jsx: await switchSelectedBranch(obj._id, obj.parent);
+				// If store, obj.parent is undefined.
+				await switchSelectedBranch(obj._id, null); 
+			}
+			setStoreModalVisible(false);
+		} catch (err) {
+			console.error('Error switching store/branch', err);
+		}
+	};
 
-	// Counters for UI display (derived from loaded orders)
-	const totalOrdersCount = orders.length;
-	const ongoingOrdersCount = orders.filter((order) =>
-		[
-			'pending',
-			'accepted',
-			'processing',
-			'out-for-delivery',
-		].includes(String(order.status)),
-	).length;
-	const completedOrdersCount = orders.filter(
-		(order) => String(order.status) === 'completed',
-	).length;
-	const cancelledOrdersCount = orders.filter(
-		(order) => String(order.status) === 'cancelled',
-	).length;
-	const paidOrdersCount = orders.filter(
-		(order) => String(order.payment?.status) === 'paid',
-	).length;
-	const unpaidOrdersCount = orders.filter(
-		(order) => String(order.payment?.status) !== 'paid',
-	).length;
+	// Derived Counts
+	const getCount = (filterFn) => orders.filter(filterFn).length;
+	const ongoingCount = getCount((o) => ['pending', 'accepted', 'processing', 'out-for-delivery'].includes(String(o.status)));
+	const completedCount = getCount((o) => String(o.status) === 'completed');
+	const cancelledCount = getCount((o) => String(o.status) === 'cancelled');
 
-	// Filter options data
-	const statusOptions = [
-		{
-			label: `In Progress (${ongoingOrdersCount})`,
-			value: 'in progress',
-		},
-		{
-			label: `Completed (${completedOrdersCount})`,
-			value: 'completed',
-		},
-		{
-			label: `Cancelled (${cancelledOrdersCount})`,
-			value: 'cancelled',
-		},
-		{
-			label: `All Orders (${totalOrdersCount})`,
-			value: 'all',
-		},
-	];
+	// Styling Helpers
+	const getStatusColor = (status) => {
+		switch (String(status).toLowerCase()) {
+			case 'pending': return '#F59E0B';
+			case 'accepted': return '#3B82F6';
+			case 'processing': return '#8B5CF6';
+			case 'out-for-delivery': return '#10B981';
+			case 'completed': return '#065637';
+			case 'cancelled': return '#EF4444';
+			default: return '#6B7280';
+		}
+	};
+	const getStatusLabel = (status) => String(status).split('-').map(w => w.charAt(0).toUpperCase() + w.slice(1)).join(' ');
 
-	const paymentOptions = [
-		{ label: `All (${totalOrdersCount})`, value: 'all' },
-		{ label: `Paid (${paidOrdersCount})`, value: 'paid' },
-		{
-			label: `Unpaid (${unpaidOrdersCount})`,
-			value: 'unpaid',
-		},
-	];
-
-	// Render chips helper
-	const renderFilterChips = (
-		options,
-		activeFilter,
-		setFilter,
-	) => (
-		<View style={styles.filterChipsContainer}>
-			{options.map((option) => (
-				<TouchableOpacity
-					key={option.value}
-					style={[
-						styles.filterChip,
-						activeFilter === option.value &&
-							styles.activeFilterChip,
-					]}
-					onPress={() => setFilter(option.value)}
-				>
-					<Text
-						style={[
-							styles.filterChipText,
-							activeFilter === option.value &&
-								styles.activeFilterChipText,
-						]}
-					>
-						{option.label}
-					</Text>
-				</TouchableOpacity>
-			))}
-		</View>
-	);
-
-	if (loading && orders.length === 0) {
-		return (
-			<View style={styles.loadingContainer}>
-				<ActivityIndicator size="large" color="#065637" />
-				<Text style={styles.loadingText}>
-					Loading orders...
-				</Text>
-			</View>
-		);
-	}
 
 	return (
 		<View style={styles.container}>
 			<StatusBar style="light" backgroundColor="#065637" />
+			
 			{/* Header */}
-			<View style={styles.headerContainer}>
-				<Text style={styles.headerTitle}>
-					Order Management
-				</Text>
-			</View>
-
-			{/* Store & Branch pickers */}
-			<View
-				style={{ paddingHorizontal: 20, marginTop: 12 }}
-			>
-				{storesList.length > 0 ? (
-					<View
-						style={{
-							backgroundColor: '#fff',
-							borderRadius: 10,
-							padding: 8,
-							flexDirection: 'row',
-							justifyContent: 'space-between',
-							alignItems: 'center'
-						}}
+			<View style={styles.header}>
+				<View>
+					<Text style={styles.headerTitle}>Orders</Text>
+					<TouchableOpacity 
+						style={styles.storeSelector}
+						onPress={() => setStoreModalVisible(true)}
 					>
-						<View style={{ flex: .5 }}>
-							<Text
-								style={{
-									fontSize: 12,
-									fontWeight: '600',
-									color: '#444',
-									marginBottom: 6,
-								}}
-							>
-								Store
-							</Text>
-							<Picker
-								selectedValue={storeId}
-								onValueChange={(val) => {
-									setStoreId(val);
-									// when store changes, branch effect will run and set branchId
-								}}
-							>
-								{storesList.map((s) => (
-									<Picker.Item
-										key={s._id}
-										label={s.name ?? s.storeLink ?? s._id}
-										value={s._id}
-									/>
-								))}
-							</Picker>
-						</View>
-
-						<View style={{ flex: .5 }}>
-							<Text
-								style={{
-									fontSize: 12,
-									fontWeight: '600',
-									color: '#444',
-									marginTop: 8,
-								}}
-							>
-								Branch
-							</Text>
-							{branches.length > 0 ? (
-								<Picker
-									selectedValue={branchId}
-									onValueChange={(val) => setBranchId(val)}
-								>
-									{branches.map((b) => (
-										<Picker.Item
-											key={b._id}
-											label={b.name ?? b.branchKey ?? b._id}
-											value={b._id}
-										/>
-									))}
-								</Picker>
-							) : (
-								<Text
-									style={{
-										color: '#777',
-										paddingVertical: 8,
-									}}
-								>
-									No branches for selected store
-								</Text>
-							)}
-						</View>
-					</View>
-				) : (
-					<Text style={{ color: '#777' }}>
-						You have no stores assigned.
-					</Text>
-				)}
+						<Text style={styles.storeSelectorText} numberOfLines={1}>
+							{displayStoreName} 
+							{isActiveIsBranch && ` • ${selectedStore?.name}`}
+						</Text>
+						<Ionicons name="chevron-down" size={14} color="#D1FAE5" style={{ marginLeft: 4 }} />
+					</TouchableOpacity>
+				</View>
 			</View>
 
-			{/* Search Bar */}
-			{/* <View style={styles.searchBarContainer}>
-				<Ionicons
-					name="search-outline"
-					size={20}
-					color="#666"
-					style={styles.searchIcon}
-				/>
-				<TextInput
-					style={styles.searchInput}
-					placeholder="Search orders by number or customer"
-					placeholderTextColor="#999"
-					value={searchQuery}
-					onChangeText={setSearchQuery}
-					clearButtonMode="while-editing"
-				/>
-			</View> */}
+			{/* Search */}
+			<View style={styles.searchSection}>
+				<View style={styles.searchBar}>
+					<Ionicons name="search" size={20} color="#9CA3AF" />
+					<TextInput
+						style={styles.searchInput}
+						placeholder="Search order # or customer..."
+						value={searchQuery}
+						onChangeText={setSearchQuery}
+						placeholderTextColor="#9CA3AF"
+					/>
+					{searchQuery.length > 0 && (
+						<TouchableOpacity onPress={() => setSearchQuery('')}>
+							<Ionicons name="close-circle" size={18} color="#9CA3AF" />
+						</TouchableOpacity>
+					)}
+				</View>
+			</View>
 
 			{/* Filters */}
-			<View style={styles.filtersSection}>
-				<Text style={styles.filterSectionTitle}>
-					Filter by Status
-				</Text>
-				{renderFilterChips(
-					statusOptions,
-					statusFilter,
-					setStatusFilter,
-				)}
-
-				<Text style={styles.filterSectionTitle}>
-					Filter by Payment
-				</Text>
-				{renderFilterChips(
-					paymentOptions,
-					paymentFilter,
-					setPaymentFilter,
-				)}
-			</View>
-
-			{/* Orders List */}
-			<View style={styles.listContainer}>
+			<View style={styles.tabsContainer}>
 				<FlatList
-					data={filteredOrders}
-					keyExtractor={(item) => String(item._id)}
+					horizontal
+					showsHorizontalScrollIndicator={false}
+					data={[
+						{ id: 'in progress', label: 'Processing', count: ongoingCount },
+						{ id: 'completed', label: 'History', count: completedCount },
+						{ id: 'cancelled', label: 'Cancelled', count: cancelledCount },
+						{ id: 'all', label: 'All Orders', count: orders.length },
+					]}
+					keyExtractor={item => item.id}
+					contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}
 					renderItem={({ item }) => {
-						const netTotal = computeNetTotal(item);
+						const isActive = statusFilter === item.id;
 						return (
 							<TouchableOpacity
-								style={styles.orderCard}
-								onPress={() =>
-									router.push(`/(app)/orders/${item._id}`)
-								}
+								style={[styles.tab, isActive && styles.activeTab]}
+								onPress={() => setStatusFilter(item.id)}
 							>
-								<View style={styles.cardHeader}>
-									<Text style={styles.orderNumber}>
-										{item.orderNumber ??
-											`#${String(item._id).slice(-6)}`}
-									</Text>
-									<Text style={styles.orderDate}>
-										{new Date(
-											item.createdAt,
-										).toLocaleDateString('en-US', {
-											year: 'numeric',
-											month: 'short',
-											day: 'numeric',
-											hour: '2-digit',
-											minute: '2-digit',
-										})}
-									</Text>
-								</View>
-
-								<Text style={styles.customerName}>
-									Customer:{' '}
-									{item.customerInfo?.name ??
-										item.customerName ??
-										'N/A'}
-								</Text>
-
-								<Text style={styles.totalAmount}>
-									Total: ₦
-									{Number(netTotal ?? 0).toLocaleString()}
-								</Text>
-
-								<View style={styles.cardBadges}>
-									<View
-										style={[
-											styles.statusBadge,
-											String(item.payment?.status) ===
-											'paid'
-												? styles.paidBadge
-												: styles.unpaidBadge,
-										]}
-									>
-										<Text style={styles.badgeText}>
-											{String(item.payment?.status) ===
-											'paid'
-												? 'Paid'
-												: 'Unpaid'}
-										</Text>
+								<Text style={[styles.tabText, isActive && styles.activeTabText]}>{item.label}</Text>
+								{item.count > 0 && (
+									<View style={[styles.badge, isActive && styles.activeBadge]}>
+										<Text style={[styles.badgeText, isActive && styles.activeBadgeText]}>{item.count}</Text>
 									</View>
-
-									<View
-										style={[
-											styles.statusBadge,
-											String(item.status) === 'completed'
-												? styles.completedBadge
-												: String(item.status) ===
-												  'cancelled'
-												? styles.defaultBadge
-												: [
-														'pending',
-														'accepted',
-														'processing',
-														'out-for-delivery',
-												  ].includes(String(item.status))
-												? styles.inProgressBadge
-												: styles.defaultBadge,
-										]}
-									>
-										<Text style={styles.badgeText}>
-											{String(item.status)
-												.charAt(0)
-												.toUpperCase() +
-												String(item.status).slice(1)}
-										</Text>
-									</View>
-								</View>
+								)}
 							</TouchableOpacity>
 						);
 					}}
-					ListEmptyComponent={
-						<View style={styles.emptyContainer}>
-							<Ionicons
-								name="cube-outline"
-								size={60}
-								color="#ccc"
-							/>
-							<Text style={styles.emptyText}>
-								No orders found.
-							</Text>
-							<Text style={styles.emptySubText}>
-								Adjust your filters or pull to refresh.
-							</Text>
-						</View>
-					}
-					refreshControl={
-						<RefreshControl
-							refreshing={refreshing}
-							onRefresh={onRefresh}
-							colors={['#065637']}
-							tintColor="#065637"
-						/>
-					}
-					contentContainerStyle={
-						filteredOrders.length === 0
-							? styles.emptyListContent
-							: styles.listContent
-					}
 				/>
 			</View>
+
+			{/* List */}
+			<FlatList
+				data={filteredOrders}
+				keyExtractor={(item) => String(item._id)}
+				contentContainerStyle={styles.listContent}
+				refreshControl={
+					<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#065637" />
+				}
+				ListEmptyComponent={
+					!loading && (
+						<View style={styles.emptyState}>
+							<MaterialCommunityIcons name="clipboard-text-outline" size={64} color="#D1D5DB" />
+							<Text style={styles.emptyStateText}>No orders found</Text>
+							<Text style={styles.emptyStateSub}>Check a different status or clear your search</Text>
+						</View>
+					)
+				}
+				renderItem={({ item }) => {
+					const statusColor = getStatusColor(item.status);
+					const totalAmount = item.totalAmount || 0;
+					const itemCount = item.items?.length || 0;
+
+					return (
+						<TouchableOpacity
+							style={styles.card}
+							activeOpacity={0.7}
+							onPress={() => router.push(`/(app)/orders/${item._id}`)}
+						>
+							<View style={styles.cardHeader}>
+								<View style={styles.orderIdRow}>
+									<Text style={styles.orderId}>#{item.orderNumber || String(item._id).slice(-6).toUpperCase()}</Text>
+									<Text style={styles.timeAgo}>{formatTimeAgo(item.createdAt)}</Text>
+								</View>
+								<View style={[styles.statusPill, { backgroundColor: statusColor + '20' }]}>
+									<Text style={[styles.statusText, { color: statusColor }]}>{getStatusLabel(item.status)}</Text>
+								</View>
+							</View>
+							<View style={styles.divider} />
+							<View style={styles.cardBody}>
+								<View style={styles.customerRow}>
+									<View style={styles.avatar}>
+										<Text style={styles.avatarText}>{(item.customerInfo?.name || item.customerName || 'C').charAt(0).toUpperCase()}</Text>
+									</View>
+									<View>
+										<Text style={styles.customerName}>{item.customerInfo?.name || item.customerName || 'Walk-in Customer'}</Text>
+										<Text style={styles.itemsText}>{itemCount} item{itemCount !== 1 ? 's' : ''}</Text>
+									</View>
+								</View>
+								<View style={styles.amountContainer}>
+									<Text style={styles.amountLabel}>Total</Text>
+									<Text style={styles.amountValue}>₦{Number(totalAmount).toLocaleString()}</Text>
+								</View>
+							</View>
+							<View style={[styles.paymentStrip, { backgroundColor: item.payment?.status === 'paid' ? '#10B981' : '#F59E0B' }]}>
+								<Text style={styles.paymentStripText}>{item.payment?.status === 'paid' ? 'PAID' : 'PAYMENT PENDING'}</Text>
+							</View>
+						</TouchableOpacity>
+					);
+				}}
+			/>
+
+			{/* Store/Branch Selector Modal */}
+			<Modal
+				visible={storeModalVisible}
+				animationType="slide"
+				transparent
+				onRequestClose={() => setStoreModalVisible(false)}
+			>
+				<TouchableOpacity 
+					style={styles.modalOverlay} 
+					activeOpacity={1} 
+					onPress={() => setStoreModalVisible(false)}
+				>
+					<View style={styles.modalContent}>
+						<View style={styles.modalHeader}>
+							<Text style={styles.modalTitle}>Select Business</Text>
+							<TouchableOpacity onPress={() => setStoreModalVisible(false)}>
+								<Ionicons name="close" size={24} color="#374151" />
+							</TouchableOpacity>
+						</View>
+						<FlatList
+							data={userInfo?.stores || []}
+							keyExtractor={(s) => s._id}
+							contentContainerStyle={{ padding: 16 }}
+							renderItem={({ item: s }) => {
+								const isStoreSelected = selectedStore?._id === s._id;
+								return (
+									<View style={{ marginBottom: 16 }}>
+										<TouchableOpacity
+											onPress={() => handleSelectStoreBranch({ type: 'store', _id: s._id, ...s })}
+											style={[styles.storeOption, isStoreSelected && styles.storeOptionSelected]}
+										>
+											<View>
+												<Text style={[styles.storeOptionName, isStoreSelected && styles.storeOptionNameSelected]}>{s.name}</Text>
+												<Text style={styles.storeOptionAddress}>{s.address || 'Main Store'}</Text>
+											</View>
+											{isStoreSelected && <Ionicons name="checkmark-circle" size={20} color="#065637" />}
+										</TouchableOpacity>
+
+										{/* Branches */}
+										{Array.isArray(s.branches) && s.branches.map(b => {
+											const isBranchSelected = selectedStore?._id === b._id;
+											return (
+												<TouchableOpacity
+													key={b._id}
+													onPress={() => handleSelectStoreBranch({ type: 'branch', _id: b._id, parent: s._id, storeObj: s, ...b })}
+													style={[styles.branchOption, isBranchSelected && styles.branchOptionSelected]}
+												>
+													<View style={{ flexDirection: 'row', alignItems: 'center' }}>
+														<View style={styles.branchLine} />
+														<View>
+															<Text style={[styles.branchOptionName, isBranchSelected && styles.branchOptionNameSelected]}>
+																{b.name || b.branchKey || 'Branch'}
+															</Text>
+															<Text style={styles.branchOptionAddress}>{b.address || 'Branch Location'}</Text>
+														</View>
+													</View>
+													{isBranchSelected && <Ionicons name="checkmark-circle" size={18} color="#065637" />}
+												</TouchableOpacity>
+											);
+										})}
+									</View>
+								);
+							}}
+						/>
+					</View>
+				</TouchableOpacity>
+			</Modal>
 		</View>
 	);
 };
@@ -610,198 +425,118 @@ const Orders = () => {
 export default Orders;
 
 const styles = StyleSheet.create({
-	container: {
-		flex: 1,
-		backgroundColor: '#f8f8f8',
-	},
-	loadingContainer: {
-		flex: 1,
-		justifyContent: 'center',
-		alignItems: 'center',
-		backgroundColor: '#f8f8f8',
-	},
-	loadingText: {
-		marginTop: 10,
-		fontSize: 16,
-		color: '#555',
-	},
-	headerContainer: {
-		paddingTop: 55,
-		paddingHorizontal: 20,
-		paddingBottom: 15,
+	container: { flex: 1, backgroundColor: '#F3F4F6' },
+	header: {
 		backgroundColor: '#065637',
+		paddingTop: Platform.OS === 'android' ? 45 : 60,
+		paddingBottom: 20,
+		paddingHorizontal: 20,
 		flexDirection: 'row',
 		justifyContent: 'space-between',
 		alignItems: 'center',
-		elevation: 4,
-		shadowColor: '#000',
-		shadowOffset: { width: 0, height: 2 },
-		shadowOpacity: 0.1,
-		shadowRadius: 3,
 	},
 	headerTitle: {
-		fontSize: 26,
-		fontWeight: '700',
-		color: '#f1f1f1',
-	},
-	searchBarContainer: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		backgroundColor: '#fff',
-		borderRadius: 10,
-		marginHorizontal: 20,
-		marginTop: 20,
-		paddingHorizontal: 15,
-		elevation: 2,
-		shadowColor: '#000',
-		shadowOffset: { width: 0, height: 1 },
-		shadowOpacity: 0.08,
-		shadowRadius: 2,
-	},
-	searchIcon: {
-		marginRight: 10,
-	},
-	searchInput: {
-		flex: 1,
-		height: 45,
-		fontSize: 16,
-		color: '#333',
-	},
-	filtersSection: {
-		paddingHorizontal: 20,
-		marginTop: 20,
-		marginBottom: 10,
-	},
-	filterSectionTitle: {
-		fontSize: 14,
-		fontWeight: '600',
-		color: '#3C4043',
-		marginBottom: 8,
-	},
-	filterChipsContainer: {
-		flexDirection: 'row',
-		flexWrap: 'wrap',
-		gap: 8,
-		marginBottom: 15,
-	},
-	filterChip: {
-		paddingVertical: 8,
-		paddingHorizontal: 15,
-		borderRadius: 20,
-		backgroundColor: '#E0E0E0',
-		borderWidth: 1,
-		borderColor: '#E0E0E0',
-		marginRight: 8,
-		marginBottom: 8,
-	},
-	activeFilterChip: {
-		backgroundColor: '#065637',
-		borderColor: '#065637',
-	},
-	filterChipText: {
-		color: '#555',
-		fontSize: 12,
-		fontWeight: '500',
-	},
-	activeFilterChipText: {
+		fontSize: 24,
+		fontWeight: '800',
 		color: '#fff',
-		fontWeight: '600',
-	},
-	listContainer: {
-		flex: 1,
-		paddingHorizontal: 20,
-		paddingBottom: 20,
-	},
-	listContent: {
-		paddingBottom: 20,
-	},
-	orderCard: {
-		backgroundColor: '#FFF',
-		borderRadius: 10,
-		padding: 15,
-		marginBottom: 10,
-		borderWidth: 1,
-		borderColor: '#E0E0E0',
-	},
-	cardHeader: {
-		flexDirection: 'row',
-		justifyContent: 'space-between',
-		alignItems: 'center',
-		marginBottom: 8,
-	},
-	orderNumber: {
-		fontSize: 17,
-		fontWeight: '700',
-		color: '#1A1A1A',
-	},
-	orderDate: {
-		fontSize: 12,
-		color: '#777',
-	},
-	customerName: {
-		fontSize: 14,
-		color: '#555',
 		marginBottom: 4,
 	},
-	totalAmount: {
-		fontSize: 15,
-		fontWeight: '600',
-		color: '#333',
-		marginBottom: 8,
-	},
-	cardBadges: {
+	storeSelector: {
 		flexDirection: 'row',
-		gap: 8,
-	},
-	statusBadge: {
-		paddingVertical: 5,
-		paddingHorizontal: 10,
-		borderRadius: 15,
-		justifyContent: 'center',
 		alignItems: 'center',
 	},
-	paidBadge: {
-		backgroundColor: '#DFF6E2',
-	},
-	unpaidBadge: {
-		backgroundColor: '#FDE5E9',
-	},
-	completedBadge: {
-		backgroundColor: '#E8F5E9',
-	},
-	inProgressBadge: {
-		backgroundColor: '#FFF3E0',
-	},
-	defaultBadge: {
-		backgroundColor: '#E0E0E0',
-	},
-	badgeText: {
-		fontSize: 11,
-		fontWeight: '600',
-		textTransform: 'capitalize',
-		color: '#333',
-	},
-	emptyContainer: {
-		flex: 1,
-		justifyContent: 'center',
-		alignItems: 'center',
-		paddingVertical: 50,
-	},
-	emptyListContent: {
-		flexGrow: 1,
-		justifyContent: 'center',
-		alignItems: 'center',
-	},
-	emptyText: {
-		fontSize: 18,
-		fontWeight: 'bold',
-		color: '#888',
-		marginTop: 15,
-	},
-	emptySubText: {
+	storeSelectorText: {
+		color: '#D1FAE5',
 		fontSize: 14,
-		color: '#A0A0A0',
-		marginTop: 5,
-		textAlign: 'center',
+		fontWeight: '600',
+		maxWidth: 250,
 	},
+	searchSection: {
+		paddingHorizontal: 16,
+		marginTop: -15,
+		marginBottom: 10,
+	},
+	searchBar: {
+		backgroundColor: '#fff',
+		flexDirection: 'row',
+		alignItems: 'center',
+		borderRadius: 12,
+		paddingHorizontal: 15,
+		height: 50,
+		shadowColor: '#000',
+		shadowOffset: { width: 0, height: 2 },
+		shadowOpacity: 0.05,
+		shadowRadius: 5,
+		elevation: 3,
+	},
+	searchInput: { flex: 1, marginLeft: 10, fontSize: 15, color: '#1F2937' },
+	tabsContainer: { paddingBottom: 10 },
+	tab: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		paddingVertical: 8,
+		paddingHorizontal: 16,
+		borderRadius: 20,
+		backgroundColor: '#fff',
+		borderWidth: 1,
+		borderColor: '#E5E7EB',
+		marginRight: 8,
+	},
+	activeTab: { backgroundColor: '#065637', borderColor: '#065637' },
+	tabText: { fontSize: 14, fontWeight: '600', color: '#6B7280' },
+	activeTabText: { color: '#fff' },
+	badge: { backgroundColor: '#E5E7EB', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, marginLeft: 6 },
+	activeBadge: { backgroundColor: 'rgba(255,255,255,0.2)' },
+	badgeText: { fontSize: 11, fontWeight: '700', color: '#4B5563' },
+	activeBadgeText: { color: '#fff' },
+	listContent: { paddingHorizontal: 16, paddingBottom: 20 },
+	card: {
+		backgroundColor: '#fff',
+		borderRadius: 16,
+		marginBottom: 16,
+		shadowColor: '#000',
+		shadowOffset: { width: 0, height: 2 },
+		shadowOpacity: 0.05,
+		shadowRadius: 5,
+		elevation: 2,
+		overflow: 'hidden',
+	},
+	cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16 },
+	orderIdRow: { flexDirection: 'column' },
+	orderId: { fontSize: 16, fontWeight: '700', color: '#111827' },
+	timeAgo: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
+	statusPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
+	statusText: { fontSize: 12, fontWeight: '700' },
+	divider: { height: 1, backgroundColor: '#F3F4F6', marginHorizontal: 16 },
+	cardBody: { padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+	customerRow: { flexDirection: 'row', alignItems: 'center', flex: 1 },
+	avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#E0E7FF', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+	avatarText: { fontSize: 18, fontWeight: '700', color: '#4F46E5' },
+	customerName: { fontSize: 14, fontWeight: '600', color: '#374151' },
+	itemsText: { fontSize: 12, color: '#6B7280', marginTop: 2 },
+	amountContainer: { alignItems: 'flex-end' },
+	amountLabel: { fontSize: 11, color: '#9CA3AF', textTransform: 'uppercase' },
+	amountValue: { fontSize: 18, fontWeight: '700', color: '#065637' },
+	paymentStrip: { height: 4, width: '100%', flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
+	paymentStripText: { fontSize: 0, height: 0, opacity: 0 }, /* hidden text mainly for screen readers if needed or debug, simplified to color strip */
+	emptyState: { alignItems: 'center', justifyContent: 'center', marginTop: 60 },
+	emptyStateText: { fontSize: 18, fontWeight: '700', color: '#374151', marginTop: 16 },
+	emptyStateSub: { fontSize: 14, color: '#9CA3AF', marginTop: 8 },
+
+	// Modal Styles
+	modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+	modalContent: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '80%' },
+	modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+	modalTitle: { fontSize: 18, fontWeight: '700', color: '#111827' },
+	storeOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderRadius: 12, backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#F3F4F6' },
+	storeOptionSelected: { backgroundColor: '#ECFDF5', borderColor: '#065637' },
+	storeOptionName: { fontSize: 16, fontWeight: '600', color: '#374151' },
+	storeOptionNameSelected: { color: '#065637' },
+	storeOptionAddress: { fontSize: 12, color: '#6B7280', marginTop: 2 },
+	branchOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, paddingLeft: 12, marginTop: 8 },
+	branchOptionSelected: { backgroundColor: '#F0FDF4', borderRadius: 8 },
+	branchLine: { width: 2, height: '100%', backgroundColor: '#D1D5DB', marginRight: 12, borderRadius: 1 },
+	branchOptionName: { fontSize: 15, fontWeight: '500', color: '#4B5563' },
+	branchOptionNameSelected: { color: '#065637', fontWeight: '700' },
+	branchOptionAddress: { fontSize: 12, color: '#9CA3AF' },
 });

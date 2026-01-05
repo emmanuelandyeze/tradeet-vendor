@@ -115,7 +115,7 @@ const RecentOrders = ({
 
 								{/* Right: Amount */}
 								<View style={{ alignItems: 'flex-end', justifyContent:'center' }}>
-									<Text style={styles.amount}>₦{item.totalAmount.toLocaleString()}</Text>
+									<Text style={styles.amount}>₦{((item.totalAmount || 0) - (item.serviceFee || 0)).toLocaleString()}</Text>
 									<Text 
 										style={[
 											styles.paymentStatus, 

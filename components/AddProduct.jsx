@@ -1,5 +1,4 @@
 // components/AddProduct.js
-import Ionicons from '@expo/vector-icons/Ionicons';
 import React, { useEffect, useState } from 'react';
 import {
 	View,
@@ -15,12 +14,29 @@ import {
 	ActivityIndicator,
 	Alert,
 	Platform,
+	KeyboardAvoidingView,
 } from 'react-native';
+import Ionicons from '@expo/vector-icons/Ionicons';
+import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import * as ImagePicker from 'expo-image-picker';
-import DateTimePicker from '@react-native-community/datetimepicker';
-import { uploadImageToCloudinary } from '../utils/cloudinary';
+import * as DocumentPicker from 'expo-document-picker';
+import { uploadToCloudinary } from '../utils/cloudinary';
 import axiosInstance from '../utils/axiosInstance';
+// Keep Picker for Currency/Simple selections if needed,
+// but we'll try to use custom UI where possible for better look.
 import { Picker } from '@react-native-picker/picker';
+
+const COLORS = {
+	primary: '#065637',
+	primaryLight: '#E8F5E9',
+	secondary: '#F3F4F6',
+	text: '#1F2937',
+	textLight: '#6B7280',
+	border: '#E5E7EB',
+	white: '#FFFFFF',
+	danger: '#EF4444',
+	inputBg: '#F9FAFB',
+};
 
 const weekdays = [
 	'Monday',
@@ -44,8 +60,9 @@ const AddProduct = ({
 	// Generic product state (unified)
 	const [type, setType] = useState(
 		initialProduct?.type ||
-			(isServiceBasedStore ? 'service' : 'physical'),
+		(isServiceBasedStore ? 'service' : 'physical'),
 	); // 'physical' | 'digital' | 'service'
+
 	const [title, setTitle] = useState(
 		initialProduct?.title || initialProduct?.name || '',
 	);
@@ -55,18 +72,17 @@ const AddProduct = ({
 	const [categoryList, setCategoryList] = useState([]);
 	const [selectedCategory, setSelectedCategory] = useState(
 		initialProduct?.category?._id ||
-			initialProduct?.category ||
-			null,
+		initialProduct?.category ||
+		null,
 	);
 
-	// NEW: isFeatured
 	const [isFeatured, setIsFeatured] = useState(
 		initialProduct?.isFeatured === true ||
-			initialProduct?.isFeatured === 'true' ||
-			false,
+		initialProduct?.isFeatured === 'true' ||
+		false,
 	);
 
-	// Variants & AddOns state (store price as string for inputs)
+	// Variants & AddOns
 	const [variants, setVariants] = useState(() => {
 		const v = initialProduct?.variants;
 		if (!Array.isArray(v)) return [];
@@ -76,7 +92,7 @@ const AddProduct = ({
 		}));
 	});
 	const [addOns, setAddOns] = useState(() => {
-		const a = initialProduct?.addOns || initialProduct?.addOns;
+		const a = initialProduct?.addOns;
 		if (!Array.isArray(a)) return [];
 		return a.map((x) => ({
 			name: x?.name || '',
@@ -85,166 +101,104 @@ const AddProduct = ({
 		}));
 	});
 
-	// Add category modal
-	const [
-		isAddCategoryModalVisible,
-		setIsAddCategoryModalVisible,
-	] = useState(false);
-	const [newCategoryName, setNewCategoryName] =
-		useState('');
-	const [creatingCategory, setCreatingCategory] =
-		useState(false);
+	// Category Modal
+	const [isAddCategoryModalVisible, setIsAddCategoryModalVisible] = useState(false);
+	const [isCategoryPickerVisible, setIsCategoryPickerVisible] = useState(false);
+	const [newCategoryName, setNewCategoryName] = useState('');
+	const [creatingCategory, setCreatingCategory] = useState(false);
 
-	// Images (store local URIs or remote urls). We'll upload non-http URIs on save.
+	// Images
 	const [images, setImages] = useState(() => {
 		if (initialProduct) {
-			if (Array.isArray(initialProduct.images))
-				return initialProduct.images.slice();
-			if (initialProduct.thumbnail)
-				return [initialProduct.thumbnail];
-			if (initialProduct.image)
-				return [initialProduct.image];
+			if (Array.isArray(initialProduct.images)) return initialProduct.images.slice();
+			if (initialProduct.thumbnail) return [initialProduct.thumbnail];
+			if (initialProduct.image) return [initialProduct.image];
 		}
 		return [];
 	});
-	const [imagePickerVisible, setImagePickerVisible] =
-		useState(false);
-	const [uploadingImages, setUploadingImages] =
-		useState(false);
+	const [imagePickerVisible, setImagePickerVisible] = useState(false);
+	const [uploadingImages, setUploadingImages] = useState(false);
 
-	// common pricing fields
+	// Pricing
 	const [price, setPrice] = useState(
-		initialProduct?.price !== undefined
-			? String(initialProduct.price)
-			: '',
+		initialProduct?.price !== undefined ? String(initialProduct.price) : '',
 	);
-	const [currency, setCurrency] = useState(
-		initialProduct?.currency || 'NGN',
-	);
+	const [currency, setCurrency] = useState(initialProduct?.currency || 'NGN');
 	const [compareAtPrice, setCompareAtPrice] = useState(
-		initialProduct?.compareAtPrice !== undefined
-			? String(initialProduct.compareAtPrice)
-			: '',
+		initialProduct?.compareAtPrice !== undefined ? String(initialProduct.compareAtPrice) : '',
 	);
 
-	// physical-specific
+	// Type Specific
 	const [inventoryCount, setInventoryCount] = useState(
-		initialProduct?.physical?.inventoryCount ??
-			initialProduct?.inventoryCount ??
-			'',
+		initialProduct?.physical?.inventoryCount ?? initialProduct?.inventoryCount ?? '',
 	);
 	const [sku, setSku] = useState(
-		initialProduct?.physical?.sku ??
-			initialProduct?.sku ??
-			'',
+		initialProduct?.physical?.sku ?? initialProduct?.sku ?? '',
 	);
 	const [weightKg, setWeightKg] = useState(
 		initialProduct?.physical?.weightKg ?? '',
 	);
 
-	// digital-specific
 	const [downloadUrl, setDownloadUrl] = useState(
 		initialProduct?.digital?.files?.[0]?.url ??
-			initialProduct?.digital?.downloadUrl ??
-			initialProduct?.downloadUrl ??
-			'',
+		initialProduct?.digital?.downloadUrl ??
+		initialProduct?.downloadUrl ??
+		'',
 	);
 
-	// service-specific
 	const [durationMinutes, setDurationMinutes] = useState(
-		initialProduct?.service?.durationMinutes ??
-			initialProduct?.durationMinutes ??
-			60,
+		initialProduct?.service?.durationMinutes ?? initialProduct?.durationMinutes ?? 60,
 	);
-	const [capacity, setCapacity] = useState(
-		initialProduct?.service?.capacity ?? 1,
+	const [capacity, setCapacity] = useState(initialProduct?.service?.capacity ?? 1);
+	const [bookingWindowDays, setBookingWindowDays] = useState(
+		initialProduct?.service?.bookingWindowDays ?? 365,
 	);
-	const [bookingWindowDays, setBookingWindowDays] =
-		useState(
-			initialProduct?.service?.bookingWindowDays ?? 365,
-		);
-	// availability: internal representation: { Monday: { closed: bool, open: '09:00', close: '17:00' }, ... }
 	const [availability, setAvailability] = useState(() => {
 		if (initialProduct?.service?.availability) {
 			const av = {};
 			weekdays.forEach((d) => {
-				const dayData =
-					initialProduct.service.availability[d];
-				if (!dayData)
-					av[d] = {
-						closed: true,
-						open: '09:00',
-						close: '17:00',
-					};
-				else {
-					if (dayData.closed)
-						av[d] = {
-							closed: true,
-							open: '09:00',
-							close: '17:00',
-						};
-					else {
-						const openMin =
-							dayData.startMinutes ?? null;
-						const closeMin =
-							dayData.endMinutes ?? null;
+				const dayData = initialProduct.service.availability[d];
+				if (!dayData) {
+					av[d] = { closed: true, open: '09:00', close: '17:00' };
+				} else {
+					if (dayData.closed) {
+						av[d] = { closed: true, open: '09:00', close: '17:00' };
+					} else {
+						const openMin = dayData.startMinutes ?? null;
+						const closeMin = dayData.endMinutes ?? null;
 						const minutesToHM = (m) => {
-							if (m === null || m === undefined)
-								return '09:00';
-							if (typeof m === 'string' && m.includes(':'))
-								return m;
+							if (m === null || m === undefined) return '09:00';
+							if (typeof m === 'string' && m.includes(':')) return m;
 							const mm = Number(m);
 							const hh = Math.floor(mm / 60);
 							const mins = mm % 60;
-							return `${String(hh).padStart(
-								2,
-								'0',
-							)}:${String(mins).padStart(2, '0')}`;
+							return `${String(hh).padStart(2, '0')}:${String(mins).padStart(2, '0')}`;
 						};
-						av[d] = {
-							closed: false,
-							open: minutesToHM(openMin),
-							close: minutesToHM(closeMin),
-						};
+						av[d] = { closed: false, open: minutesToHM(openMin), close: minutesToHM(closeMin) };
 					}
 				}
 			});
 			return av;
 		} else {
 			const base = {};
-			weekdays.forEach(
-				(d) =>
-					(base[d] = {
-						closed: false,
-						open: '09:00',
-						close: '17:00',
-					}))
+			weekdays.forEach((d) => (base[d] = { closed: false, open: '09:00', close: '17:00' }));
 			return base;
 		}
-	})
+	});
 
-	// fetch categories on mount
+	// Effects
 	useEffect(() => {
 		let mounted = true;
 		async function loadCategories() {
 			try {
-				const res = await axiosInstance.get(
-					`/category/${storeId}?branchId=${branchId}`,
-				);
-				// Expecting res.data to be array of categories. If your backend wraps, adapt accordingly.
-				const categories = Array.isArray(res.data)
-					? res.data
-					: res.data.categories || res.data.result || [];
-				if (mounted && Array.isArray(categories)) {
-					setCategoryList(categories);
-					if (!selectedCategory && categories.length > 0)
-						setSelectedCategory(categories[0]._id);
+				const res = await axiosInstance.get(`/category/${storeId}?branchId=${branchId}`);
+				const catData = Array.isArray(res.data) ? res.data : res.data.categories || res.data.result || [];
+				if (mounted && Array.isArray(catData)) {
+					setCategoryList(catData);
+					if (!selectedCategory && catData.length > 0) setSelectedCategory(catData[0]._id);
 				}
 			} catch (err) {
-				console.warn(
-					'Could not load categories',
-					err?.response?.data || err,
-				);
+				console.warn('Could not load categories', err);
 			}
 		}
 		if (storeId) loadCategories();
@@ -252,30 +206,20 @@ const AddProduct = ({
 	}, [storeId]);
 
 	useEffect(() => {
-		// If an initial product changes type, sync internal type
 		if (initialProduct?.type) setType(initialProduct.type);
 	}, [initialProduct]);
 
-	// ---------- image picker helpers ----------
+	// Image handlers
 	const pickImageFromGallery = async () => {
 		try {
-			const res = await ImagePicker.launchImageLibraryAsync(
-				{
-					mediaTypes: ImagePicker.MediaTypeOptions.Images,
-					allowsEditing: true,
-					quality: 0.9,
-				},
-			);
-			if (
-				!res.canceled &&
-				res.assets &&
-				res.assets.length > 0
-			) {
-				const uri = res.assets[0].uri;
-				setImages((prev) => [...prev, uri]);
+			const res = await ImagePicker.launchImageLibraryAsync({
+				mediaTypes: ImagePicker.MediaTypeOptions.Images,
+				allowsEditing: true,
+				quality: 0.9,
+			});
+			if (!res.canceled && res.assets?.[0]?.uri) {
+				setImages((prev) => [...prev, res.assets[0].uri]);
 			}
-		} catch (err) {
-			console.error('pickImage error', err);
 		} finally {
 			setImagePickerVisible(false);
 		}
@@ -283,56 +227,46 @@ const AddProduct = ({
 
 	const takePhoto = async () => {
 		try {
-			const res = await ImagePicker.launchCameraAsync({
-				allowsEditing: true,
-				quality: 0.9,
-			});
-			if (
-				!res.canceled &&
-				res.assets &&
-				res.assets.length > 0
-			) {
-				const uri = res.assets[0].uri;
-				setImages((prev) => [...prev, uri]);
+			const res = await ImagePicker.launchCameraAsync({ allowsEditing: true, quality: 0.9 });
+			if (!res.canceled && res.assets?.[0]?.uri) {
+				setImages((prev) => [...prev, res.assets[0].uri]);
 			}
-		} catch (err) {
-			console.error('camera error', err);
 		} finally {
 			setImagePickerVisible(false);
 		}
 	};
 
-	const removeImageAt = (index) => {
-		setImages((prev) => prev.filter((_, i) => i !== index));
+	const removeImageAt = (index) => setImages((prev) => prev.filter((_, i) => i !== index));
+
+	const pickDocument = async () => {
+		try {
+			const res = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true });
+			if (res.canceled === false || (res.assets && res.assets.length > 0)) {
+				const asset = res.assets ? res.assets[0] : res;
+				setDownloadUrl(asset.uri);
+				Alert.alert('File Selected', `Selected: ${asset.name}`);
+			}
+		} catch (err) {
+			console.error('pickDocument error', err);
+		}
 	};
 
-	// ---------- service availability helpers ----------
+	// Service Helpers
 	const setDayClosed = (day, closed) =>
-		setAvailability((prev) => ({
-			...prev,
-			[day]: { ...prev[day], closed },
-		}));
+		setAvailability((prev) => ({ ...prev, [day]: { ...prev[day], closed } }));
 	const setDayOpenTime = (day, hhmm) =>
-		setAvailability((prev) => ({
-			...prev,
-			[day]: { ...prev[day], open: hhmm },
-		}));
+		setAvailability((prev) => ({ ...prev, [day]: { ...prev[day], open: hhmm } }));
 	const setDayCloseTime = (day, hhmm) =>
-		setAvailability((prev) => ({
-			...prev,
-			[day]: { ...prev[day], close: hhmm },
-		}));
+		setAvailability((prev) => ({ ...prev, [day]: { ...prev[day], close: hhmm } }));
 
 	const hhmmToMinutes = (s) => {
 		if (!s || typeof s !== 'string') return null;
-		const [hh, mm] = s
-			.split(':')
-			.map((x) => parseInt(x, 10));
+		const [hh, mm] = s.split(':').map((x) => parseInt(x, 10));
 		if (Number.isNaN(hh) || Number.isNaN(mm)) return null;
 		return hh * 60 + mm;
 	};
 
-	// ---------- upload images (client-side) ----------
+	// Upload
 	const uploadAllImages = async () => {
 		setUploadingImages(true);
 		try {
@@ -342,109 +276,62 @@ const AddProduct = ({
 				if (String(uri).startsWith('http')) {
 					resultUrls.push(uri);
 				} else {
-					const resp = await uploadImageToCloudinary(uri);
-					if (resp && (resp.secure_url || resp.url))
-						resultUrls.push(resp.secure_url || resp.url);
+					const resp = await uploadToCloudinary(uri, 'image');
+					if (resp?.secure_url || resp?.url) resultUrls.push(resp.secure_url || resp.url);
 					else throw new Error('Image upload failed');
 				}
 			}
-			return resultUrls;
+
+			let finalDownloadUrl = downloadUrl;
+			if (type === 'digital' && downloadUrl && !downloadUrl.startsWith('http')) {
+				const resp = await uploadToCloudinary(downloadUrl, 'raw', 'digital_product');
+				if (resp?.secure_url || resp?.url) finalDownloadUrl = resp.secure_url || resp.url;
+				else throw new Error('File upload failed');
+			}
+			return { images: resultUrls, downloadUrl: finalDownloadUrl };
 		} finally {
 			setUploadingImages(false);
 		}
 	};
 
-	// ---------- create category (inline) ----------
 	const createCategory = async () => {
-		const name = newCategoryName?.trim();
-		if (!name)
-			return Alert.alert(
-				'Validation',
-				'Category name is required',
-			);
-		if (!storeId)
-			return Alert.alert('Error', 'Missing store ID');
+		if (!newCategoryName.trim()) return Alert.alert('Validation', 'Category name is required');
 		setCreatingCategory(true);
 		try {
-			const resp = await axiosInstance.post(
-				`/category/${storeId}`,
-				{ name, branchId },
-			);
-			// Expect backend to return created category object. Adjust if your backend wraps differently.
-			const created =
-				resp.data && resp.data._id
-					? resp.data
-					: resp.data.category || resp.data.result || null;
-			if (!created) {
-				// If server returns the whole list, pick last item or re-fetch
-				const refetch = await axiosInstance.get(
-					`/category/${storeId}`,
-				);
-				const list = Array.isArray(refetch.data)
-					? refetch.data
-					: refetch.data.categories || [];
-				setCategoryList(list);
-				if (list.length > 0)
-					setSelectedCategory(list[list.length - 1]._id);
-			} else {
+			const resp = await axiosInstance.post(`/category/${storeId}`, { name: newCategoryName, branchId });
+			const created = resp.data?._id ? resp.data : resp.data?.category || resp.data?.result;
+
+			if (created) {
 				setCategoryList((prev) => [...prev, created]);
 				setSelectedCategory(created._id);
+			} else {
+				// Fallback generic reload
+				const refetch = await axiosInstance.get(`/category/${storeId}`);
+				setCategoryList(refetch.data?.categories || refetch.data || []);
 			}
 			setNewCategoryName('');
 			setIsAddCategoryModalVisible(false);
 		} catch (err) {
-			console.error(
-				'createCategory error',
-				err?.response?.data || err,
-			);
-			Alert.alert(
-				'Error',
-				err?.response?.data?.message ||
-					'Failed to create category',
-			);
+			Alert.alert('Error', 'Failed to create category');
 		} finally {
 			setCreatingCategory(false);
 		}
 	};
 
-	// ---------- Variants/Add-ons helpers ----------
-	const addVariant = () =>
-		setVariants((prev) => [...prev, { name: '', price: '' }]);
-	const updateVariant = (index, field, value) =>
-		setVariants((prev) =>
-			prev.map((v, i) => (i === index ? { ...v, [field]: value } : v)),
-		);
-	const removeVariant = (index) =>
-		setVariants((prev) => prev.filter((_, i) => i !== index));
-
-	const addAddOn = () =>
-		setAddOns((prev) => [
-			...prev,
-			{ name: '', price: '', compulsory: false },
-		]);
-	const updateAddOn = (index, field, value) =>
-		setAddOns((prev) =>
-			prev.map((a, i) => (i === index ? { ...a, [field]: value } : a)),
-		);
-	const removeAddOn = (index) =>
-		setAddOns((prev) => prev.filter((_, i) => i !== index));
-
-	// ---------- final save handler ----------
+	// Save
 	const handleSave = async () => {
-		if (!title.trim())
-			return Alert.alert('Validation', 'Title is required');
-		if (!selectedCategory)
-			return Alert.alert('Validation', 'Select a category');
+		if (!title.trim()) return Alert.alert('Validation', 'Title is required');
+		if (!selectedCategory) return Alert.alert('Validation', 'Select a category');
 
-		let uploadedUrls = [];
+		let uploadedImages = [];
+		let finalDownloadUrl = downloadUrl;
+
 		try {
-			uploadedUrls = await uploadAllImages();
+			const result = await uploadAllImages();
+			uploadedImages = result.images;
+			finalDownloadUrl = result.downloadUrl;
 		} catch (err) {
-			console.error('uploadAllImages error', err);
-			return Alert.alert(
-				'Upload Error',
-				'Image upload failed. Try again.',
-			);
+			return Alert.alert('Upload Error', 'Failed to upload assets.');
 		}
 
 		const payload = {
@@ -455,966 +342,601 @@ const AddProduct = ({
 			description: description.trim(),
 			category: selectedCategory,
 			currency,
-			images: uploadedUrls,
+			images: uploadedImages,
 			isFeatured: !!isFeatured,
 		};
 
-		if (compareAtPrice && !isNaN(Number(compareAtPrice)))
-			payload.compareAtPrice = Number(compareAtPrice);
+		if (compareAtPrice && !isNaN(Number(compareAtPrice))) payload.compareAtPrice = Number(compareAtPrice);
 
-		// attach variants/addOns if present (clean them)
-		if (Array.isArray(variants) && variants.length > 0) {
-			const cleaned = variants
-				.map((v) => {
-					const name = (v.name || '').trim();
-					const priceNum =
-						v.price !== '' && !isNaN(Number(v.price))
-							? Number(v.price)
-							: NaN;
-					if (!name || Number.isNaN(priceNum)) return null;
-					return { name, price: priceNum };
-				})
-				.filter(Boolean);
-			if (cleaned.length > 0) payload.variants = cleaned;
-		}
+		// Clean Variants/Addons
+		const cleanItems = (list) => list.map(i => ({
+			...i,
+			name: i.name.trim(),
+			price: Number(i.price) || 0
+		})).filter(i => i.name && !isNaN(i.price));
 
-		if (Array.isArray(addOns) && addOns.length > 0) {
-			const cleaned = addOns
-				.map((a) => {
-					const name = (a.name || '').trim();
-					const priceNum =
-						a.price !== '' && !isNaN(Number(a.price))
-							? Number(a.price)
-							: NaN;
-					const compulsory = !!a.compulsory;
-					if (!name || Number.isNaN(priceNum)) return null;
-					return { name, price: priceNum, compulsory };
-				})
-				.filter(Boolean);
-			if (cleaned.length > 0) payload.addOns = cleaned;
-		}
+		if (variants.length) payload.variants = cleanItems(variants);
+		if (addOns.length) payload.addOns = cleanItems(addOns).map((a, i) => ({ ...a, compulsory: addOns[i].compulsory }));
 
 		if (type === 'physical') {
-			if (!price || isNaN(Number(price)))
-				return Alert.alert(
-					'Validation',
-					'Valid price required',
-				);
-
+			if (!price) return Alert.alert('Validation', 'Price is required');
 			payload.price = Number(price);
 			payload.physical = {
-				inventoryCount:
-					inventoryCount !== '' ? Number(inventoryCount) : 0,
+				inventoryCount: Number(inventoryCount) || 0,
 				sku: sku || undefined,
-				weightKg: weightKg ? Number(weightKg) : undefined,
+				weightKg: Number(weightKg) || undefined,
 			};
 		} else if (type === 'digital') {
-			payload.price = price ? Number(price) : 0;
+			payload.price = Number(price) || 0;
 			payload.digital = {
-				files: downloadUrl ? [{ url: downloadUrl }] : [],
+				files: finalDownloadUrl ? [{ url: finalDownloadUrl }] : [],
 			};
 		} else if (type === 'service') {
-			if (
-				!durationMinutes ||
-				isNaN(Number(durationMinutes)) ||
-				Number(durationMinutes) <= 0
-			)
-				return Alert.alert(
-					'Validation',
-					'Service duration (minutes) is required',
-				);
-			if (
-				!capacity ||
-				isNaN(Number(capacity)) ||
-				Number(capacity) <= 0
-			)
-				return Alert.alert(
-					'Validation',
-					'Service capacity is required',
-				);
-
-			payload.price = price ? Number(price) : 0;
+			if (!durationMinutes) return Alert.alert('Validation', 'Duration is required');
+			payload.price = Number(price) || 0;
 			payload.service = {
 				durationMinutes: Number(durationMinutes),
-				capacity: Number(capacity),
+				capacity: Number(capacity) || 1,
 				bookingWindowDays: Number(bookingWindowDays) || 365,
 				availability: {},
 			};
-
-			weekdays.forEach((d) => {
+			weekdays.forEach(d => {
 				const day = availability[d];
 				if (!day || day.closed) {
-					payload.service.availability[d] = {
-						closed: true,
-					};
+					payload.service.availability[d] = { closed: true };
 				} else {
-					const startMinutes = hhmmToMinutes(day.open);
-					const endMinutes = hhmmToMinutes(day.close);
-					if (
-						startMinutes === null ||
-						endMinutes === null ||
-						endMinutes <= startMinutes
-					) {
-						payload.service.availability[d] = {
-							closed: true,
-						};
+					const start = hhmmToMinutes(day.open);
+					const end = hhmmToMinutes(day.close);
+					if (start !== null && end !== null && end > start) {
+						payload.service.availability[d] = { startMinutes: start, endMinutes: end, closed: false };
 					} else {
-						payload.service.availability[d] = {
-							startMinutes,
-							endMinutes,
-							closed: false,
-						};
+						payload.service.availability[d] = { closed: true };
 					}
 				}
 			});
 		}
 
 		try {
-			if (initialProduct && initialProduct._id) {
-				await updateProduct(initialProduct._id, payload);
-			} else {
-				await onAddProduct(payload, storeId);
-			}
+			if (initialProduct?._id) await updateProduct(initialProduct._id, payload);
+			else await onAddProduct(payload, storeId);
 		} catch (err) {
-			console.error('onAddProduct error', err);
-			Alert.alert(
-				'Save Error',
-				err?.message || 'Failed to save item',
-			);
+			Alert.alert('Save Error', err?.message || 'Failed to save');
 		}
 	};
 
-	const formatCurrency = (v) => {
-		try {
-			const n = Number(v);
-			return isNaN(n) ? v : n.toLocaleString();
-		} catch {
-			return v;
-		}
-	};
+	// UI Components
+	const Section = ({ title, children, style }) => (
+		<View style={[styles.card, style]}>
+			{title && <Text style={styles.cardTitle}>{title}</Text>}
+			{children}
+		</View>
+	);
+
+	const Label = ({ text }) => <Text style={styles.label}>{text}</Text>;
+
+	const Input = ({ style, multiline, ...props }) => (
+		<TextInput
+			style={[styles.input, multiline && styles.textArea, style]}
+			placeholderTextColor="#9CA3AF"
+			multiline={multiline}
+			{...props}
+		/>
+	);
+
+	const TypeSelector = () => (
+		<View style={styles.segmentContainer}>
+			{['physical', 'digital', 'service'].map((t) => (
+				<TouchableOpacity
+					key={t}
+					style={[styles.segmentBtn, type === t && styles.segmentBtnActive]}
+					onPress={() => setType(t)}
+				>
+					<Text style={[styles.segmentText, type === t && styles.segmentTextActive]}>
+						{t.charAt(0).toUpperCase() + t.slice(1)}
+					</Text>
+				</TouchableOpacity>
+			))}
+		</View>
+	);
+
+	const getCategoryName = (id) => categoryList.find(c => c._id === id)?.name || 'Select Category';
 
 	return (
-		<ScrollView
-			style={styles.container}
-			showsVerticalScrollIndicator={false}
+		<KeyboardAvoidingView
+			behavior={Platform.OS === "ios" ? "padding" : "height"}
+			style={{ flex: 1 }}
+			keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
 		>
-			<Text style={styles.title}>
-				{initialProduct
-					? 'Edit item'
-					: `Add ${
-							isServiceBasedStore ? 'Service' : 'Product'
-					  }`}
-			</Text>
-
-			{/* Image section */}
-			<View style={styles.sectionContainer}>
-				<Text style={styles.label}>Images</Text>
-				<FlatList
-					data={images}
-					horizontal
-					keyExtractor={(_, i) => `img-${i}`}
-					renderItem={({ item, index }) => (
-						<View
-							style={{
-								marginRight: 12,
-								alignItems: 'center',
-							}}
-						>
-							<Image
-								source={{ uri: item }}
-								style={{
-									width: 120,
-									height: 120,
-									borderRadius: 8,
-								}}
-							/>
-							<TouchableOpacity
-								onPress={() => removeImageAt(index)}
-								style={{ marginTop: 6 }}
-							>
-								<Text style={{ color: '#dc3545' }}>
-									Remove
-								</Text>
-							</TouchableOpacity>
-						</View>
-					)}
-					ListFooterComponent={() => (
-						<TouchableOpacity
-							onPress={() => setImagePickerVisible(true)}
-							style={{
-								width: 120,
-								height: 120,
-								borderRadius: 8,
-								backgroundColor: '#eef6ff',
-								justifyContent: 'center',
-								alignItems: 'center',
-							}}
-						>
-							<Ionicons
-								name="camera"
-								size={28}
-								color="#007BFF"
-							/>
-							<Text
-								style={{ color: '#007BFF', marginTop: 6 }}
-							>
-								Add
-							</Text>
+			<ScrollView style={styles.container} contentContainerStyle={{ paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+				{/* Images */}
+				<Section title="Gallery">
+					<ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -4 }}>
+						<TouchableOpacity style={styles.addPhotoBtn} onPress={() => setImagePickerVisible(true)}>
+							<Ionicons name="camera-outline" size={28} color={COLORS.primary} />
+							<Text style={styles.addPhotoText}>Add Photo</Text>
 						</TouchableOpacity>
-					)}
-					showsHorizontalScrollIndicator={false}
-				/>
-				{uploadingImages && (
-					<View style={{ marginTop: 8 }}>
-						<ActivityIndicator
-							size="small"
-							color="#007BFF"
-						/>
-						<Text style={{ color: '#666', marginTop: 6 }}>
-							Uploading images...
-						</Text>
-					</View>
-				)}
-			</View>
-
-			{/* Image picker modal */}
-			<Modal
-				visible={imagePickerVisible}
-				transparent
-				animationType="slide"
-				onRequestClose={() => setImagePickerVisible(false)}
-			>
-				<View style={styles.centeredModalView}>
-					<View style={styles.modalContent}>
-						<TouchableOpacity
-							style={styles.modalOptionButton}
-							onPress={takePhoto}
-						>
-							<Text style={styles.modalOptionText}>
-								Take a photo
-							</Text>
-						</TouchableOpacity>
-						<TouchableOpacity
-							style={styles.modalOptionButton}
-							onPress={pickImageFromGallery}
-						>
-							<Text style={styles.modalOptionText}>
-								Choose from gallery
-							</Text>
-						</TouchableOpacity>
-						<TouchableOpacity
-							style={[
-								styles.modalOptionButton,
-								styles.modalCancelButton,
-							]}
-							onPress={() => setImagePickerVisible(false)}
-						>
-							<Text style={styles.modalCancelButtonText}>
-								Cancel
-							</Text>
-						</TouchableOpacity>
-					</View>
-				</View>
-			</Modal>
-
-			{/* Basic details */}
-			<View style={styles.sectionContainer}>
-				<Text style={styles.sectionTitle}>
-					Basic details
-				</Text>
-
-				<Text style={styles.label}>Type</Text>
-				<View
-					style={{
-						borderWidth: 1,
-						borderColor: '#ced4da',
-						borderRadius: 10,
-						overflow: 'hidden',
-						marginBottom: 12,
-					}}
-				>
-					<Picker
-						selectedValue={type}
-						onValueChange={(v) => setType(v)}
-					>
-						<Picker.Item
-							label="Physical product"
-							value="physical"
-						/>
-						<Picker.Item
-							label="Digital product"
-							value="digital"
-						/>
-						<Picker.Item
-							label="Service / Booking"
-							value="service"
-						/>
-					</Picker>
-				</View>
-
-				<Text style={styles.label}>Title</Text>
-				<TextInput
-					style={styles.input}
-					placeholder="e.g., T-shirt, Logo design"
-					value={title}
-					onChangeText={setTitle}
-				/>
-
-				<Text style={styles.label}>Description</Text>
-				<TextInput
-					style={[styles.input, styles.descriptionInput]}
-					placeholder="Describe your item"
-					value={description}
-					onChangeText={setDescription}
-					multiline
-				/>
-
-				<View
-					style={{
-						flexDirection: 'row',
-						justifyContent: 'space-between',
-						alignItems: 'center',
-					}}
-				>
-					<Text style={styles.label}>Category</Text>
-					<TouchableOpacity
-						onPress={() =>
-							setIsAddCategoryModalVisible(true)
-						}
-						style={{ padding: 6 }}
-					>
-						<Text
-							style={{
-								color: '#007BFF',
-								fontWeight: '700',
-							}}
-						>
-							+ Create category
-						</Text>
-					</TouchableOpacity>
-				</View>
-
-				<View
-					style={{
-						borderWidth: 1,
-						borderColor: '#ced4da',
-						borderRadius: 10,
-						overflow: 'hidden',
-					}}
-				>
-					<Picker
-						selectedValue={selectedCategory}
-						onValueChange={(v) => {
-							setSelectedCategory(v);
-						}}
-					>
-						{categoryList.length === 0 && (
-							<Picker.Item
-								label="No categories — create one"
-								value={null}
-							/>
-						)}
-						{categoryList.map((c) => (
-							<Picker.Item
-								key={c._id}
-								label={c.name}
-								value={c._id}
-							/>
+						{images.map((img, i) => (
+							<View key={i} style={styles.imageWrapper}>
+								<Image source={{ uri: img }} style={styles.thumbImage} />
+								<TouchableOpacity style={styles.removeImageBtn} onPress={() => removeImageAt(i)}>
+									<Ionicons name="close" size={12} color="#fff" />
+								</TouchableOpacity>
+							</View>
 						))}
-					</Picker>
-				</View>
+					</ScrollView>
+				</Section>
 
-				{/* NEW: Is Featured */}
-				<View
-					style={{
-						flexDirection: 'row',
-						justifyContent: 'space-between',
-						alignItems: 'center',
-						marginTop: 12,
-					}}
-				>
-					<Text style={[styles.label, { marginBottom: 0 }]}>
-						Featured
-					</Text>
-					<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-						<Text style={{ marginRight: 8 }}>
-							{isFeatured ? 'Yes' : 'No'}
-						</Text>
-						<Switch
-							value={!!isFeatured}
-							onValueChange={(v) => setIsFeatured(v)}
+				{/* Basic Details */}
+				<Section title="Basic Info">
+					<Label text="Product Type" />
+					<TypeSelector />
+
+					<Label text="Product Title" />
+					<Input value={title} onChangeText={setTitle} placeholder="e.g. Cotton T-Shirt" />
+
+					<Label text="Description" />
+					<Input value={description} onChangeText={setDescription} placeholder="Describe your product..." multiline />
+
+					<Label text="Category" />
+					<TouchableOpacity style={styles.selectBtn} onPress={() => setIsCategoryPickerVisible(true)}>
+						<Text style={styles.selectBtnText}>{getCategoryName(selectedCategory)}</Text>
+						<Ionicons name="chevron-down" size={20} color={COLORS.textLight} />
+					</TouchableOpacity>
+
+					<View style={styles.switchRow}>
+						<Text style={styles.switchLabel}>Feature on Homepage</Text>
+						<Switch 
+							trackColor={{ false: "#E5E7EB", true: COLORS.primaryLight }}
+							thumbColor={isFeatured ? COLORS.primary : "#f4f3f4"}
+							value={isFeatured}
+							onValueChange={setIsFeatured} 
 						/>
 					</View>
-				</View>
-			</View>
+				</Section>
 
-			{/* Pricing & currency */}
-			<View style={styles.sectionContainer}>
-				<Text style={styles.sectionTitle}>Pricing</Text>
-
-				<Text style={styles.label}>Currency</Text>
-				<View
-					style={{
-						borderWidth: 1,
-						borderColor: '#ced4da',
-						borderRadius: 10,
-						overflow: 'hidden',
-						marginBottom: 12,
-					}}
-				>
-					<Picker
-						selectedValue={currency}
-						onValueChange={(v) => setCurrency(v)}
-					>
-						<Picker.Item
-							label="Nigerian Naira (NGN)"
-							value="NGN"
-						/>
-					</Picker>
-				</View>
-
-				<Text style={styles.label}>Price</Text>
-				<TextInput
-					style={styles.input}
-					placeholder="e.g., 5000"
-					keyboardType="numeric"
-					value={price}
-					onChangeText={(t) =>
-						setPrice(t.replace(/[^0-9.]/g, ''))
-					}
-				/>
-
-				<Text style={styles.label}>
-					Compare at price (optional)
-				</Text>
-				<TextInput
-					style={styles.input}
-					placeholder="e.g., 6000"
-					keyboardType="numeric"
-					value={compareAtPrice}
-					onChangeText={(t) =>
-						setCompareAtPrice(t.replace(/[^0-9.]/g, ''))
-					}
-				/>
-			</View>
-
-			{/* Variants */}
-			<View style={styles.sectionContainer}>
-				<Text style={styles.sectionTitle}>Variants</Text>
-				<Text style={{ color: '#6b7280', marginBottom: 8 }}>
-					(optional) Add product variants (e.g., Small, Medium)
-				</Text>
-				{variants.map((v, idx) => (
-					<View
-						key={`variant-${idx}`}
-						style={{
-							flexDirection: 'row',
-							alignItems: 'center',
-							marginBottom: 8,
-							gap: 8,
-						}}
-					>
-						<TextInput
-							style={[styles.input, { flex: 2 }]}
-							placeholder="Name (e.g., Small)"
-							value={v.name}
-							onChangeText={(t) =>
-								updateVariant(idx, 'name', t)
-							}
-						/>
-						<TextInput
-							style={[styles.input, { flex: 1 }]}
-							placeholder="Price"
-							keyboardType="numeric"
-							value={v.price}
-							onChangeText={(t) =>
-								updateVariant(
-									idx,
-									'price',
-									t.replace(/[^0-9.]/g, ''),
-								)
-							}
-						/>
-						<TouchableOpacity
-							onPress={() => removeVariant(idx)}
-						>
-							<Text style={{ color: '#dc3545' }}>
-								Remove
-							</Text>
-						</TouchableOpacity>
+				{/* Pricing */}
+				<Section title="Pricing">
+					<View style={styles.row}>
+						<View style={{ flex: 1, marginRight: 8 }}>
+							<Label text="Price" />
+							<View style={styles.priceInputWrap}>
+								<Text style={styles.currencyPrefix}>{currency}</Text>
+								<TextInput 
+									style={styles.priceInput}
+									value={price} 
+									onChangeText={t => setPrice(t.replace(/[^0-9.]/g, ''))}
+									keyboardType="numeric"
+									placeholder="0.00"
+								/>
+							</View>
+						</View>
+						<View style={{ flex: 1, marginLeft: 8 }}>
+							<Label text="Compare At (Optional)" />
+							<View style={styles.priceInputWrap}>
+								<Text style={styles.currencyPrefix}>{currency}</Text>
+								<TextInput 
+									style={styles.priceInput}
+									value={compareAtPrice}
+									onChangeText={t => setCompareAtPrice(t.replace(/[^0-9.]/g, ''))}
+									keyboardType="numeric"
+									placeholder="0.00"
+								/>
+							</View>
+						</View>
 					</View>
-				))}
-				<TouchableOpacity
-					onPress={addVariant}
-					style={[styles.buttonPrimary, { alignSelf: 'flex-start' }]}
-				>
-					<Text style={styles.buttonPrimaryText}>
-						Add variant
-					</Text>
-				</TouchableOpacity>
-			</View>
+				</Section>
 
-			{/* Add-ons */}
-			<View style={styles.sectionContainer}>
-				<Text style={styles.sectionTitle}>Add-ons</Text>
-				<Text style={{ color: '#6b7280', marginBottom: 8 }}>
-					(optional) Extra options customers can pick
-				</Text>
-				{addOns.map((a, idx) => (
-					<View
-						key={`addon-${idx}`}
-						style={{
-							marginBottom: 8,
-						}}
-					>
-						<View
-							style={{
-								flexDirection: 'row',
-								alignItems: 'center',
-								gap: 8,
-							}}
-						>
-							<TextInput
-								style={[styles.input, { flex: 2 }]}
-								placeholder="Name (e.g., Gift wrap)"
-								value={a.name}
-								onChangeText={(t) =>
-									updateAddOn(idx, 'name', t)
-								}
-							/>
-							<TextInput
-								style={[styles.input, { flex: 1 }]}
-								placeholder="Price"
-								keyboardType="numeric"
-								value={a.price}
-								onChangeText={(t) =>
-									updateAddOn(
-										idx,
-										'price',
-										t.replace(/[^0-9.]/g, ''),
-									)
-								}
-							/>
-							<TouchableOpacity
-								onPress={() => removeAddOn(idx)}
-							>
-								<Text style={{ color: '#dc3545' }}>
-									Remove
+				{/* Type Specific */}
+				{type === 'physical' && (
+					<Section title="Inventory & Shipping">
+						<View style={styles.row}>
+							<View style={{ flex: 1, marginRight: 8 }}>
+								<Label text="Stock" />
+								<Input value={String(inventoryCount)} onChangeText={t => setInventoryCount(t.replace(/[^0-9]/g, ''))} keyboardType="numeric" placeholder="0" />
+							</View>
+							<View style={{ flex: 1, marginLeft: 8 }}>
+								<Label text="Weight (kg)" />
+								<Input value={String(weightKg)} onChangeText={t => setWeightKg(t.replace(/[^0-9.]/g, ''))} keyboardType="numeric" placeholder="0.0" />
+							</View>
+						</View>
+						<Label text="SKU (Optional)" />
+						<Input value={sku} onChangeText={setSku} placeholder="Product SKU" />
+					</Section>
+				)}
+
+				{type === 'digital' && (
+					<Section title="Digital File">
+						<TouchableOpacity style={styles.fileUploadBtn} onPress={pickDocument}>
+							<View style={styles.fileIconCircle}>
+								<Ionicons name="document-text-outline" size={24} color={COLORS.primary} />
+							</View>
+							<View style={{ flex: 1 }}>
+								<Text style={styles.fileUploadTitle}>
+									{downloadUrl && !downloadUrl.startsWith('http') ? 'File Selected' : 'Upload File'}
 								</Text>
-							</TouchableOpacity>
-						</View>
-						<View
-							style={{
-								flexDirection: 'row',
-								justifyContent: 'flex-end',
-								alignItems: 'center',
-								marginTop: 6,
-							}}
-						>
-							<Text style={{ marginRight: 8 }}>
-								Compulsory
-							</Text>
-							<Switch
-								value={!!a.compulsory}
-								onValueChange={(v) =>
-									updateAddOn(idx, 'compulsory', v)
-								}
-							/>
-						</View>
-					</View>
-				))}
-				<TouchableOpacity
-					onPress={addAddOn}
-					style={[styles.buttonPrimary, { alignSelf: 'flex-start' }]}
-				>
-					<Text style={styles.buttonPrimaryText}>
-						Add add-on
-					</Text>
-				</TouchableOpacity>
-			</View>
+								<Text style={styles.fileUploadSub} numberOfLines={1}>
+									{downloadUrl ? downloadUrl.split('/').pop() : 'PDF, eBook, Zip, etc.'}
+								</Text>
+							</View>
+							<Ionicons name="cloud-upload-outline" size={24} color={COLORS.textLight} />
+						</TouchableOpacity>
 
-			{/* conditional sections */}
-			{type === 'physical' && (
-				<View style={styles.sectionContainer}>
-					<Text style={styles.sectionTitle}>
-						Physical product details
-					</Text>
+						<View style={styles.dividerWithText}><Text style={styles.dividerText}>OR</Text></View>
 
-					<Text style={styles.label}>Inventory count</Text>
-					<TextInput
-						style={styles.input}
-						placeholder="e.g., 100"
-						keyboardType="numeric"
-						value={String(inventoryCount)}
-						onChangeText={(t) =>
-							setInventoryCount(t.replace(/[^0-9]/g, ''))
-						}
-					/>
+						<Label text="External URL" />
+						<Input value={downloadUrl} onChangeText={setDownloadUrl} placeholder="https://example.com/file" />
+					</Section>
+				)}
 
-					<Text style={styles.label}>SKU (optional)</Text>
-					<TextInput
-						style={styles.input}
-						placeholder="SKU"
-						value={sku}
-						onChangeText={setSku}
-					/>
+				{type === 'service' && (
+					<>
+						<Section title="Service Details">
+							<View style={styles.row}>
+								<View style={{ flex: 1, marginRight: 8 }}>
+									<Label text="Duration (min)" />
+									<Input value={String(durationMinutes)} onChangeText={t => setDurationMinutes(t.replace(/[^0-9]/g, ''))} keyboardType="numeric" />
+								</View>
+								<View style={{ flex: 1, marginLeft: 8 }}>
+									<Label text="Capacity" />
+									<Input value={String(capacity)} onChangeText={t => setCapacity(t.replace(/[^0-9]/g, ''))} keyboardType="numeric" />
+								</View>
+							</View>
+							<Label text="Booking Window (Days)" />
+							<Input value={String(bookingWindowDays)} onChangeText={t => setBookingWindowDays(t.replace(/[^0-9]/g, ''))} keyboardType="numeric" />
+						</Section>
 
-					<Text style={styles.label}>
-						Weight (kg) (optional)
-					</Text>
-					<TextInput
-						style={styles.input}
-						placeholder="e.g., 0.3"
-						keyboardType="numeric"
-						value={String(weightKg)}
-						onChangeText={(t) =>
-							setWeightKg(t.replace(/[^0-9.]/g, ''))
-						}
-					/>
-				</View>
-			)}
-
-			{type === 'digital' && (
-				<View style={styles.sectionContainer}>
-					<Text style={styles.sectionTitle}>
-						Digital product details
-					</Text>
-
-					<Text style={styles.label}>
-						Download File URL (optional)
-					</Text>
-					<TextInput
-						style={styles.input}
-						placeholder="https://..."
-						value={downloadUrl}
-						onChangeText={setDownloadUrl}
-					/>
-				</View>
-			)}
-
-			{type === 'service' && (
-				<View style={styles.sectionContainer}>
-					<Text style={styles.sectionTitle}>
-						Service / Booking
-					</Text>
-
-					<Text style={styles.label}>
-						Duration (minutes)
-					</Text>
-					<TextInput
-						style={styles.input}
-						value={String(durationMinutes)}
-						keyboardType="numeric"
-						onChangeText={(t) =>
-							setDurationMinutes(t.replace(/[^0-9]/g, ''))
-						}
-					/>
-
-					<Text style={styles.label}>
-						Capacity (number of concurrent bookings)
-					</Text>
-					<TextInput
-						style={styles.input}
-						value={String(capacity)}
-						keyboardType="numeric"
-						onChangeText={(t) =>
-							setCapacity(t.replace(/[^0-9]/g, ''))
-						}
-					/>
-
-					<Text style={styles.label}>
-						Booking window (days ahead customers can book)
-					</Text>
-					<TextInput
-						style={styles.input}
-						value={String(bookingWindowDays)}
-						keyboardType="numeric"
-						onChangeText={(t) =>
-							setBookingWindowDays(t.replace(/[^0-9]/g, ''))
-						}
-					/>
-
-					<Text
-						style={[styles.sectionTitle, { marginTop: 12 }]}
-					>
-						Weekly Availability
-					</Text>
-					{weekdays.map((d) => {
-						const day = availability[d];
-						return (
-							<View key={d} style={{ marginBottom: 8 }}>
-								<View
-									style={{
-										flexDirection: 'row',
-										justifyContent: 'space-between',
-										alignItems: 'center',
-									}}
-								>
-									<Text style={{ fontWeight: '700' }}>
-										{d}
-									</Text>
-									<View
-										style={{
-											flexDirection: 'row',
-											alignItems: 'center',
-										}}
-									>
-										<Text style={{ marginRight: 8 }}>
-											{day.closed
-												? 'Closed'
-												: `${day.open} - ${day.close}`}
-										</Text>
-										<Switch
-											value={!day.closed}
-											onValueChange={(v) =>
-												setDayClosed(d, !v)
-											}
+						<Section title="Availability">
+							{weekdays.map(d => (
+								<View key={d} style={styles.dayRow}>
+									<View style={{ flex: 1 }}>
+										<Text style={styles.dayName}>{d}</Text>
+									</View>
+									<View style={{ flex: 2, flexDirection: 'row', justifyContent: 'flex-end', alignItems: 'center' }}>
+										{availability[d].closed ? (
+											<Text style={styles.closedText}>Closed</Text>
+										) : (
+											<View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+												<TextInput style={styles.tinyInput} value={availability[d].open} onChangeText={t => setDayOpenTime(d, t)} placeholder="09:00" />
+												<Text>-</Text>
+												<TextInput style={styles.tinyInput} value={availability[d].close} onChangeText={t => setDayCloseTime(d, t)} placeholder="17:00" />
+											</View>
+										)}
+										<Switch 
+											style={{ marginLeft: 8, transform: [{ scale: 0.8 }] }}
+											trackColor={{ false: "#E5E7EB", true: COLORS.primaryLight }}
+											thumbColor={!availability[d].closed ? COLORS.primary : "#f4f3f4"}
+											value={!availability[d].closed}
+											onValueChange={v => setDayClosed(d, !v)} 
 										/>
 									</View>
 								</View>
-
-								{!day.closed && (
-									<View
-										style={{
-											flexDirection: 'row',
-											marginTop: 6,
-											gap: 8,
-										}}
-									>
-										<TextInput
-											style={[styles.input, { flex: 1 }]}
-											value={day.open}
-											onChangeText={(t) =>
-												setDayOpenTime(d, t)
-											}
-											placeholder="09:00"
-										/>
-										<TextInput
-											style={[styles.input, { flex: 1 }]}
-											value={day.close}
-											onChangeText={(t) =>
-												setDayCloseTime(d, t)
-											}
-											placeholder="17:00"
-										/>
-									</View>
-								)}
-							</View>
-						);
-					})}
-				</View>
-			)}
-
-			{/* save */}
-			<TouchableOpacity
-				style={styles.saveButton}
-				onPress={handleSave}
-				disabled={loading || uploadingImages}
-			>
-				{loading || uploadingImages ? (
-					<ActivityIndicator color="#fff" />
-				) : (
-					<Text style={styles.saveButtonText}>
-						{initialProduct ? 'Update item' : 'Add item'}
-					</Text>
+							))}
+						</Section>
+					</>
 				)}
-			</TouchableOpacity>
 
-			{/* Add category modal */}
-			<Modal
-				visible={isAddCategoryModalVisible}
-				animationType="slide"
-				transparent
-				onRequestClose={() =>
-					setIsAddCategoryModalVisible(false)
-				}
-			>
-				<View style={styles.centeredModalView}>
-					<View style={styles.modalContent}>
-						<Text style={styles.modalTitle}>
-							Create Category
-						</Text>
-						<TextInput
-							placeholder="Category name"
-							style={styles.textInput}
-							value={newCategoryName}
-							onChangeText={setNewCategoryName}
-						/>
-						<View
-							style={{
-								flexDirection: 'row',
-								marginTop: 12,
-							}}
-						>
-							<TouchableOpacity
-								style={[
-									styles.buttonSecondary,
-									{ flex: 1 },
-								]}
-								onPress={() =>
-									setIsAddCategoryModalVisible(false)
-								}
-							>
-								<Text style={styles.buttonSecondaryText}>
-									Cancel
-								</Text>
+				{/* Variants */}
+				<Section title="Variants">
+					{variants.map((v, i) => (
+						<View key={i} style={styles.variantRow}>
+							<Input style={{ flex: 2, marginBottom: 0 }} placeholder="Option Name" value={v.name} onChangeText={t => {
+								const n = [...variants]; n[i].name = t; setVariants(n);
+							}} />
+							<Input style={{ flex: 1, marginLeft: 8, marginBottom: 0 }} placeholder="Price" value={v.price} onChangeText={t => {
+								const n = [...variants]; n[i].price = t.replace(/[^0-9.]/g, ''); setVariants(n);
+							}} keyboardType="numeric" />
+							<TouchableOpacity onPress={() => setVariants(prev => prev.filter((_, idx) => idx !== i))} style={styles.removeIconBtn}>
+								<Ionicons name="trash-outline" size={20} color={COLORS.danger} />
 							</TouchableOpacity>
-							<TouchableOpacity
-								style={[
-									styles.buttonPrimary,
-									{ flex: 1, marginLeft: 10 },
-								]}
-								onPress={createCategory}
-								disabled={creatingCategory}
-							>
-								{creatingCategory ? (
-									<ActivityIndicator color="#fff" />
-								) : (
-									<Text style={styles.buttonPrimaryText}>
-										Create
+						</View>
+					))}
+					<TouchableOpacity style={styles.addMoreBtn} onPress={() => setVariants([...variants, { name: '', price: '' }])}>
+						<Ionicons name="add" size={18} color={COLORS.primary} />
+						<Text style={styles.addMoreText}>Add Variant</Text>
+					</TouchableOpacity>
+				</Section>
+
+				{/* Add-ons */}
+				<Section title="Add-ons">
+					{addOns.map((a, i) => (
+						<View key={i} style={styles.variantRow}>
+							<View style={{ flex: 1 }}>
+								<View style={{ flexDirection: 'row' }}>
+									<Input style={{ flex: 2, marginBottom: 0 }} placeholder="Add-on Name" value={a.name} onChangeText={t => {
+										const n = [...addOns]; n[i].name = t; setAddOns(n);
+									}} />
+									<Input style={{ flex: 1, marginLeft: 8, marginBottom: 0 }} placeholder="Price" value={a.price} onChangeText={t => {
+										const n = [...addOns]; n[i].price = t.replace(/[^0-9.]/g, ''); setAddOns(n);
+									}} keyboardType="numeric" />
+								</View>
+								<View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
+									<Text style={styles.switchLabelSmall}>Compulsory?</Text>
+									<Switch
+										style={{ transform: [{ scale: 0.7 }] }}
+										value={a.compulsory}
+										onValueChange={v => {
+											const n = [...addOns]; n[i].compulsory = v; setAddOns(n);
+										}} 
+									/>
+								</View>
+							</View>
+							<TouchableOpacity onPress={() => setAddOns(prev => prev.filter((_, idx) => idx !== i))} style={styles.removeIconBtn}>
+								<Ionicons name="trash-outline" size={20} color={COLORS.danger} />
+							</TouchableOpacity>
+						</View>
+					))}
+					<TouchableOpacity style={styles.addMoreBtn} onPress={() => setAddOns([...addOns, { name: '', price: '', compulsory: false }])}>
+						<Ionicons name="add" size={18} color={COLORS.primary} />
+						<Text style={styles.addMoreText}>Add Add-on</Text>
+					</TouchableOpacity>
+				</Section>
+
+				<TouchableOpacity style={styles.saveBtn} onPress={handleSave} disabled={loading || uploadingImages}>
+					{loading || uploadingImages ? (
+						<ActivityIndicator color="#fff" />
+					) : (
+						<Text style={styles.saveBtnText}>{initialProduct ? 'Update Product' : 'Create Product'}</Text>
+					)}
+				</TouchableOpacity>
+			</ScrollView>
+
+			{/* Category Picker Modal */}
+			<Modal visible={isCategoryPickerVisible} animationType="slide" transparent onRequestClose={() => setIsCategoryPickerVisible(false)}>
+				<TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setIsCategoryPickerVisible(false)}>
+					<View style={styles.modalContent}>
+						<View style={styles.modalHeader}>
+							<Text style={styles.modalTitle}>Select Category</Text>
+							<TouchableOpacity onPress={() => setIsAddCategoryModalVisible(true)}>
+								<Text style={{ color: COLORS.primary, fontWeight: '600' }}>+ Create New</Text>
+							</TouchableOpacity>
+						</View>
+						<FlatList
+							data={categoryList}
+							keyExtractor={i => i._id}
+							renderItem={({ item }) => (
+								<TouchableOpacity style={styles.catItem} onPress={() => { setSelectedCategory(item._id); setIsCategoryPickerVisible(false); }}>
+									<Text style={[styles.catItemText, selectedCategory === item._id && { color: COLORS.primary, fontWeight: '700' }]}>
+										{item.name}
 									</Text>
-								)}
+									{selectedCategory === item._id && <Ionicons name="checkmark" size={20} color={COLORS.primary} />}
+								</TouchableOpacity>
+							)}
+							ListEmptyComponent={<Text style={{ padding: 20, textAlign: 'center', color: '#999' }}>No categories found.</Text>}
+						/>
+						<TouchableOpacity style={styles.modalCloseBtn} onPress={() => setIsCategoryPickerVisible(false)}>
+							<Text style={styles.modalCloseText}>Close</Text>
+						</TouchableOpacity>
+					</View>
+				</TouchableOpacity>
+			</Modal>
+
+			{/* Add Category Modal */}
+			<Modal visible={isAddCategoryModalVisible} animationType="fade" transparent onRequestClose={() => setIsAddCategoryModalVisible(false)}>
+				<View style={styles.centeredModal}>
+					<View style={styles.dialogCard}>
+						<Text style={styles.dialogTitle}>New Category</Text>
+						<TextInput 
+							style={styles.dialogInput}
+							placeholder="Category Name"
+							value={newCategoryName}
+							onChangeText={setNewCategoryName} 
+							autoFocus
+						/>
+						<View style={styles.dialogActions}>
+							<TouchableOpacity onPress={() => setIsAddCategoryModalVisible(false)} style={styles.dialogBtn}>
+								<Text style={styles.dialogBtnText}>Cancel</Text>
+							</TouchableOpacity>
+							<TouchableOpacity onPress={createCategory} disabled={creatingCategory} style={[styles.dialogBtn, { backgroundColor: COLORS.primary }]}>
+								{creatingCategory ? <ActivityIndicator size="small" color="#fff" /> : <Text style={[styles.dialogBtnText, { color: '#fff' }]}>Create</Text>}
 							</TouchableOpacity>
 						</View>
 					</View>
 				</View>
 			</Modal>
-		</ScrollView>
+
+			{/* Image Picker Modal */}
+			<Modal visible={imagePickerVisible} transparent animationType="slide" onRequestClose={() => setImagePickerVisible(false)}>
+				<TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setImagePickerVisible(false)}>
+					<View style={styles.modalContent}>
+						<Text style={styles.modalTitle}>Add Photo</Text>
+						<TouchableOpacity style={styles.modalOption} onPress={takePhoto}>
+							<Ionicons name="camera-outline" size={24} color={COLORS.text} />
+							<Text style={styles.modalOptionText}>Take Photo</Text>
+						</TouchableOpacity>
+						<TouchableOpacity style={styles.modalOption} onPress={pickImageFromGallery}>
+							<Ionicons name="images-outline" size={24} color={COLORS.text} />
+							<Text style={styles.modalOptionText}>Choose from Gallery</Text>
+						</TouchableOpacity>
+						<TouchableOpacity style={[styles.modalOption, { borderBottomWidth: 0 }]} onPress={() => setImagePickerVisible(false)}>
+							<Text style={{ color: COLORS.danger, fontWeight: '600' }}>Cancel</Text>
+						</TouchableOpacity>
+					</View>
+				</TouchableOpacity>
+			</Modal>
+		</KeyboardAvoidingView>
 	);
 };
 
 const styles = StyleSheet.create({
-	container: {
-		padding: 16,
-		backgroundColor: '#f4f6f8',
-		flex: 1,
-	},
-	title: {
-		fontSize: 22,
-		fontWeight: '700',
-		marginBottom: 18,
-		textAlign: 'center',
-		color: '#1f2937',
-	},
-	label: {
-		fontSize: 14,
-		fontWeight: '600',
-		marginBottom: 8,
-		color: '#374151',
-	},
-	input: {
-		borderWidth: 1,
-		borderColor: '#e6e9ee',
+	container: { flex: 1, backgroundColor: '#F3F4F6' },
+	screenTitle: { fontSize: 24, fontWeight: '800', margin: 20, marginBottom: 10, color: COLORS.text },
+	card: {
 		backgroundColor: '#fff',
-		padding: 12,
-		borderRadius: 10,
-		marginBottom: 12,
-	},
-	descriptionInput: {
-		height: 110,
-		textAlignVertical: 'top',
-	},
-	sectionContainer: {
-		backgroundColor: '#fff',
-		borderRadius: 12,
-		padding: 14,
+		borderRadius: 16,
+		padding: 20,
+		marginHorizontal: 16,
 		marginBottom: 16,
 		shadowColor: '#000',
-		shadowOpacity: 0.04,
-		shadowRadius: 6,
+		shadowOpacity: 0.05,
+		shadowRadius: 5,
+		shadowOffset: { width: 0, height: 2 },
 		elevation: 2,
 	},
-	sectionTitle: {
+	cardTitle: { fontSize: 18, fontWeight: '700', marginBottom: 16, color: COLORS.text },
+	label: { fontSize: 14, fontWeight: '600', color: COLORS.text, marginBottom: 8, marginTop: 4 },
+	input: {
+		backgroundColor: COLORS.inputBg,
+		borderWidth: 1,
+		borderColor: COLORS.border,
+		borderRadius: 12,
+		paddingHorizontal: 16,
+		paddingVertical: 12,
 		fontSize: 16,
-		fontWeight: '700',
-		marginBottom: 8,
-		color: '#111827',
+		color: COLORS.text,
+		marginBottom: 16,
 	},
-	centeredModalView: {
-		flex: 1,
+	textArea: { height: 100, textAlignVertical: 'top' },
+
+	// Segment Control
+	segmentContainer: {
+		flexDirection: 'row',
+		backgroundColor: COLORS.inputBg,
+		borderRadius: 12,
+		padding: 4,
+		marginBottom: 16,
+	},
+	segmentBtn: { flex: 1, paddingVertical: 10, alignItems: 'center', borderRadius: 10 },
+	segmentBtnActive: { backgroundColor: '#fff', shadowColor: '#000', shadowOpacity: 0.1, shadowRadius: 3, elevation: 2 },
+	segmentText: { color: COLORS.textLight, fontWeight: '600', fontSize: 13 },
+	segmentTextActive: { color: COLORS.primary, fontWeight: '700' },
+
+	// Select Button
+	selectBtn: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		alignItems: 'center',
+		backgroundColor: COLORS.inputBg,
+		borderWidth: 1,
+		borderColor: COLORS.border,
+		padding: 14,
+		borderRadius: 12,
+		marginBottom: 16,
+	},
+	selectBtnText: { fontSize: 16, color: COLORS.text },
+
+	// Images
+	addPhotoBtn: {
+		width: 100,
+		height: 100,
+		borderRadius: 12,
+		borderWidth: 2,
+		borderColor: COLORS.border,
+		borderStyle: 'dashed',
 		justifyContent: 'center',
 		alignItems: 'center',
-		backgroundColor: 'rgba(0,0,0,0.5)',
+		marginRight: 12,
+		backgroundColor: '#FAFAFA',
 	},
-	modalContent: {
-		width: '85%',
-		backgroundColor: 'white',
-		borderRadius: 12,
-		padding: 18,
+	addPhotoText: { marginTop: 8, fontSize: 12, color: COLORS.primary, fontWeight: '600' },
+	imageWrapper: { position: 'relative', marginRight: 12 },
+	thumbImage: { width: 100, height: 100, borderRadius: 12, backgroundColor: '#eee' },
+	removeImageBtn: {
+		position: 'absolute',
+		top: -6,
+		right: -6,
+		backgroundColor: COLORS.danger,
+		width: 22,
+		height: 22,
+		borderRadius: 11,
+		justifyContent: 'center',
 		alignItems: 'center',
-	},
-	modalOptionButton: {
-		width: '100%',
-		paddingVertical: 14,
-		borderRadius: 10,
-		backgroundColor: '#eef6ff',
-		borderWidth: 1,
-		borderColor: '#cfe9ff',
-		alignItems: 'center',
-		marginBottom: 12,
-	},
-	modalOptionText: { color: '#0b6fbf', fontWeight: '700' },
-	modalCancelButton: {
-		backgroundColor: '#ffeef0',
-		borderColor: '#ffd6db',
-	},
-	modalCancelButtonText: {
-		color: '#b02a37',
-		fontWeight: '700',
+		borderWidth: 2,
+		borderColor: '#fff',
 	},
 
-	saveButton: {
-		backgroundColor: '#10b981',
-		paddingVertical: 14,
-		borderRadius: 12,
+	// Pricing
+	row: { flexDirection: 'row' },
+	priceInputWrap: {
+		flexDirection: 'row',
 		alignItems: 'center',
-		marginVertical: 20,
-	},
-	saveButtonText: {
-		color: '#fff',
-		fontSize: 16,
-		fontWeight: '700',
-	},
-
-	modalTitle: {
-		fontSize: 20,
-		fontWeight: '700',
-		marginBottom: 12,
-	},
-	textInput: {
+		backgroundColor: COLORS.inputBg,
 		borderWidth: 1,
-		borderColor: '#e6e9ee',
-		backgroundColor: '#fff',
-		padding: 12,
-		borderRadius: 10,
-		width: '100%',
+		borderColor: COLORS.border,
+		borderRadius: 12,
+		paddingHorizontal: 12,
+		marginBottom: 16,
 	},
-	buttonPrimary: {
-		paddingVertical: 12,
-		paddingHorizontal: 25,
-		borderRadius: 10,
-		backgroundColor: '#28a745',
+	currencyPrefix: { fontSize: 16, fontWeight: '600', color: COLORS.textLight, marginRight: 8 },
+	priceInput: { flex: 1, paddingVertical: 12, fontSize: 16, color: COLORS.text },
+
+	// File Upload
+	fileUploadBtn: {
+		flexDirection: 'row',
 		alignItems: 'center',
-		justifyContent: 'center',
+		backgroundColor: COLORS.primaryLight,
+		padding: 16,
+		borderRadius: 12,
+		borderWidth: 1,
+		borderColor: COLORS.primary,
+		borderStyle: 'dashed',
 	},
-	buttonPrimaryText: {
-		color: 'white',
-		fontSize: 16,
-		fontWeight: '600',
+	fileIconCircle: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#fff', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+	fileUploadTitle: { fontSize: 16, fontWeight: '700', color: COLORS.primary },
+	fileUploadSub: { fontSize: 12, color: COLORS.textLight, marginTop: 2 },
+	dividerWithText: { alignItems: 'center', marginVertical: 16 },
+	dividerText: { color: COLORS.textLight, fontWeight: '600', fontSize: 12 },
+
+	// Switches
+	switchRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
+	switchLabel: { fontSize: 16, color: COLORS.text, fontWeight: '500' },
+	switchLabelSmall: { fontSize: 14, color: COLORS.textLight, marginRight: 8 },
+
+	// Service
+	dayRow: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+	dayName: { fontSize: 15, fontWeight: '600', color: COLORS.text },
+	tinyInput: {
+		backgroundColor: COLORS.inputBg,
+		borderWidth: 1,
+		borderColor: COLORS.border,
+		borderRadius: 8,
+		paddingVertical: 4,
+		paddingHorizontal: 8,
+		width: 60,
+		textAlign: 'center',
+		fontSize: 14,
 	},
-	buttonSecondary: {
-		paddingVertical: 12,
-		paddingHorizontal: 25,
-		borderRadius: 10,
-		backgroundColor: '#6c757d',
+	closedText: { color: COLORS.textLight, fontSize: 14, marginRight: 8 },
+
+	// Variants
+	variantRow: { flexDirection: 'row', alignItems: 'center', marginBottom: 12 },
+	removeIconBtn: { marginLeft: 8, padding: 8, justifyContent: 'center' },
+	addMoreBtn: { flexDirection: 'row', alignItems: 'center', padding: 8 },
+	addMoreText: { color: COLORS.primary, fontWeight: '600', marginLeft: 4 },
+
+	// Modals
+	modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+	modalContent: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, maxHeight: '80%' },
+	modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+	modalTitle: { fontSize: 20, fontWeight: '700', color: COLORS.text },
+	catItem: { paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#F3F4F6', flexDirection: 'row', justifyContent: 'space-between' },
+	catItemText: { fontSize: 16, color: COLORS.text },
+	modalCloseBtn: { marginTop: 20, paddingVertical: 14, backgroundColor: COLORS.secondary, borderRadius: 12, alignItems: 'center' },
+	modalCloseText: { fontSize: 16, fontWeight: '600', color: COLORS.text },
+	modalOption: { flexDirection: 'row', alignItems: 'center', paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+	modalOptionText: { fontSize: 16, marginLeft: 16, color: COLORS.text },
+
+	centeredModal: { flex: 1, justifyContent: 'center', alignItems: 'center', backgroundColor: 'rgba(0,0,0,0.5)' },
+	dialogCard: { width: '85%', backgroundColor: '#fff', borderRadius: 20, padding: 24 },
+	dialogTitle: { fontSize: 18, fontWeight: '700', marginBottom: 16, textAlign: 'center' },
+	dialogInput: { borderWidth: 1, borderColor: COLORS.border, borderRadius: 12, padding: 12, fontSize: 16, marginBottom: 20 },
+	dialogActions: { flexDirection: 'row', gap: 12 },
+	dialogBtn: { flex: 1, paddingVertical: 12, borderRadius: 10, alignItems: 'center', backgroundColor: COLORS.secondary },
+	dialogBtnText: { fontWeight: '600', color: COLORS.text },
+
+	// Main Save
+	saveBtn: {
+		backgroundColor: COLORS.primary,
+		margin: 16,
+		paddingVertical: 16,
+		borderRadius: 16,
 		alignItems: 'center',
-		justifyContent: 'center',
+		shadowColor: COLORS.primary,
+		shadowOpacity: 0.3,
+		shadowOffset: { width: 0, height: 4 },
+		shadowRadius: 8,
+		elevation: 4,
 	},
-	buttonSecondaryText: {
-		color: 'white',
-		fontSize: 16,
-		fontWeight: '600',
-	},
+	saveBtnText: { color: '#fff', fontSize: 18, fontWeight: '700' },
 });
 
 export default AddProduct;

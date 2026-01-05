@@ -71,10 +71,11 @@ const SetupStoreScreen = () => {
 
 	// Theme & Features
 	const [themes, setThemes] = useState([
-		{ id: 'default', name: 'Default' },
+		{ id: 'product', name: 'Product Store (Item focus)' },
+		{ id: 'service', name: 'Service Business (Booking focus)' },
 	]);
 	const [selectedTheme, setSelectedTheme] =
-		useState('default');
+		useState('product');
 	const [isCampusAppEnabled, setIsCampusAppEnabled] =
 		useState(storeInfo?.isVendor || false);
 	const [reviewsEnabled, setReviewsEnabled] = useState(
@@ -131,7 +132,7 @@ const SetupStoreScreen = () => {
 				fetchedBusinessData.isVendor || false,
 			);
 			setSelectedTheme(
-				fetchedBusinessData.theme || 'default',
+				fetchedBusinessData.theme || 'product',
 			);
 			setPicture(fetchedBusinessData.logoUrl || '');
 			setBanner(fetchedBusinessData.bannerUrl || '');
@@ -158,14 +159,14 @@ const SetupStoreScreen = () => {
 		}
 	};
 
-	const fetchThemes = async () => {
-		try {
-			// Replace with your actual themes API endpoint if you have one
-			setThemes([{ id: 'default', name: 'Default' }]);
-		} catch (error) {
-			console.error('Error fetching themes:', error);
-		}
-	};
+	// 	const fetchThemes = async () => {
+	// 		try {
+	// 			// Replace with your actual themes API endpoint if you have one
+	// 			setThemes([{ id: 'default', name: 'Default' }]);
+	// 		} catch (error) {
+	// 			console.error('Error fetching themes:', error);
+	// 		}
+	// 	};
 
 	const pickImage = async (setImageSetter, aspect) => {
 		let result = await ImagePicker.launchImageLibraryAsync({
@@ -360,7 +361,7 @@ const SetupStoreScreen = () => {
 	// --- Effects ---
 	useEffect(() => {
 		getBusinessInfo();
-		fetchThemes();
+		// fetchThemes();
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
