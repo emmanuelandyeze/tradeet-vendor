@@ -13,7 +13,8 @@
       "backgroundColor": "#065637"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.tradeet.vendor"
     },
     "runtimeVersion": "1.0.0",
     "android": {
@@ -33,7 +34,6 @@
           "apiKey": "AIzaSyDB9u0LKWhMKSBImf97RJjD8KzNq8rfPMY"
         }
       }
-      
     },
     "web": {
       "bundler": "metro",
@@ -56,13 +56,6 @@
     },
     "plugins": [
       "expo-router",
-      [
-        "@rnmapbox/maps",
-        {
-          "RNMapboxMapsVersion": "11.8.0",
-          "RNMapboxMapsDownloadToken": "sk.eyJ1IjoidHJhZGVldCIsImEiOiJjbTQ2MXZncmUweDI5MmpzNzdneXBod2VsIn0.xumMX6fnM9wF-URVMRCaVw"
-        }
-      ],
       [
         "expo-location",
         {

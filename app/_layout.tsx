@@ -4,6 +4,7 @@ import {
 	Redirect,
 	useRouter,
 	usePathname,
+	useSegments,
 } from 'expo-router';
 import { View, Text, ActivityIndicator } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
@@ -18,7 +19,7 @@ import * as Linking from 'expo-linking';
 import '../global.css';
 
 // Import the specific font hook from expo-google-fonts
-import { useFonts} from 'expo-font'; // useFonts is from expo-font, SplashScreen is also often imported from there
+import { useFonts } from 'expo-font'; // useFonts is from expo-font, SplashScreen is also often imported from there
 import {
 	Inter_400Regular,
 	Inter_500Medium,
@@ -27,10 +28,10 @@ import {
 } from '@expo-google-fonts/inter'; // Import specific weights
 
 import { useEffect, useCallback, useContext } from 'react';
-import { SplashScreen } from 'expo-router';
+import * as SplashScreen from 'expo-splash-screen';
 
 // Prevent the splash screen from auto-hiding
-// SplashScreen.preventAutoHideAsync();
+SplashScreen.preventAutoHideAsync();
 
 export default function Layout() {
 	// Use the Inter font hook
@@ -78,7 +79,7 @@ export default function Layout() {
 			<AuthProvider>
 				<AuthWrapper>
 					<ProductsProvider>
-						<Slot />
+						<Stack screenOptions={{ headerShown: false }} />
 						<Toast />
 					</ProductsProvider>
 				</AuthWrapper>
@@ -97,21 +98,36 @@ function AuthWrapper({
 		useContext(AuthContext);
 	const router = useRouter();
 	const pathname = usePathname();
+	const segments = useSegments();
 
 	useEffect(() => {
 		if (!isLoading) {
 			const redirectPath = getRedirectPath();
-			if (redirectPath && pathname !== redirectPath) {
+			const inAuthGroup = segments[0] === '(app)';
+
+			// Define public routes that don't require authentication
+			const isPublicRoute =
+				pathname === '/login' ||
+				pathname.startsWith('/signup') ||
+				pathname.startsWith('/forgot-password');
+
+			if (redirectPath === '/login') {
+				// User is not logged in
+				// Only redirect to login if they are attempting to access a protected route (not public)
+				if (!isPublicRoute) {
+					router.replace('/login');
+				}
+			} else if (redirectPath && pathname !== redirectPath) {
+				// User is logged in but needs to complete profile (e.g. /signup/business-name)
 				router.replace(redirectPath);
-			} else if (
-				!redirectPath &&
-				!pathname.startsWith('/(app)')
-			) {
-				// Optional: If authenticated but not in the protected group, redirect to home
-				router.replace('/(app)');
+			} else if (!redirectPath && !inAuthGroup) {
+				// User is fully authenticated but not in the protected group, redirect to home
+				// Also prevent redirect if they are explicitly navigating to public routes (optional, but good for UX if they want to logout/switch)
+				// For now, we enforce redirect to '/' if they are authorized
+				router.replace('/');
 			}
 		}
-	}, [isLoading, router, getRedirectPath]);
+	}, [isLoading, router, getRedirectPath, segments, pathname]);
 
 	if (isLoading) {
 		return (

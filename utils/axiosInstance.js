@@ -1,7 +1,7 @@
 // utils/axiosInstance.js
 import axios from 'axios';
 
-const BASE_URL = 'http://192.168.0.114:5000/api/v1/';
+const BASE_URL = 'http://192.168.0.55:5000/api/v1/';
 // const BASE_URL =
 // 	'https://tradeet-server.onrender.com/api/v1/';
 
@@ -19,7 +19,7 @@ const authFailureListeners = new Set();
  * Usage: const unsubscribe = onAuthFailure(() => { ... }); unsubscribe();
  */
 export const onAuthFailure = (cb) => {
-	if (typeof cb !== 'function') return () => {};
+	if (typeof cb !== 'function') return () => { };
 	authFailureListeners.add(cb);
 	return () => authFailureListeners.delete(cb);
 };

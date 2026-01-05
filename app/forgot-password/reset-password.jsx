@@ -15,8 +15,7 @@ import {
 	Button,
 	ToastAndroid,
 } from 'react-native';
-import { useLocalSearchParams, useRouter } from 'expo-router';
-import { useNavigation } from '@react-navigation/native';
+import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { AuthContext } from '@/context/AuthContext';
 import PhoneInput from 'react-native-phone-number-input';
@@ -24,12 +23,12 @@ import Toast from 'react-native-toast-message';
 
 const { width, height } = Dimensions.get('window');
 
-export default function Login() {
+export default function ResetPassword() {
 	const router = useRouter();
-	const navigation = useNavigation();
+	// const navigation = useNavigation(); // Removed
 	const { resetPassword } = useContext(AuthContext);
-    const [password, setPassword] = useState('');
-    const { phone, otp } = useLocalSearchParams();
+	const [password, setPassword] = useState('');
+	const { phone, otp } = useLocalSearchParams();
 	const [formattedValue, setFormattedValue] = useState('');
 	const phoneInput = useRef();
 	const [isPasswordVisible, setIsPasswordVisible] =
@@ -40,10 +39,10 @@ export default function Login() {
 		setIsPasswordVisible(!isPasswordVisible);
 	};
 
-	// Hide header
-	useEffect(() => {
-		navigation.setOptions({ headerShown: false });
-	}, [navigation]);
+	// Hide header - Replaced with Stack.Screen
+	// useEffect(() => {
+	// 	navigation.setOptions({ headerShown: false });
+	// }, [navigation]);
 
 	const showToast = (status, text) => {
 		Toast.show({
@@ -98,6 +97,7 @@ export default function Login() {
 				style="dark"
 				translucent={true}
 			/>
+			<Stack.Screen options={{ headerShown: false }} />
 			<Text className="text-4xl mb-5 font-bold">
 				Create new password
 			</Text>

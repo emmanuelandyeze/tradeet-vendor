@@ -1,129 +1,123 @@
-import React, { useEffect } from 'react';
+import React from 'react';
 import {
 	View,
 	Text,
 	Image,
 	TouchableOpacity,
-	Dimensions,
 	Linking,
+	Dimensions,
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useNavigation } from '@react-navigation/native';
+import { Link, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 
 const { width, height } = Dimensions.get('window');
 
-// Images with their sources
-const images = [
-	{
-		id: 1,
-		src: require('@/assets/images/landing.png'),
-	}
-];
+const assets = {
+	coin: require('@/assets/images/floating_coin.png'),
+	arrow: require('@/assets/images/floating_arrow.png'),
+	shield: require('@/assets/images/floating_shield.png'),
+};
 
-export default function SplashScreen() {
-	const router = useRouter();
-	const navigation = useNavigation();
-
-	// Hide header
-	useEffect(() => {
-		navigation.setOptions({ headerShown: false });
-	}, [navigation]);
-
+export default function SignupLanding() {
 	const handleOpenPrivacy = () => {
 		Linking.openURL(
 			`https://www.privacypolicies.com/live/294f3b79-c462-4006-ae52-2190057d0ca7`,
-		); // Replace with your desired website URL
+		);
 	};
 
 	return (
-		<View className="flex-1 justify-center items-center bg-[#fcdbb8]">
-			<StatusBar
-				backgroundColor="#fcdbb8"
-				style="dark"
-				translucent={true}
-			/>
-			{/* Top Half: Images in a triangular format */}
-			<View
-				// style={{ height: height * 0.4 }}
-				className="items-center justify-center pt-10"
+		<View className="flex-1 bg-white justify-between pb-10 relative overflow-hidden">
+			<Stack.Screen options={{ headerShown: false }} />
+			<StatusBar style="dark" />
+
+			{/* Floating Elements (Background/Decoration) */}
+			{/* Top Right - Arrow */}
+			<Image
+				source={assets.arrow}
+				className="absolute opacity-90"
 				style={{
-					width: '85%', // Increased image size
-					// height: height * 0.4,
-					overflow: 'hidden',
-					borderWidth: 1,
-					borderColor: '#fcdbb8',
-					borderRadius: 10,
-					marginBottom: 20,
+					width: 140,
+					height: 140,
+					top: height * 0.1,
+					right: -10,
+					transform: [{ rotate: '15deg' }],
 				}}
-			>
-				<Image
-					source={images[0].src}
-					style={{
-						width: '100%', // Increased image size
-						height: 400,
-						resizeMode: 'cover',
-						borderRadius: 10,
-					}}
-				/>
+				resizeMode="contain"
+			/>
+
+			{/* Middle Left - Shield */}
+			<Image
+				source={assets.shield}
+				className="absolute opacity-80"
+				style={{
+					width: 110,
+					height: 110,
+					top: height * 0.54,
+					left: -10,
+					transform: [{ rotate: '-15deg' }],
+				}}
+				resizeMode="contain"
+			/>
+
+			{/* Bottom Right (above buttons) - Coin */}
+			<Image
+				source={assets.coin}
+				className="absolute opacity-90"
+				style={{
+					width: 90,
+					height: 90,
+					bottom: height * 0.24,
+					right: 20,
+					transform: [{ rotate: '25deg' }],
+				}}
+				resizeMode="contain"
+			/>
+
+			{/* Main Content */}
+			<View className="flex-1 justify-center px-8 z-10 pt-10">
+				<Text className="text-5xl font-extrabold text-[#1f2937] leading-[1.1] tracking-tight">
+					Business{'\n'}Management{'\n'}
+					<Text className="text-[#065637]">Made Simple</Text>
+				</Text>
+				<Text className="text-gray-500 text-lg mt-5 font-medium max-w-[90%] leading-7">
+					The all-in-one platform to manage orders, secure finances, and scale your business effortlessly.
+				</Text>
 			</View>
 
-			{/* Bottom Half: Display text and buttons */}
-			<View
-				// style={{ height: height * 0.5 }}
-				className="px-6 py-4 justify-center items-center"
-			>
-				<View
-					style={{ width: '100%' }}
-					className="items-center justify-center pb-10"
-				>
-					<Text className="text-center text-4xl font-semibold mb-4">
-						Grow Your Business with Ease.
-					</Text>
-					<Text className="text-center text-2xl text-gray-500">
-						Manage orders, finances and customers
-						effortlessly on the go.
-					</Text>
-				</View>
-
-				{/* Bottom Section: Buttons */}
-				<View className="w-full px-2">
-					<TouchableOpacity
-						onPress={() => router.push('/login')}
-						className="border border-slate-700 py-4 rounded-lg mb-4"
-					>
-						<Text className="text-slate-700 text-center text-[1.3rem]">
+			{/* Sticky Bottom Actions */}
+			<View className="px-8 z-10 gap-4">
+				<Link href="/login" asChild>
+					<TouchableOpacity className="w-full bg-[#065637] h-[60px] justify-center items-center rounded-2xl shadow-lg shadow-green-900/20 active:opacity-90">
+						<Text className="text-white text-xl font-bold tracking-wide">
 							Login
 						</Text>
 					</TouchableOpacity>
-					<TouchableOpacity
-						onPress={() =>
-							router.push('/signup/phone-number')
-						}
-						className="bg-[#065637] py-4 rounded-lg"
-					>
-						<Text className="text-white text-center text-[1.3rem]">
-							Sign Up
+				</Link>
+
+				<Link href="/signup/phone-number" asChild>
+					<TouchableOpacity className="w-full bg-gray-50 border border-gray-200 h-[60px] justify-center items-center rounded-2xl active:bg-gray-100">
+						<Text className="text-[#065637] text-xl font-bold tracking-wide">
+							Create Account
 						</Text>
 					</TouchableOpacity>
-					<Text className="text-center mt-3 text-[1.2rem]">
-						By clicking login or sign up, you agree to our{' '}
-						<Text
-							onPress={handleOpenPrivacy}
-							className="text-[#000] font-bold underline"
-						>
-							Terms of Service
-						</Text>{' '}
-						and{' '}
-						<Text
-							onPress={handleOpenPrivacy}
-							className="text-[#000] font-bold underline"
-						>
-							Privacy Policy
-						</Text>
-						.
-					</Text>
-				</View>
+				</Link>
+
+				<Text className="text-center text-xs text-gray-400 mt-2 leading-5">
+					By continuing, you agree to our{' '}
+					<Text
+						onPress={handleOpenPrivacy}
+						className="text-[#065637] font-semibold underline"
+					>
+						Terms
+					</Text>{' '}
+					and{' '}
+					<Text
+						onPress={handleOpenPrivacy}
+						className="text-[#065637] font-semibold underline"
+					>
+						Privacy Policy
+					</Text>.
+				</Text>
 			</View>
 		</View>
 	);

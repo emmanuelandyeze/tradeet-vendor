@@ -22,7 +22,6 @@ import {
 } from 'react-native';
 import axios from 'axios';
 import {
-	useNavigation,
 	useFocusEffect,
 } from '@react-navigation/native';
 import axiosInstance from '@/utils/axiosInstance';
@@ -69,7 +68,7 @@ const TransferScreen = () => {
 	] = useState(null);
 	const receiptViewRef = useRef(); // Ref for the receipt view to capture screenshot
 
-	const navigation = useNavigation();
+	// const navigation = useNavigation(); // Removed/Unused
 
 	const fetchWalletAndTransactions = async () => {
 		setLoading(true);
@@ -175,7 +174,7 @@ const TransferScreen = () => {
 			Alert.alert(
 				'Error',
 				error.response?.data?.message ||
-					'Account verification failed. Please try again.',
+				'Account verification failed. Please try again.',
 			);
 			setAccountName(''); // Clear account name on error
 		} finally {
@@ -205,10 +204,8 @@ const TransferScreen = () => {
 			'Confirm Transfer',
 			`You are about to transfer ₦${Number(
 				amount,
-			).toLocaleString()} to ${accountName} (${
-				selectedBank.name
-			}). A fee of ₦${
-				Number(amount) <= 5000 ? '10' : '25'
+			).toLocaleString()} to ${accountName} (${selectedBank.name
+			}). A fee of ₦${Number(amount) <= 5000 ? '10' : '25'
 			} will apply. Do you want to proceed?`,
 			[
 				{
@@ -280,7 +277,7 @@ const TransferScreen = () => {
 								Alert.alert(
 									'Transfer Failed',
 									response.data.message ||
-										'Transfer failed. Please try again.',
+									'Transfer failed. Please try again.',
 								);
 							}
 						} catch (error) {
@@ -291,7 +288,7 @@ const TransferScreen = () => {
 							Alert.alert(
 								'Error',
 								error.response?.data?.message ||
-									'Transfer failed. Please try again.',
+								'Transfer failed. Please try again.',
 							);
 						} finally {
 							setLoading(false);
@@ -625,8 +622,8 @@ const TransferScreen = () => {
 
 								{/* Account Name Display */}
 								{loading &&
-								accountNumber.length === 10 &&
-								selectedBank ? (
+									accountNumber.length === 10 &&
+									selectedBank ? (
 									<ActivityIndicator
 										color="#2196F3"
 										size="small"
@@ -729,7 +726,7 @@ const TransferScreen = () => {
 								style={[
 									styles.filterOption,
 									selectedFilterType === 'all' &&
-										styles.filterOptionSelected,
+									styles.filterOptionSelected,
 								]}
 								onPress={() => {
 									setSelectedFilterType('all');
@@ -740,7 +737,7 @@ const TransferScreen = () => {
 									style={[
 										styles.filterOptionText,
 										selectedFilterType === 'all' &&
-											styles.filterOptionTextSelected,
+										styles.filterOptionTextSelected,
 									]}
 								>
 									All Transactions
@@ -750,7 +747,7 @@ const TransferScreen = () => {
 								style={[
 									styles.filterOption,
 									selectedFilterType === 'credit' &&
-										styles.filterOptionSelected,
+									styles.filterOptionSelected,
 								]}
 								onPress={() => {
 									setSelectedFilterType('credit');
@@ -761,7 +758,7 @@ const TransferScreen = () => {
 									style={[
 										styles.filterOptionText,
 										selectedFilterType === 'credit' &&
-											styles.filterOptionTextSelected,
+										styles.filterOptionTextSelected,
 									]}
 								>
 									Credit Transactions
@@ -771,7 +768,7 @@ const TransferScreen = () => {
 								style={[
 									styles.filterOption,
 									selectedFilterType === 'debit' &&
-										styles.filterOptionSelected,
+									styles.filterOptionSelected,
 								]}
 								onPress={() => {
 									setSelectedFilterType('debit');
@@ -782,7 +779,7 @@ const TransferScreen = () => {
 									style={[
 										styles.filterOptionText,
 										selectedFilterType === 'debit' &&
-											styles.filterOptionTextSelected,
+										styles.filterOptionTextSelected,
 									]}
 								>
 									Debit Transactions
@@ -839,7 +836,7 @@ const TransferScreen = () => {
 										/>
 										<Text style={styles.receiptStatus}>
 											{selectedTransactionForReceipt.type ===
-											'debit'
+												'debit'
 												? 'Transfer Sent'
 												: 'Payment Received'}
 										</Text>

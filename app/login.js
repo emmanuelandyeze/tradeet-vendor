@@ -8,46 +8,38 @@ import {
 	View,
 	Text,
 	TouchableOpacity,
-	Dimensions,
 	TextInput,
-	ActivityIndicator, // Import ActivityIndicator for loading
+	ActivityIndicator,
+	KeyboardAvoidingView,
+	Platform,
+	ScrollView,
 } from 'react-native';
-import { useRouter } from 'expo-router';
-import { useNavigation } from '@react-navigation/native';
+import { useRouter, Link, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { AuthContext } from '@/context/AuthContext';
 import PhoneInput from 'react-native-phone-number-input';
-import Toast from 'react-native-toast-message'; // Ensure this is imported
-
-const { width, height } = Dimensions.get('window');
+import Toast from 'react-native-toast-message';
+import { Ionicons } from '@expo/vector-icons';
 
 export default function Login() {
 	const router = useRouter();
-	const navigation = useNavigation();
 	const { login } = useContext(AuthContext);
 
 	const [phone, setPhone] = useState('');
 	const [password, setPassword] = useState('');
 	const [formattedValue, setFormattedValue] = useState('');
-	const [isValidPhone, setIsValidPhone] = useState(false); // State for phone validation
-	const [isPasswordVisible, setIsPasswordVisible] =
-		useState(false);
+	const [isValidPhone, setIsValidPhone] = useState(true);
+	const [isPasswordVisible, setIsPasswordVisible] = useState(false);
 	const [loading, setLoading] = useState(false);
 
-	const phoneInputRef = useRef(null); // Rename for clarity
-	const passwordInputRef = useRef(null); // Ref for password input
+	const phoneInputRef = useRef(null);
+	const passwordInputRef = useRef(null);
 
-	// Hide header
-	useEffect(() => {
-		navigation.setOptions({ headerShown: false });
-	}, [navigation]);
-
-	// Function to show toasts consistently
 	const showToast = (type, message) => {
 		Toast.show({
-			type: type, // 'success', 'error', 'info'
+			type: type,
 			text1: message,
-			position: 'top', // or 'bottom'
+			position: 'top',
 			visibilityTime: 3000,
 			autoHide: true,
 		});
@@ -58,23 +50,17 @@ export default function Login() {
 	};
 
 	const handleLogin = async () => {
-		// Client-side validation
 		if (!phone.trim()) {
 			showToast('error', 'Please enter your phone number.');
 			return;
 		}
 
-		// Validate phone number format using PhoneInput's internal validation
-		if (
-			phoneInputRef.current &&
-			!phoneInputRef.current.isValidNumber(phone)
-		) {
-			showToast(
-				'error',
-				'Please enter a valid phone number.',
-			);
+		if (phoneInputRef.current && !phoneInputRef.current.isValidNumber(phone)) {
+			setIsValidPhone(false);
+			showToast('error', 'Please enter a valid phone number.');
 			return;
 		}
+		setIsValidPhone(true);
 
 		if (!password.trim()) {
 			showToast('error', 'Please enter your password.');
@@ -84,175 +70,125 @@ export default function Login() {
 		setLoading(true);
 
 		let phoneNumberToSend = formattedValue;
+		const callingCode = phoneInputRef.current?.getCallingCode();
 
-		const callingCode =
-			phoneInputRef.current?.getCallingCode();
-
-		if (
-			callingCode &&
-			formattedValue.startsWith(`+${callingCode}`)
-		) {
-			phoneNumberToSend = formattedValue.substring(
-				`+${callingCode}`.length,
-			);
+		if (callingCode && formattedValue.startsWith(`+${callingCode}`)) {
+			phoneNumberToSend = formattedValue.substring(`+${callingCode}`.length);
 		} else if (formattedValue.startsWith('+234')) {
-			phoneNumberToSend = formattedValue.substring(4); // Remove "+234"
+			phoneNumberToSend = formattedValue.substring(4);
 		}
 
 		try {
-			const response = await login(
-				phoneNumberToSend,
-				password,
-			); // Use formattedValue for login if your API expects it
-
+			const response = await login(phoneNumberToSend, password);
 			if (response && response.token) {
-				showToast('success', 'Login successful!');
+				showToast('success', 'Welcome back!');
 				router.push('(tabs)');
 			} else {
-				// Assuming `response.message` holds the error message from the backend
-				const errorMessage =
-					response?.message ||
-					'Login failed. Please try again.';
+				const errorMessage = response?.message || 'Login failed.';
 				showToast('error', errorMessage);
 			}
 		} catch (error) {
 			console.error('Login error:', error);
-			showToast(
-				'error',
-				error.response?.data?.message || error.message,
-			);
+			showToast('error', error.response?.data?.message || 'Something went wrong.');
 		} finally {
 			setLoading(false);
 		}
 	};
 
 	return (
-		<View className="flex-1 justify-center px-10 bg-white">
-			<StatusBar
-				backgroundColor="#fff"
-				style="dark"
-				translucent={true}
-			/>
+		<KeyboardAvoidingView
+			behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+			className="flex-1 bg-white"
+		>
+			<StatusBar style="dark" />
+			<Stack.Screen options={{ headerShown: false }} />
 
-			<Text className="text-4xl mb-5 font-bold text-gray-800">
-				Login
-			</Text>
-
-			<View className="flex flex-col gap-2">
-				<PhoneInput
-					ref={phoneInputRef}
-					defaultValue={phone}
-					defaultCode="NG"
-					layout="second"
-					onChangeText={(text) => {
-						setPhone(text);
-						// Optional: Validate instantly as user types
-						if (phoneInputRef.current) {
-							setIsValidPhone(
-								phoneInputRef.current.isValidNumber(text),
-							);
-						}
-					}}
-					onChangeFormattedText={(text) => {
-						setFormattedValue(text);
-					}}
-					containerStyle={{
-						backgroundColor: '#f1f2f6',
-						width: '100%',
-						borderRadius: 10,
-						borderWidth: 1,
-						borderColor: '#ccc',
-						height: 60, // Consistent height
-					}}
-					textContainerStyle={{
-						backgroundColor: '#f1f2f6',
-						paddingVertical: 0, // Adjust padding
-						borderRadius: 10,
-					}}
-					textInputStyle={{
-						fontSize: 16,
-						height: 50, // Adjust text input height
-					}}
-					codeTextStyle={{
-						fontSize: 16, // Adjust code text size
-					}}
-					countryPickerButtonStyle={{
-						width: 60, // Adjust country picker button width
-					}}
-					// autoFocus={true} // Consider if this is the desired initial focus
-				/>
-				{!isValidPhone && phone.length > 0 && (
-					<Text className="text-red-500 text-sm mt-1">
-						Please enter a valid phone number.
-					</Text>
-				)}
-
-				<View className="relative mt-4">
-					<TextInput
-						ref={passwordInputRef}
-						className="border p-4 rounded-lg text-lg border-gray-300"
-						placeholder="Password"
-						secureTextEntry={!isPasswordVisible}
-						value={password}
-						onChangeText={setPassword}
-						style={{ height: 60 }}
-						returnKeyType="done" // Improves keyboard behavior
-						onSubmitEditing={handleLogin} // Allow login on keyboard done
-					/>
-					<TouchableOpacity
-						onPress={togglePasswordVisibility}
-						className="absolute right-4 top-1/2 -translate-y-1/2" // Center vertically
-					>
-						<Text className="text-gray-600 text-sm">
-							{isPasswordVisible ? 'Hide' : 'Show'}
-						</Text>
-					</TouchableOpacity>
+			<ScrollView contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24, justifyContent: 'center' }}>
+				<View className="mb-10">
+					<Text className="text-4xl font-extrabold text-[#065637] mb-2">Welcome Back</Text>
+					<Text className="text-gray-500 text-lg">Sign in to continue managing your business.</Text>
 				</View>
 
-				<View className="flex flex-row justify-end mt-2">
-					<Text className="text-gray-700 text-base">
-						Forgotten your password?{' '}
-					</Text>
-					<TouchableOpacity
-						onPress={() => router.push('/forgot-password')}
-					>
-						<Text className="text-[#065637] font-semibold text-base">
-							Click here
-						</Text>
-					</TouchableOpacity>
+				{/* Phone Input */}
+				<View className="mb-6">
+					<Text className="text-gray-700 font-semibold mb-2 ml-1">Phone Number</Text>
+					<View className={`border rounded-xl overflow-hidden ${!isValidPhone ? 'border-red-500' : 'border-gray-200'} bg-gray-50 h-[60px] justify-center`}>
+						<PhoneInput
+							ref={phoneInputRef}
+							defaultValue={phone}
+							defaultCode="NG"
+							layout="second"
+							onChangeText={(text) => {
+								setPhone(text);
+								if (phoneInputRef.current) {
+									setIsValidPhone(phoneInputRef.current.isValidNumber(text));
+								}
+							}}
+							onChangeFormattedText={(text) => setFormattedValue(text)}
+							containerStyle={{ width: '100%', backgroundColor: 'transparent' }}
+							textContainerStyle={{ backgroundColor: 'transparent', paddingVertical: 0 }}
+							textInputStyle={{ fontSize: 16, color: '#1f2937', height: 50 }}
+							codeTextStyle={{ fontSize: 16, color: '#1f2937' }}
+							flagButtonStyle={{ width: 50 }}
+						/>
+					</View>
+					{!isValidPhone && <Text className="text-red-500 text-xs mt-1 ml-1">Invalid phone number</Text>}
 				</View>
-			</View>
 
-			<TouchableOpacity
-				onPress={handleLogin}
-				className={`bg-[#065637] mt-8 py-4 rounded-lg ${
-					loading ? 'opacity-70' : ''
-				}`} // Reduce opacity when loading
-				disabled={loading} // Disable button when loading
-			>
-				{loading ? (
-					<ActivityIndicator color="#fff" />
-				) : (
-					<Text className="text-white text-center text-[1.3rem] font-semibold">
-						Login
-					</Text>
-				)}
-			</TouchableOpacity>
+				{/* Password Input */}
+				<View className="mb-4">
+					<Text className="text-gray-700 font-semibold mb-2 ml-1">Password</Text>
+					<View className="flex-row items-center border border-gray-200 bg-gray-50 rounded-xl h-[60px] px-4">
+						<Ionicons name="lock-closed-outline" size={20} color="#9ca3af" className="mr-3" />
+						<TextInput
+							ref={passwordInputRef}
+							className="flex-1 text-base text-gray-900 h-full"
+							placeholder="Enter your password"
+							secureTextEntry={!isPasswordVisible}
+							value={password}
+							onChangeText={setPassword}
+							placeholderTextColor="#9ca3af"
+							returnKeyType="done"
+							onSubmitEditing={handleLogin}
+						/>
+						<TouchableOpacity onPress={togglePasswordVisibility} className="p-2">
+							<Ionicons name={isPasswordVisible ? 'eye-off-outline' : 'eye-outline'} size={20} color="#6b7280" />
+						</TouchableOpacity>
+					</View>
+				</View>
 
-			<View className="flex flex-row justify-center items-center mt-4">
-				<Text className="text-lg text-gray-700">
-					Don't have an account?{' '}
-				</Text>
+				{/* Forgot Password */}
+				<View className="flex-row justify-end mb-8">
+					<Link href="/forgot-password" asChild>
+						<TouchableOpacity>
+							<Text className="text-[#065637] font-semibold">Forgot Password?</Text>
+						</TouchableOpacity>
+					</Link>
+				</View>
+
+				{/* Login Button */}
 				<TouchableOpacity
-					onPress={() =>
-						router.push('/signup/phone-number')
-					}
+					onPress={handleLogin}
+					disabled={loading}
+					className={`bg-[#065637] h-[60px] rounded-xl justify-center items-center shadow-lg shadow-green-900/20 active:opacity-90 ${loading ? 'opacity-70' : ''}`}
 				>
-					<Text className="text-[#065637] font-bold text-lg">
-						Sign up now
-					</Text>
+					{loading ? (
+						<ActivityIndicator color="#fff" />
+					) : (
+						<Text className="text-white text-lg font-bold">Sign In</Text>
+					)}
 				</TouchableOpacity>
-			</View>
-		</View>
+
+				{/* Sign Up Link */}
+				<View className="flex-row justify-center mt-8">
+					<Text className="text-gray-500 text-base">Don't have an account? </Text>
+					<Link href="/signup/phone-number" asChild>
+						<TouchableOpacity>
+							<Text className="text-[#065637] font-bold text-base">Sign Up</Text>
+						</TouchableOpacity>
+					</Link>
+				</View>
+			</ScrollView>
+		</KeyboardAvoidingView>
 	);
 }

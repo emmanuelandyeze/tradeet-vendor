@@ -1,192 +1,149 @@
 import React, { useContext, useRef, useState } from 'react';
 import {
 	View,
-	TextInput, // Kept in case you decide to use it, but PhoneInput handles the input
 	Text,
 	TouchableOpacity,
-	ActivityIndicator, // Import ActivityIndicator for loading state
+	ActivityIndicator,
+	KeyboardAvoidingView,
+	Platform,
+	ScrollView,
 } from 'react-native';
-import { useRouter } from 'expo-router';
+import { useRouter, Stack } from 'expo-router';
 import PhoneInput from 'react-native-phone-number-input';
 import { AuthContext } from '@/context/AuthContext';
-import Toast from 'react-native-toast-message'; // Import Toast for better UX
+import Toast from 'react-native-toast-message';
+import { StatusBar } from 'expo-status-bar';
 
 export default function PhoneNumberScreen() {
 	const router = useRouter();
-	const [phoneNumber, setPhoneNumber] = useState(''); // Stores the raw number (e.g., "8012345678")
-	const [formattedValue, setFormattedValue] = useState(''); // Stores the formatted number (e.g., "+2348012345678")
-	const [loading, setLoading] = useState(false); // State for loading indicator
-	const [isValidPhone, setIsValidPhone] = useState(false); // State for phone number validation status
+	const [phoneNumber, setPhoneNumber] = useState('');
+	const [formattedValue, setFormattedValue] = useState('');
+	const [loading, setLoading] = useState(false);
+	const [isValidPhone, setIsValidPhone] = useState(true);
 
-	const phoneInputRef = useRef(null); // Renamed for clarity from 'phoneInput'
+	const phoneInputRef = useRef(null);
 
 	const { verifyPhoneNumber } = useContext(AuthContext);
 
-	// Centralized toast function for consistent feedback
 	const showToast = (type, message) => {
 		Toast.show({
-			type: type, // 'success', 'error', 'info'
+			type: type,
 			text1: message,
-			position: 'top', // Typically better for alerts
+			position: 'top',
 			visibilityTime: 3000,
 			autoHide: true,
 		});
 	};
 
 	const handleNext = async () => {
-		// Client-side validation: Check if input is empty
 		if (!phoneNumber.trim()) {
 			showToast('error', 'Please enter your phone number.');
 			return;
 		}
 
-		// Client-side validation: Check if the phone number format is valid
-		if (
-			phoneInputRef.current &&
-			!phoneInputRef.current.isValidNumber(phoneNumber)
-		) {
-			showToast(
-				'error',
-				'The phone number entered is not valid.',
-			);
+		if (phoneInputRef.current && !phoneInputRef.current.isValidNumber(phoneNumber)) {
+			setIsValidPhone(false);
+			showToast('error', 'The phone number entered is not valid.');
 			return;
 		}
+		setIsValidPhone(true);
 
-		setLoading(true); // Start loading
+		setLoading(true);
 
 		try {
 			let phoneNumberToSend = formattedValue;
-			const callingCode =
-				phoneInputRef.current?.getCallingCode();
+			const callingCode = phoneInputRef.current?.getCallingCode();
 
-			if (
-				callingCode &&
-				formattedValue.startsWith(`+${callingCode}`)
-			) {
-				phoneNumberToSend = formattedValue.substring(
-					`+${callingCode}`.length,
-				);
+			if (callingCode && formattedValue.startsWith(`+${callingCode}`)) {
+				phoneNumberToSend = formattedValue.substring(`+${callingCode}`.length);
 			} else if (formattedValue.startsWith('+234')) {
-				phoneNumberToSend = formattedValue.substring(4); // Remove "+234"
+				phoneNumberToSend = formattedValue.substring(4);
 			}
 
-			// Important for Nigerian numbers: remove leading '0' if present after removing country code
 			if (phoneNumberToSend.startsWith('0')) {
 				phoneNumberToSend = phoneNumberToSend.substring(1);
 			}
 
-			const response = await verifyPhoneNumber(
-				phoneNumberToSend,
-			); // Use the cleaned number
+			const response = await verifyPhoneNumber(phoneNumberToSend);
 
-			if (
-				response &&
-				response.message ===
-					'Verification code sent via WhatsApp'
-			) {
-				showToast(
-					'success',
-					`Verification code sent to ${formattedValue}.`,
-				); // Show full number to user
+			if (response && response.message === 'Verification code sent via WhatsApp') {
+				showToast('success', `Verification code sent to ${formattedValue}.`);
 				router.push({
 					pathname: '/signup/verification',
-					params: { phoneNumber: phoneNumberToSend }, // Pass the cleaned number to verification screen
+					params: { phoneNumber: phoneNumberToSend },
 				});
 			} else {
-				// If backend sends a specific error message
-				const errorMessage =
-					response?.message ||
-					'Failed to send verification code. Please try again.';
+				const errorMessage = response?.message || 'Failed to send verification code.';
 				showToast('error', errorMessage);
 			}
 		} catch (error) {
 			console.error('Error verifying phone number:', error);
-			showToast(
-				'error',
-				'An unexpected error occurred. Please try again.',
-			);
+			showToast('error', 'An unexpected error occurred. Please try again.');
 		} finally {
-			setLoading(false); // End loading
+			setLoading(false);
 		}
 	};
 
 	return (
-		<View className="flex-1 justify-center px-5 bg-white">
-			<Text className="text-3xl font-bold mb-5 text-gray-800">
-				Enter WhatsApp Number
-			</Text>
-			<Text className="text-lg text-gray-700 mb-5">
-				We will send a verification code to this number via
-				WhatsApp to ensure it's accurate.
-			</Text>
+		<KeyboardAvoidingView
+			behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+			className="flex-1 bg-white"
+		>
+			<StatusBar style="dark" />
+			<Stack.Screen options={{ headerShown: false }} />
 
-			<View className="w-full my-5">
-				<PhoneInput
-					ref={phoneInputRef}
-					defaultValue={phoneNumber}
-					defaultCode="NG" // Assuming Nigeria is the primary country
-					layout="first" // Layout for country code and input
-					onChangeText={(text) => {
-						setPhoneNumber(text);
-						// Validate instantly as user types
-						if (phoneInputRef.current) {
-							setIsValidPhone(
-								phoneInputRef.current.isValidNumber(text),
-							);
-						}
-					}}
-					onChangeFormattedText={(text) => {
-						setFormattedValue(text);
-					}}
-					containerStyle={{
-						backgroundColor: '#f1f2f6',
-						width: '100%',
-						borderRadius: 10,
-						borderWidth: 1, // Add border to match TextInput look
-						borderColor: '#ccc', // Border color
-						height: 60, // Consistent height
-					}}
-					textContainerStyle={{
-						backgroundColor: '#f1f2f6',
-						paddingVertical: 0, // Adjust vertical padding for text input
-						borderRadius: 10,
-					}}
-					textInputStyle={{
-						fontSize: 16,
-						height: 50, // Adjust text input height
-					}}
-					codeTextStyle={{
-						fontSize: 16,
-					}}
-					countryPickerButtonStyle={{
-						width: 60, // Adjust width of country picker button
-					}}
-					// autoFocus={true} // Consider if this is the desired initial focus behavior
-				/>
-				{!isValidPhone && phoneNumber.length > 0 && (
-					<Text className="text-red-500 text-sm mt-1">
-						Please enter a valid phone number.
-					</Text>
-				)}
-			</View>
+			<ScrollView contentContainerStyle={{ flexGrow: 1, paddingHorizontal: 24, justifyContent: 'center' }}>
+				<View className="mb-10">
+					<Text className="text-4xl font-extrabold text-[#065637] mb-2">Get Started</Text>
+					<Text className="text-gray-500 text-lg">Enter your WhatsApp number to verify your account.</Text>
+				</View>
 
-			<View className="flex flex-row justify-end items-end">
+				{/* Phone Input */}
+				<View className="mb-8">
+					<Text className="text-gray-700 font-semibold mb-2 ml-1">WhatsApp Number</Text>
+					<View className={`border rounded-xl overflow-hidden ${!isValidPhone ? 'border-red-500' : 'border-gray-200'} bg-gray-50 h-[60px] justify-center`}>
+						<PhoneInput
+							ref={phoneInputRef}
+							defaultValue={phoneNumber}
+							defaultCode="NG"
+							layout="second"
+							onChangeText={(text) => {
+								setPhoneNumber(text);
+								if (phoneInputRef.current) {
+									setIsValidPhone(phoneInputRef.current.isValidNumber(text));
+								}
+							}}
+							onChangeFormattedText={(text) => setFormattedValue(text)}
+							containerStyle={{ width: '100%', backgroundColor: 'transparent' }}
+							textContainerStyle={{ backgroundColor: 'transparent', paddingVertical: 0 }}
+							textInputStyle={{ fontSize: 16, color: '#1f2937', height: 50 }}
+							codeTextStyle={{ fontSize: 16, color: '#1f2937' }}
+							flagButtonStyle={{ width: 50 }}
+							autoFocus
+						/>
+					</View>
+					{!isValidPhone && <Text className="text-red-500 text-xs mt-1 ml-1">Please enter a valid phone number</Text>}
+				</View>
+
+				{/* Action Button */}
 				<TouchableOpacity
 					onPress={handleNext}
-					className={`bg-[#065637] my-3 px-6 py-4 rounded-lg ${
-						loading ? 'opacity-70' : ''
-					}`}
-					disabled={loading} // Disable button while loading
+					disabled={loading}
+					className={`bg-[#065637] h-[60px] rounded-xl justify-center items-center shadow-lg shadow-green-900/20 active:opacity-90 ${loading ? 'opacity-70' : ''}`}
 				>
 					{loading ? (
 						<ActivityIndicator color="#fff" />
 					) : (
-						<Text className="text-white text-center text-xl font-semibold">
-							Send Code
-						</Text>
+						<Text className="text-white text-lg font-bold">Send Code</Text>
 					)}
 				</TouchableOpacity>
-			</View>
-		</View>
+
+				<View className="mt-8 flex-row justify-center">
+					<Text className="text-gray-400 text-sm text-center px-6">
+						By continuing, you will receive a verification code on WhatsApp.
+					</Text>
+				</View>
+			</ScrollView>
+		</KeyboardAvoidingView>
 	);
 }
