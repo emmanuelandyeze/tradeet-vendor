@@ -1508,6 +1508,7 @@ const AuthProvider = ({ children }) => {
 				resetPassword,
 				updateUserInfo,
 				updatePassword,
+				getUserInfo,
 				getRedirectPath,
 				getPlanCapability,
 				registerDeviceTokenForStore:

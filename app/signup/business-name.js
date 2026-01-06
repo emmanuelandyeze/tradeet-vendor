@@ -33,7 +33,7 @@ export default function BusinessNameScreen() {
 	const [image, setImage] = useState(null);
 	const [modalVisible, setModalVisible] = useState(false);
 	const [loading, setLoading] = useState(false);
-	const { userInfo, token } = useContext(AuthContext);
+	const { userInfo, token, getUserInfo } = useContext(AuthContext);
 	const { phoneNumber } = useLocalSearchParams();
 
 	const [selectedTab, setSelectedTab] = useState('name');
@@ -142,6 +142,10 @@ export default function BusinessNameScreen() {
 				response.status < 300 &&
 				data.message === 'Store created'
 			) {
+				// Refresh user info to update stores array in context
+				// This prevents the AuthContext from redirecting back to business-name
+				await getUserInfo(token);
+
 				ToastAndroid.show(
 					`Welcome to Tradeet, ${businessName}!`,
 					ToastAndroid.LONG,
@@ -150,7 +154,7 @@ export default function BusinessNameScreen() {
 			} else {
 				ToastAndroid.show(
 					data.message ||
-						'Failed to create store. Please try again.',
+					'Failed to create store. Please try again.',
 					ToastAndroid.LONG,
 				);
 			}
@@ -199,14 +203,14 @@ export default function BusinessNameScreen() {
 								style={[
 									styles.step,
 									selectedTab === 'name' &&
-										styles.stepActive,
+									styles.stepActive,
 								]}
 							/>
 							<View
 								style={[
 									styles.step,
 									selectedTab === 'offering' &&
-										styles.stepActive,
+									styles.stepActive,
 								]}
 							/>
 						</View>
@@ -328,7 +332,7 @@ export default function BusinessNameScreen() {
 										style={[
 											styles.paymentMethodCard,
 											selectedOffering === 'products' &&
-												styles.paymentMethodSelected,
+											styles.paymentMethodSelected,
 										]}
 										onPress={() =>
 											setSelectedOffering('products')
@@ -340,13 +344,13 @@ export default function BusinessNameScreen() {
 												style={[
 													styles.radioOuter,
 													selectedOffering === 'products' &&
-														styles.radioOuterSelected,
+													styles.radioOuterSelected,
 												]}
 											>
 												{selectedOffering ===
 													'products' && (
-													<View style={styles.radioInner} />
-												)}
+														<View style={styles.radioInner} />
+													)}
 											</View>
 											<Text style={styles.optionText}>
 												I sell
@@ -361,7 +365,7 @@ export default function BusinessNameScreen() {
 										style={[
 											styles.paymentMethodCard,
 											selectedOffering === 'services' &&
-												styles.paymentMethodSelected,
+											styles.paymentMethodSelected,
 										]}
 										onPress={() =>
 											setSelectedOffering('services')
@@ -373,13 +377,13 @@ export default function BusinessNameScreen() {
 												style={[
 													styles.radioOuter,
 													selectedOffering === 'services' &&
-														styles.radioOuterSelected,
+													styles.radioOuterSelected,
 												]}
 											>
 												{selectedOffering ===
 													'services' && (
-													<View style={styles.radioInner} />
-												)}
+														<View style={styles.radioInner} />
+													)}
 											</View>
 											<Text style={styles.optionText}>
 												I render services
