@@ -102,10 +102,10 @@ const InvoiceTable = ({
 			typeof selectedInvoice.outstandingAmount === 'number'
 				? selectedInvoice.outstandingAmount
 				: Math.max(
-						0,
-						(selectedInvoice.totalAmount || 0) -
-							(selectedInvoice.paidAmount || 0),
-				  );
+					0,
+					(selectedInvoice.totalAmount || 0) -
+					(selectedInvoice.paidAmount || 0),
+				);
 		setAmountPaid(
 			outstanding > 0 ? String(outstanding) : '',
 		);
@@ -119,16 +119,22 @@ const InvoiceTable = ({
 
 	// Helper to get the display store (Parent if current is Branch, else current)
 	const getDisplayStore = () => {
-		if (selectedStore?._isBranch) {
+		// Attempt to grab fresh store data from userInfo if available
+		const freshStore =
+			userInfo?.stores?.find((s) => s._id === selectedStore?._id) ||
+			selectedStore;
+
+		if (freshStore?._isBranch) {
 			// Try to find parent in userInfo.stores
 			const parent = userInfo?.stores?.find(
-				(s) => s._id === (selectedStore.parent || selectedStore._storeId)
+				(s) =>
+					s._id === (freshStore.parent || freshStore._storeId),
 			);
-			// Fallback: use selectedStore but try to show parent name if possible, 
+			// Fallback: use freshStore but try to show parent name if possible,
 			// though usually we want the full parent object for logo/payment info.
-			return parent || selectedStore;
+			return parent || freshStore;
 		}
-		return selectedStore || userInfo || {};
+		return freshStore || userInfo || {};
 	};
 
 	/**
@@ -142,6 +148,7 @@ const InvoiceTable = ({
 		const storeAddress = displayStore.address || '';
 		const storePhone = displayStore.phone || '';
 		const storeEmail = displayStore.email || '';
+		const storeTin = displayStore.tin || '';
 
 		const invoiceNumber =
 			invoice.invoiceNumber ||
@@ -389,6 +396,7 @@ const InvoiceTable = ({
               <div>${storeAddress}</div>
               <div>${storeEmail}</div>
               <div>${storePhone}</div>
+              ${storeTin ? `<div>TIN: ${storeTin}</div>` : ''}
             </div>
           </div>
           
@@ -507,6 +515,7 @@ const InvoiceTable = ({
 		const logoUrl = displayStore.logoUrl || '';
 		const storeName = (displayStore.name || '').replace(/&/g, '&amp;');
 		const storeAddress = displayStore.address || '';
+		const storeTin = displayStore.tin || '';
 
 		const invoiceNumber =
 			(invoice &&
@@ -524,9 +533,9 @@ const InvoiceTable = ({
 
 		const paidAmount = invoice
 			? (invoice.payments || []).reduce(
-					(sum, p) => sum + Number(p.amount || 0),
-					0,
-			  )
+				(sum, p) => sum + Number(p.amount || 0),
+				0,
+			)
 			: paidNow;
 		const outstanding = invoice
 			? Number(invoice.outstandingAmount ?? 0)
@@ -640,6 +649,7 @@ const InvoiceTable = ({
           <div style="margin-bottom: 12px;">${logoHtml}</div>
           <div class="store-name">${storeName}</div>
           <div class="store-addr">${storeAddress}</div>
+          ${storeTin ? `<div class="store-addr">TIN: ${storeTin}</div>` : ''}
         </div>
 
         <div class="footer">Powered by <b>Tradeet Business</b></div>
@@ -711,9 +721,8 @@ const InvoiceTable = ({
 									await Print.printToFileAsync({ html });
 								await Sharing.shareAsync(uri, {
 									mimeType: 'application/pdf',
-									dialogTitle: `Invoice ${
-										selectedInvoice.invoiceNumber || ''
-									}`,
+									dialogTitle: `Invoice ${selectedInvoice.invoiceNumber || ''
+										}`,
 								});
 								ToastAndroid.show(
 									'Invoice shared',
@@ -732,9 +741,8 @@ const InvoiceTable = ({
 				});
 				await Sharing.shareAsync(uri, {
 					mimeType: 'application/pdf',
-					dialogTitle: `Invoice ${
-						selectedInvoice.invoiceNumber || ''
-					}`,
+					dialogTitle: `Invoice ${selectedInvoice.invoiceNumber || ''
+						}`,
 				});
 				ToastAndroid.show(
 					'Invoice shared',
@@ -768,9 +776,8 @@ const InvoiceTable = ({
 			});
 			await Sharing.shareAsync(uri, {
 				mimeType: 'application/pdf',
-				dialogTitle: `Receipt ${
-					updatedInvoice?.invoiceNumber || ''
-				}`,
+				dialogTitle: `Receipt ${updatedInvoice?.invoiceNumber || ''
+					}`,
 			});
 			ToastAndroid.show(
 				'Receipt shared',
@@ -856,7 +863,7 @@ const InvoiceTable = ({
 									outstandingAmount: Math.max(
 										0,
 										(selectedInvoice.totalAmount || 0) -
-											localPaid,
+										localPaid,
 									),
 									payments: [
 										...(selectedInvoice.payments || []),
@@ -864,7 +871,7 @@ const InvoiceTable = ({
 									],
 									status:
 										localPaid >=
-										(selectedInvoice.totalAmount || 0)
+											(selectedInvoice.totalAmount || 0)
 											? 'paid'
 											: 'partial',
 								};
@@ -914,10 +921,9 @@ const InvoiceTable = ({
 													});
 												await Sharing.shareAsync(uri, {
 													mimeType: 'application/pdf',
-													dialogTitle: `Invoice ${
-														updatedInvoice.invoiceNumber ||
+													dialogTitle: `Invoice ${updatedInvoice.invoiceNumber ||
 														''
-													}`,
+														}`,
 												});
 												ToastAndroid.show(
 													'Invoice shared',
@@ -939,9 +945,8 @@ const InvoiceTable = ({
 									await sendPushNotification(
 										userInfo.expoPushToken,
 										'Payment recorded',
-										`A payment of ₦${paymentPayload.amount.toLocaleString()} was recorded for invoice ${
-											updatedInvoice.invoiceNumber ||
-											updatedInvoice._id
+										`A payment of ₦${paymentPayload.amount.toLocaleString()} was recorded for invoice ${updatedInvoice.invoiceNumber ||
+										updatedInvoice._id
 										}`,
 										{
 											type: 'payment_recorded',
@@ -978,76 +983,90 @@ const InvoiceTable = ({
 		switch (status) {
 			case 'paid':
 			case 'completed':
-				return styles.statusCompleted;
+				return { backgroundColor: '#F0FDF4', color: '#15803d', borderColor: '#BBF7D0' };
 			case 'issued':
 			case 'partial':
-				return styles.statusPartial;
+				return { backgroundColor: '#FEFCE8', color: '#B45309', borderColor: '#FEF08A' };
 			case 'draft':
 			case 'pending':
 			default:
-				return styles.statusPending;
+				return { backgroundColor: '#FEF2F2', color: '#B91C1C', borderColor: '#FECACA' };
 		}
 	};
 
-	const renderRow = ({ item, index }) => (
-		<TouchableOpacity
-			style={[
-				styles.row,
-				index % 2 === 0 ? styles.evenRow : styles.oddRow,
-			]}
-			onPress={() => openModal(item)}
-		>
-			<Text style={[styles.cell, { fontWeight: '500' }]}>
-				#{String(item.invoiceNumber || item._id).slice(-6)}
-			</Text>
-			<Text style={styles.cell}>
-				₦{(item.totalAmount || 0).toLocaleString()}
-			</Text>
-			<Text style={styles.cell}>
-				₦
-				{(
-					item.outstandingAmount ??
-					Math.max(
-						0,
-						(item.totalAmount || 0) -
-							(item.paidAmount || 0),
-					)
-				).toLocaleString()}
-			</Text>
-			<View style={styles.statusCellContainer}>
-				<Text
-					style={[
-						styles.statusBadge,
-						getPaymentStatusStyle(item.status),
-					]}
-				>
-					{(item.status || 'unknown').toUpperCase()}
-				</Text>
-			</View>
-		</TouchableOpacity>
-	);
+	const renderCard = ({ item }) => {
+		const statusStyle = getPaymentStatusStyle(item.status);
+		const outstanding = item.outstandingAmount ?? Math.max(0, (item.totalAmount || 0) - (item.paidAmount || 0));
+
+		return (
+			<TouchableOpacity
+				style={styles.invoiceCard}
+				onPress={() => openModal(item)}
+				activeOpacity={0.7}
+			>
+				{/* Top Row: ID and Date */}
+				<View style={styles.cardHeader}>
+					<Text style={styles.cardId}>
+						#{String(item.invoiceNumber || item._id).slice(-6).toUpperCase()}
+					</Text>
+					<Text style={styles.cardDate}>
+						{formatDate(item.createdAt)}
+					</Text>
+				</View>
+
+				{/* Middle: Amount & Balance */}
+				<View style={styles.cardBody}>
+					<View>
+						<Text style={styles.cardLabel}>Amount</Text>
+						<Text style={styles.cardAmount}>
+							₦{(item.totalAmount || 0).toLocaleString()}
+						</Text>
+					</View>
+					{outstanding > 0 && (
+						<View style={{ alignItems: 'flex-end' }}>
+							<Text style={[styles.cardLabel, { color: '#EF4444' }]}>Balance</Text>
+							<Text style={styles.cardBalance}>
+								₦{outstanding.toLocaleString()}
+							</Text>
+						</View>
+					)}
+				</View>
+
+				{/* Bottom: Customer & Status */}
+				<View style={styles.cardFooter}>
+					<View style={styles.customerContainer}>
+						<Ionicons name="person-circle-outline" size={16} color="#6B7280" />
+						<Text style={styles.cardCustomer} numberOfLines={1}>
+							{item.customerInfo?.name || 'Customer'}
+						</Text>
+					</View>
+					<View style={[styles.statusBadgeContainer, { backgroundColor: statusStyle.backgroundColor, borderColor: statusStyle.borderColor }]}>
+						<Text style={[styles.statusText, { color: statusStyle.color }]}>
+							{(item.status || 'pending').toUpperCase()}
+						</Text>
+					</View>
+				</View>
+			</TouchableOpacity>
+		)
+	};
 
 	return (
 		<View style={styles.container}>
-			{/* Table Header */}
-			<View style={styles.header}>
-				<Text style={styles.headerCell}>Invoice</Text>
-				<Text style={styles.headerCell}>Amount</Text>
-				<Text style={styles.headerCell}>Balance</Text>
-				<Text style={styles.headerCell}>Status</Text>
-			</View>
-
-			{/* Table Body */}
 			<FlatList
 				data={invoices}
-				renderItem={renderRow}
+				renderItem={renderCard}
 				keyExtractor={(item) => item._id}
+				contentContainerStyle={{ padding: 16, paddingBottom: 100 }}
 				ListEmptyComponent={() => (
-					<Text style={styles.emptyListText}>
-						No invoices found.
-					</Text>
+					<View style={styles.emptyContainer}>
+						<Ionicons name="document-text-outline" size={48} color="#9CA3AF" />
+						<Text style={styles.emptyListText}>
+							No invoices found.
+						</Text>
+					</View>
 				)}
 			/>
+			{/* Invoice Details Modal (unchanged)... */}
 
 			{/* Invoice Details Modal */}
 			{selectedInvoice && (
@@ -1500,7 +1519,7 @@ const InvoiceTable = ({
 											style={[
 												styles.paymentMethodButton,
 												selectedMethod === 'transfer' &&
-													styles.selectedPaymentMethod,
+												styles.selectedPaymentMethod,
 											]}
 											onPress={() =>
 												setSelectedMethod('transfer')
@@ -1510,7 +1529,7 @@ const InvoiceTable = ({
 												style={[
 													styles.circle,
 													selectedMethod === 'transfer' &&
-														styles.selectedCircle,
+													styles.selectedCircle,
 												]}
 											>
 												{selectedMethod === 'transfer' && (
@@ -1530,7 +1549,7 @@ const InvoiceTable = ({
 											style={[
 												styles.paymentMethodButton,
 												selectedMethod === 'cash' &&
-													styles.selectedPaymentMethod,
+												styles.selectedPaymentMethod,
 											]}
 											onPress={() =>
 												setSelectedMethod('cash')
@@ -1540,7 +1559,7 @@ const InvoiceTable = ({
 												style={[
 													styles.circle,
 													selectedMethod === 'cash' &&
-														styles.selectedCircle,
+													styles.selectedCircle,
 												]}
 											>
 												{selectedMethod === 'cash' && (
@@ -1585,58 +1604,104 @@ const InvoiceTable = ({
 };
 
 const styles = StyleSheet.create({
-	container: { flex: 1, backgroundColor: '#f8f8f8' },
-	header: {
-		flexDirection: 'row',
-		backgroundColor: '#e0e0e0',
-		paddingVertical: 12,
-		borderBottomWidth: 1,
-		borderBottomColor: '#ccc',
-		paddingHorizontal: 10,
+	container: { flex: 1, backgroundColor: '#F9FAFB' },
+
+	// Card Styles
+	invoiceCard: {
+		backgroundColor: '#FFFFFF',
+		borderRadius: 12,
+		padding: 16,
+		marginBottom: 12,
+		borderWidth: 1,
+		borderColor: '#E5E7EB',
+		shadowColor: '#000',
+		shadowOffset: { width: 0, height: 1 },
+		shadowOpacity: 0.05,
+		shadowRadius: 2,
+		elevation: 1,
 	},
-	headerCell: {
-		flex: 1,
-		fontWeight: 'bold',
-		textAlign: 'center',
-		fontSize: 13,
-		color: '#333',
-	},
-	row: {
+	cardHeader: {
 		flexDirection: 'row',
-		paddingVertical: 15,
-		paddingHorizontal: 10,
-		borderBottomWidth: 1,
-		borderBottomColor: '#eee',
+		justifyContent: 'space-between',
 		alignItems: 'center',
+		marginBottom: 12,
+		borderBottomWidth: 1,
+		borderBottomColor: '#F3F4F6',
+		paddingBottom: 8,
 	},
-	evenRow: { backgroundColor: '#ffffff' },
-	oddRow: { backgroundColor: '#fcfcfc' },
-	cell: {
-		flex: 1,
-		textAlign: 'center',
+	cardId: {
 		fontSize: 13,
-		color: '#555',
+		fontWeight: '600',
+		color: '#6B7280',
+		letterSpacing: 0.5,
 	},
-	statusCellContainer: { flex: 1, alignItems: 'center' },
-	statusBadge: {
-		paddingVertical: 4,
-		paddingHorizontal: 8,
-		borderRadius: 15,
-		fontSize: 10,
-		fontWeight: 'bold',
-		color: '#fff',
+	cardDate: {
+		fontSize: 12,
+		color: '#9CA3AF',
+	},
+	cardBody: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		alignItems: 'flex-start',
+		marginBottom: 12,
+	},
+	cardLabel: {
+		fontSize: 11,
+		color: '#6B7280',
 		textTransform: 'uppercase',
-		minWidth: 70,
-		textAlign: 'center',
+		marginBottom: 4,
+		fontWeight: '500',
 	},
-	statusCompleted: { backgroundColor: '#4CAF50' },
-	statusPartial: { backgroundColor: '#FFC107' },
-	statusPending: { backgroundColor: '#F44336' },
+	cardAmount: {
+		fontSize: 18,
+		fontWeight: '700',
+		color: '#111827',
+	},
+	cardBalance: {
+		fontSize: 16,
+		fontWeight: '600',
+		color: '#EF4444',
+	},
+	cardFooter: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		alignItems: 'center',
+		marginTop: 4,
+	},
+	customerContainer: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 6,
+		flex: 1,
+		marginRight: 10,
+	},
+	cardCustomer: {
+		fontSize: 13,
+		color: '#374151',
+		fontWeight: '500',
+	},
+	statusBadgeContainer: {
+		paddingVertical: 4,
+		paddingHorizontal: 10,
+		borderRadius: 20,
+		borderWidth: 1,
+	},
+	statusText: {
+		fontSize: 11,
+		fontWeight: '700',
+		letterSpacing: 0.5,
+	},
+
+	emptyContainer: {
+		alignItems: 'center',
+		justifyContent: 'center',
+		marginTop: 60,
+	},
 	emptyListText: {
 		textAlign: 'center',
-		marginTop: 20,
-		fontSize: 16,
-		color: '#777',
+		marginTop: 16,
+		fontSize: 15,
+		color: '#6B7280',
 	},
 
 	// Modal
@@ -1644,241 +1709,237 @@ const styles = StyleSheet.create({
 		flex: 1,
 		justifyContent: 'center',
 		alignItems: 'center',
-		backgroundColor: 'rgba(0, 0, 0, 0.7)',
+		backgroundColor: 'rgba(0, 0, 0, 0.5)',
 	},
 	modalContent: {
 		width: '100%',
 		maxHeight: '100%',
 		backgroundColor: '#fff',
-		padding: 5,
+		padding: 0,
 		elevation: 10,
 		shadowColor: '#000',
 		shadowOffset: { width: 0, height: 4 },
-		shadowOpacity: 0.3,
-		shadowRadius: 5,
+		shadowOpacity: 0.1,
+		shadowRadius: 10,
 		height: '100%',
 	},
 	invoiceDetailScroll: {
 		flexGrow: 1,
 		width: '100%',
 		backgroundColor: '#fff',
-		paddingTop: 15,
-		paddingHorizontal: 15,
+		paddingTop: 20,
+		paddingHorizontal: 20,
 	},
-	invoiceDetailContent: { paddingBottom: 20 },
+	invoiceDetailContent: { paddingBottom: 40 },
 	invoiceHeaderSection: {
 		flexDirection: 'row',
 		justifyContent: 'space-between',
 		alignItems: 'flex-start',
-		marginBottom: 20,
+		marginBottom: 24,
 		borderBottomWidth: 1,
-		borderBottomColor: '#eee',
-		paddingBottom: 15,
+		borderBottomColor: '#F3F4F6',
+		paddingBottom: 20,
 	},
 	invoiceId: {
-		fontSize: 20,
-		fontWeight: 'bold',
-		color: '#333',
+		fontSize: 22,
+		fontWeight: '800',
+		color: '#111827',
+		marginBottom: 4,
 	},
 	invoiceDate: {
-		fontSize: 14,
-		color: '#777',
-		marginTop: 5,
+		fontSize: 13,
+		color: '#6B7280',
+		marginTop: 4,
 	},
 	modalStatusBadge: {
-		marginTop: 8,
+		marginTop: 10,
 		alignSelf: 'flex-start',
 	},
-	storeInfo: { alignItems: 'center' },
+	storeInfo: { alignItems: 'flex-end' },
 	storeLogo: {
-		width: 60,
-		height: 60,
-		borderRadius: 30,
+		width: 50,
+		height: 50,
+		borderRadius: 25,
 		marginBottom: 8,
 		borderWidth: 1,
-		borderColor: '#eee',
+		borderColor: '#E5E7EB',
 		resizeMode: 'contain',
+		backgroundColor: '#F9FAFB',
 	},
 	storeName: {
-		fontSize: 18,
-		fontWeight: 'bold',
-		color: '#333',
+		fontSize: 16,
+		fontWeight: '700',
+		color: '#111827',
 		textAlign: 'right',
 	},
 	storeContact: {
-		fontSize: 13,
-		color: '#666',
+		fontSize: 12,
+		color: '#6B7280',
 		textAlign: 'right',
+		marginTop: 2,
 	},
 
 	billedToSection: {
-		marginBottom: 20,
-		paddingBottom: 15,
+		marginBottom: 24,
+		paddingBottom: 20,
 		borderBottomWidth: 1,
-		borderBottomColor: '#eee',
+		borderBottomColor: '#F3F4F6',
 	},
 	sectionTitle: {
-		fontSize: 16,
-		fontWeight: 'bold',
-		marginBottom: 10,
-		color: '#444',
+		fontSize: 12,
+		fontWeight: '700',
+		marginBottom: 8,
+		color: '#9CA3AF',
+		textTransform: 'uppercase',
+		letterSpacing: 0.5,
 	},
 	customerName: {
 		fontSize: 16,
-		fontWeight: 'bold',
-		color: '#333',
-		marginBottom: 2,
+		fontWeight: '600',
+		color: '#111827',
+		marginBottom: 4,
 	},
-	customerContact: { fontSize: 13, color: '#666' },
+	customerContact: { fontSize: 13, color: '#4B5563', lineHeight: 20 },
 
 	itemsHeader: {
 		flexDirection: 'row',
-		backgroundColor: '#f0f0f0',
-		paddingVertical: 8,
-		borderRadius: 5,
+		borderBottomWidth: 2,
+		borderColor: '#E5E7EB',
+		paddingBottom: 8,
 		marginBottom: 10,
 	},
 	itemHeaderCell: {
 		flex: 1,
-		fontWeight: 'bold',
+		fontWeight: '700',
 		textAlign: 'left',
-		fontSize: 12,
-		color: '#555',
-		paddingHorizontal: 10,
+		fontSize: 11,
+		color: '#6B7280',
+		textTransform: 'uppercase',
 	},
 	itemRow: {
 		flexDirection: 'row',
-		paddingVertical: 8,
+		paddingVertical: 12,
 		borderBottomWidth: 1,
-		borderBottomColor: '#f7f7f7',
+		borderBottomColor: '#F3F4F6',
 		alignItems: 'flex-start',
-		paddingHorizontal: 5,
 	},
 	itemName: {
-		fontSize: 14,
-		color: '#333',
-		fontWeight: 'bold',
+		fontSize: 13,
+		color: '#1F2937',
+		fontWeight: '500',
+		lineHeight: 20,
 	},
 	itemAddon: {
-		fontSize: 12,
-		color: '#777',
-		marginLeft: 10,
+		fontSize: 11,
+		color: '#6B7280',
+		marginTop: 2,
 	},
 	itemQuantity: {
 		flex: 1,
 		textAlign: 'left',
-		fontSize: 14,
-		color: '#555',
+		fontSize: 13,
+		color: '#4B5563',
 	},
 	itemAmount: {
 		flex: 1,
 		textAlign: 'left',
-		fontSize: 14,
-		fontWeight: '500',
-		color: '#333',
+		fontSize: 13,
+		fontWeight: '600',
+		color: '#111827',
 	},
 
 	summaryRow: {
 		flexDirection: 'row',
-		paddingVertical: 8,
-		borderBottomWidth: 1,
-		borderBottomColor: '#f7f7f7',
-		alignItems: 'flex-start',
-		paddingHorizontal: 5,
+		paddingVertical: 6,
+		paddingHorizontal: 0,
+		justifyContent: 'space-between',
 	},
 	summaryLabel: {
-		fontSize: 14,
-		color: '#555',
-		textAlign: 'center',
+		fontSize: 13,
+		color: '#6B7280',
 	},
 	summaryValue: {
-		flex: 1,
-		textAlign: 'left',
-		fontSize: 14,
+		fontSize: 13,
 		fontWeight: '500',
-		color: '#333',
+		color: '#111827',
+		textAlign: 'right',
 	},
 
 	totalRow: {
 		flexDirection: 'row',
 		justifyContent: 'space-between',
 		alignItems: 'center',
-		marginTop: 15,
-		paddingTop: 10,
+		marginTop: 12,
+		paddingTop: 12,
 		borderTopWidth: 1,
-		borderTopColor: '#eee',
-		paddingRight: 15,
-		paddingLeft: 5,
+		borderTopColor: '#E5E7EB',
 	},
 	totalLabel: {
-		fontSize: 18,
-		fontWeight: 'bold',
-		color: '#222',
+		fontSize: 16,
+		fontWeight: '700',
+		color: '#111827',
 	},
 	totalValue: {
-		fontSize: 18,
-		fontWeight: 'bold',
-		color: '#222',
+		fontSize: 16,
+		fontWeight: '700',
+		color: '#111827',
 	},
 
 	balanceRow: {
 		flexDirection: 'row',
 		justifyContent: 'space-between',
 		alignItems: 'center',
-		marginTop: 10,
-		paddingTop: 8,
-		borderTopWidth: 1,
-		borderTopColor: '#f0f0f0',
-		paddingRight: 20,
+		marginTop: 8,
 	},
 	balanceLabel: {
-		fontSize: 16,
-		fontWeight: 'bold',
-		color: '#D32F2F',
+		fontSize: 14,
+		fontWeight: '600',
+		color: '#DC2626',
 	},
 	balanceValue: {
-		fontSize: 16,
-		fontWeight: 'bold',
-		color: '#D32F2F',
-		textAlign: 'center',
+		fontSize: 14,
+		fontWeight: '600',
+		color: '#DC2626',
 	},
 
 	paymentHistorySection: {
-		marginTop: 20,
-		paddingTop: 15,
+		marginTop: 30,
+		paddingTop: 20,
 		borderTopWidth: 1,
-		borderTopColor: '#eee',
+		borderTopColor: '#F3F4F6',
 	},
 	paymentHistoryTitle: {
-		fontSize: 16,
-		fontWeight: 'bold',
-		marginBottom: 10,
-		color: '#444',
+		fontSize: 13,
+		fontWeight: '700',
+		marginBottom: 12,
+		color: '#374151',
+		textTransform: 'uppercase',
 	},
 	paymentHistoryItem: {
 		flexDirection: 'row',
 		justifyContent: 'space-between',
 		alignItems: 'center',
-		paddingVertical: 8,
-		borderBottomWidth: 0.5,
-		borderBottomColor: '#f5f5f5',
+		paddingVertical: 10,
+		borderBottomWidth: 1,
+		borderBottomColor: '#F9FAFB',
 	},
 	paymentHistoryText: {
-		fontSize: 13,
-		color: '#666',
+		fontSize: 12,
+		color: '#6B7280',
 		flex: 2,
 	},
 	paymentHistoryMethod: {
-		fontSize: 13,
-		color: '#666',
+		fontSize: 12,
+		color: '#374151',
 		flex: 1.5,
 		textAlign: 'center',
 		textTransform: 'capitalize',
+		fontWeight: '500',
 	},
 	paymentHistoryAmount: {
-		fontSize: 13,
-		fontWeight: '500',
-		color: '#333',
+		fontSize: 12,
+		fontWeight: '600',
+		color: '#111827',
 		flex: 1,
 		textAlign: 'right',
 	},
@@ -1888,38 +1949,39 @@ const styles = StyleSheet.create({
 		justifyContent: 'space-between',
 		marginTop: 0,
 		borderTopWidth: 1,
-		borderTopColor: '#eee',
-		paddingTop: 15,
-		paddingHorizontal: 10,
-		paddingBottom: 15,
+		borderTopColor: '#E5E7EB',
+		paddingTop: 16,
+		paddingHorizontal: 16,
+		paddingBottom: 24, // safe area padding
+		backgroundColor: '#fff',
 	},
 	actionButton: {
 		paddingVertical: 12,
-		paddingHorizontal: 10,
-		borderRadius: 8,
+		paddingHorizontal: 16,
+		borderRadius: 10,
 		justifyContent: 'center',
 		alignItems: 'center',
 		minWidth: 100,
 	},
-	recordPaymentButton: { backgroundColor: '#18a54a' },
+	recordPaymentButton: { backgroundColor: '#059669' },
 	shareButton: {
-		backgroundColor: '#007BFF',
-		marginLeft: 10,
+		backgroundColor: '#2563EB',
+		marginLeft: 12,
 	},
 	closeModalButton: {
-		backgroundColor: '#e0e0e0',
-		paddingHorizontal: 3,
-		minWidth: 60,
+		backgroundColor: '#F3F4F6',
+		paddingHorizontal: 16,
+		minWidth: 80,
 	},
 	actionButtonText: {
 		color: '#fff',
-		fontWeight: 'bold',
-		fontSize: 15,
+		fontWeight: '600',
+		fontSize: 14,
 	},
 	closeButtonText: {
-		color: '#333',
-		fontWeight: 'bold',
-		fontSize: 15,
+		color: '#374151',
+		fontWeight: '600',
+		fontSize: 14,
 	},
 	rightActionButtons: {
 		flexDirection: 'row',
@@ -1932,91 +1994,94 @@ const styles = StyleSheet.create({
 		flexDirection: 'row',
 		justifyContent: 'space-between',
 		alignItems: 'center',
-		marginBottom: 20,
+		marginBottom: 24,
 	},
 	paymentModalTitle: {
-		fontSize: 20,
-		fontWeight: 'bold',
-		color: '#333',
+		fontSize: 18,
+		fontWeight: '700',
+		color: '#111827',
 	},
-	inputGroup: { marginBottom: 15 },
+	inputGroup: { marginBottom: 20 },
 	inputLabel: {
-		fontSize: 16,
+		fontSize: 14,
 		marginBottom: 8,
-		color: '#333',
+		color: '#374151',
 		fontWeight: '500',
 	},
 	textInput: {
 		borderWidth: 1,
-		borderColor: '#ddd',
+		borderColor: '#D1D5DB',
 		padding: 12,
 		borderRadius: 8,
-		fontSize: 16,
-		color: '#333',
+		fontSize: 15,
+		color: '#111827',
+		backgroundColor: '#fff',
 	},
 	paymentMethodContainer: {
 		flexDirection: 'row',
 		justifyContent: 'space-between',
-		marginTop: 10,
-		marginBottom: 20,
+		marginTop: 8,
+		marginBottom: 24,
+		gap: 12,
 	},
 	paymentMethodButton: {
 		flexDirection: 'row',
 		alignItems: 'center',
 		paddingVertical: 12,
-		paddingHorizontal: 15,
-		borderWidth: 2,
-		borderColor: '#e0e0e0',
-		borderRadius: 10,
-		width: '48%',
+		paddingHorizontal: 12,
+		borderWidth: 1,
+		borderColor: '#E5E7EB',
+		borderRadius: 8,
+		flex: 1,
+		backgroundColor: '#fff',
 	},
 	selectedPaymentMethod: {
-		borderColor: '#18a54a',
-		backgroundColor: '#e6f7ed',
+		borderColor: '#059669',
+		backgroundColor: '#ECFDF5',
 	},
 	paymentMethodText: {
-		fontSize: 15,
-		marginLeft: 10,
-		color: '#333',
+		fontSize: 14,
+		marginLeft: 8,
+		color: '#374151',
 		fontWeight: '500',
 	},
 	circle: {
-		height: 20,
-		width: 20,
-		borderRadius: 10,
+		height: 18,
+		width: 18,
+		borderRadius: 9,
 		borderWidth: 2,
-		borderColor: '#ccc',
+		borderColor: '#D1D5DB',
 		alignItems: 'center',
 		justifyContent: 'center',
 	},
-	selectedCircle: { borderColor: '#18a54a' },
+	selectedCircle: { borderColor: '#059669' },
 	circleInner: {
-		height: 10,
-		width: 10,
-		borderRadius: 5,
-		backgroundColor: '#18a54a',
+		height: 9,
+		width: 9,
+		borderRadius: 4.5,
+		backgroundColor: '#059669',
 	},
 	recordPaymentSubmitButton: {
-		backgroundColor: '#18a54a',
-		paddingVertical: 15,
-		borderRadius: 8,
+		backgroundColor: '#059669',
+		paddingVertical: 14,
+		borderRadius: 10,
 		alignItems: 'center',
-		marginTop: 10,
+		marginTop: 8,
 	},
 	recordPaymentSubmitButtonText: {
 		color: '#fff',
-		fontWeight: 'bold',
-		fontSize: 16,
+		fontWeight: '600',
+		fontSize: 15,
 	},
 	watermarkText: {
 		position: 'absolute',
-		top: '50%',
+		top: '40%',
 		left: '10%',
 		right: '10%',
 		textAlign: 'center',
-		fontSize: 50,
+		fontSize: 40,
 		fontWeight: '800',
-		color: 'rgba(0, 0, 0, 0.03)',
+		color: 'rgba(0, 0, 0, 0.02)',
 		transform: [{ rotate: '-45deg' }],
 		zIndex: 0,
 		textTransform: 'uppercase',

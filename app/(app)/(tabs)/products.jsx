@@ -33,14 +33,14 @@ const DEFAULT_THUMB =
 const { width } = Dimensions.get('window');
 
 const Products = () => {
-	const { selectedStore, userInfo, switchSelectedBranch } = useContext(AuthContext);
+	const { selectedStore, userInfo, switchSelectedBranch, switchSelectedStore, getPlanCapability } = useContext(AuthContext);
 
 	// selectedStore may be a branch or a top-level store object
 	const storeId = selectedStore?._id ?? userInfo?.stores?.[0]?._id ?? null;
 
 	const {
 		products,
-		fetchProductsByStore, // (storeId, branchId, { page, q, limit })
+		fetchProductsByStore,
 		loading,
 		setProducts,
 		addProduct,
@@ -52,8 +52,8 @@ const Products = () => {
 	const itemsArray = Array.isArray(products)
 		? products
 		: Array.isArray(products?.items)
-		? products.items
-		: [];
+			? products.items
+			: [];
 
 	// Helper to update products state safely
 	const updateProductsItems = (updater) => {
@@ -61,8 +61,8 @@ const Products = () => {
 			const currentItems = Array.isArray(prev)
 				? prev
 				: Array.isArray(prev?.items)
-				? prev.items
-				: [];
+					? prev.items
+					: [];
 
 			const nextItems = updater(currentItems || []);
 
@@ -103,12 +103,8 @@ const Products = () => {
 				}
 				const p = opts.reset ? 1 : page;
 
-				// pass selectedStore._id as branchId (could be a branch object or store)
-				// If selectedStore is the parent store itself, branchId might be same or specialized.
-				// Based on products context signature update:
-				// fetchProductsByStore(storeId, branchId, params)
 				const sId = selectedStore?.parent || selectedStore?._id;
-				const bId = selectedStore?.parent ? selectedStore._id : null; // If parent exists, it's a branch
+				const bId = selectedStore?.parent ? selectedStore._id : null;
 
 				const resp = await fetchProductsByStore(
 					sId,
@@ -148,7 +144,7 @@ const Products = () => {
 		} else {
 			setProducts([]);
 		}
-	}, [selectedStore]); // Dependency on selectedStore object to catch switches
+	}, [selectedStore]);
 
 	// Refresh
 	const onRefresh = async () => {
@@ -159,6 +155,21 @@ const Products = () => {
 
 	// Modal Actions
 	const openModal = (product = null) => {
+		if (!product) {
+			// Check limit for NEW products
+			const limit = getPlanCapability('productLimit');
+			if (itemsArray.length >= limit) {
+				Alert.alert(
+					'Product Limit Reached',
+					`Your current plan allows up to ${limit} products. Please upgrade to add more.`,
+					[
+						{ text: 'Cancel', style: 'cancel' },
+						{ text: 'Upgrade', onPress: () => router.push('/(app)/subscription') }
+					]
+				);
+				return;
+			}
+		}
 		setIsEditing(Boolean(product));
 		setSelectedProduct(product);
 		setModalVisible(true);
@@ -265,11 +276,11 @@ const Products = () => {
 	const handleSelectStoreBranch = async (obj) => {
 		try {
 			if (!obj) return;
-			// Adapt to AuthContext: switchSelectedBranch(branchId, storeId)
 			if (obj.type === 'branch') {
 				await switchSelectedBranch(obj._id, obj.parent);
 			} else {
-				await switchSelectedBranch(obj._id, null);
+				// Fixed: use switchSelectedStore for stores
+				await switchSelectedStore(obj);
 			}
 			setStoreModalVisible(false);
 		} catch (err) {
@@ -281,11 +292,11 @@ const Products = () => {
 	const isActiveIsBranch = !!selectedStore?.parent;
 	const displayStoreName = selectedStore?.parentStoreName || selectedStore?.name || 'Select Store';
 
-	// Card Component
+	// Card Component - Updated Style
 	const ProductCard = ({ item }) => (
 		<TouchableOpacity
 			style={styles.card}
-			activeOpacity={0.9}
+			activeOpacity={0.7}
 			onPress={() => openMenu(item)}
 		>
 			<Image
@@ -294,53 +305,54 @@ const Products = () => {
 				resizeMode="cover"
 			/>
 			<View style={styles.cardContent}>
-				<View style={styles.cardTop}>
-					<Text style={styles.cardTitle} numberOfLines={2}>
-						{getProductTitle(item)}
-					</Text>
-					<TouchableOpacity style={styles.moreBtn} onPress={() => openMenu(item)}>
-						<MaterialCommunityIcons name="dots-horizontal" size={20} color="#9CA3AF" />
-					</TouchableOpacity>
-				</View>
+				<View style={styles.cardHeaderRow}>
+					<View style={{ flex: 1 }}>
+						<Text style={styles.cardTitle} numberOfLines={1}>
+							{getProductTitle(item)}
+						</Text>
+						<Text style={styles.cardCategory}>{getCategoryName(item)}</Text>
+					</View>
 
-				<Text style={styles.cardCategory}>{getCategoryName(item)}</Text>
-
-				<View style={styles.cardFooter}>
-					<Text style={styles.cardPrice}>{getPriceString(item)}</Text>
-					<View style={[styles.statusBadge, item.isActive ? styles.statusActive : styles.statusInactive]}>
+					<View style={[styles.statusPill, item.isActive ? styles.statusActive : styles.statusInactive]}>
 						<Text style={[styles.statusText, item.isActive ? styles.statusTextActive : styles.statusTextInactive]}>
 							{item.isActive ? 'Active' : 'Inactive'}
 						</Text>
 					</View>
 				</View>
 
-				<View style={styles.typeBadge}>
-					<Text style={styles.typeBadgeLabel}>{getTypeBadge(item)}</Text>
+				<View style={styles.cardFooter}>
+					<Text style={styles.cardPrice}>{getPriceString(item)}</Text>
+					{item.stock !== undefined && (
+						<Text style={styles.stockLabel}>{item.stock} in stock</Text>
+					)}
 				</View>
+			</View>
+			<View style={styles.moreBtnAbsolute}>
+				<Ionicons name="ellipsis-vertical" size={16} color="#9CA3AF" />
 			</View>
 		</TouchableOpacity>
 	);
 
 	return (
 		<View style={styles.container}>
-			<StatusBar style="light" backgroundColor="#065637" />
+			<StatusBar style="dark" backgroundColor="#FFFFFF" />
 
 			{/* Header */}
 			<View style={styles.header}>
 				<View style={{ flex: 1 }}>
 					<Text style={styles.headerTitle}>Products</Text>
-					<TouchableOpacity 
+					<TouchableOpacity
 						style={styles.storeSelector}
 						onPress={() => setStoreModalVisible(true)}
 					>
 						<Text style={styles.storeSelectorText} numberOfLines={1}>
-							{displayStoreName} 
+							{displayStoreName}
 							{isActiveIsBranch && ` • ${selectedStore?.name}`}
 						</Text>
-						<Ionicons name="chevron-down" size={14} color="#D1FAE5" style={{ marginLeft: 4 }} />
+						<Ionicons name="chevron-down" size={14} color="#6B7280" style={{ marginLeft: 4 }} />
 					</TouchableOpacity>
 				</View>
-				<TouchableOpacity style={styles.addButton} onPress={() => openModal()}>
+				<TouchableOpacity style={styles.iconButton} onPress={() => openModal()}>
 					<Ionicons name="add" size={24} color="#065637" />
 				</TouchableOpacity>
 			</View>
@@ -372,7 +384,7 @@ const Products = () => {
 					showsHorizontalScrollIndicator={false}
 					data={categories}
 					keyExtractor={(c) => c}
-					contentContainerStyle={{ paddingHorizontal: 16, gap: 8 }}
+					contentContainerStyle={{ paddingHorizontal: 20, gap: 8 }}
 					renderItem={({ item }) => {
 						const isActive = selectedCategory === item;
 						return (
@@ -406,7 +418,9 @@ const Products = () => {
 				ListEmptyComponent={
 					!loading && (
 						<View style={styles.emptyState}>
-							<MaterialCommunityIcons name="tag-off-outline" size={64} color="#D1D5DB" />
+							<View style={styles.emptyIconBg}>
+								<Ionicons name="cube-outline" size={48} color="#9CA3AF" />
+							</View>
 							<Text style={styles.emptyStateText}>No products found</Text>
 							<Text style={styles.emptyStateSub}>Tap + to add your first product</Text>
 						</View>
@@ -451,12 +465,12 @@ const Products = () => {
 								{menuProduct ? getProductTitle(menuProduct) : ''}
 							</Text>
 							<TouchableOpacity onPress={closeMenu}>
-								<Ionicons name="close-circle" size={24} color="#E5E7EB" />
+								<Ionicons name="close" size={20} color="#9CA3AF" />
 							</TouchableOpacity>
 						</View>
 
 						<TouchableOpacity
-							style={styles.menuItem} 
+							style={styles.menuItem}
 							onPress={() => { closeMenu(); openModal(menuProduct); }}
 						>
 							<View style={[styles.menuIcon, { backgroundColor: '#EFF6FF' }]}>
@@ -466,7 +480,7 @@ const Products = () => {
 						</TouchableOpacity>
 
 						<TouchableOpacity
-							style={styles.menuItem} 
+							style={styles.menuItem}
 							onPress={() => toggleActive(menuProduct)}
 						>
 							<View style={[styles.menuIcon, { backgroundColor: menuProduct?.isActive ? '#FEF3C7' : '#ECFDF5' }]}>
@@ -483,8 +497,8 @@ const Products = () => {
 
 						<View style={styles.menuDivider} />
 
-						<TouchableOpacity 
-							style={styles.menuItem} 
+						<TouchableOpacity
+							style={styles.menuItem}
 							onPress={() => confirmDelete(menuProduct)}
 						>
 							<View style={[styles.menuIcon, { backgroundColor: '#FEF2F2' }]}>
@@ -503,7 +517,7 @@ const Products = () => {
 				transparent
 				onRequestClose={() => setStoreModalVisible(false)}
 			>
-				<TouchableOpacity 
+				<TouchableOpacity
 					style={styles.modalOverlay}
 					activeOpacity={1}
 					onPress={() => setStoreModalVisible(false)}
@@ -511,14 +525,14 @@ const Products = () => {
 					<View style={styles.selectorContent}>
 						<View style={styles.selectorHeader}>
 							<Text style={styles.selectorTitle}>Select Business</Text>
-							<TouchableOpacity onPress={() => setStoreModalVisible(false)}>
-								<Ionicons name="close" size={24} color="#374151" />
+							<TouchableOpacity onPress={() => setStoreModalVisible(false)} style={styles.closeBtn}>
+								<Ionicons name="close" size={20} color="#374151" />
 							</TouchableOpacity>
 						</View>
 						<FlatList
 							data={userInfo?.stores || []}
 							keyExtractor={(s) => s._id}
-							contentContainerStyle={{ padding: 16 }}
+							contentContainerStyle={{ padding: 20 }}
 							renderItem={({ item: s }) => {
 								const isStoreSelected = selectedStore?._id === s._id;
 								return (
@@ -543,12 +557,17 @@ const Products = () => {
 													style={[styles.branchOption, isBranchSelected && styles.branchOptionSelected]}
 												>
 													<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-														<View style={styles.branchLine} />
+														<Ionicons
+															name="return-down-forward-outline"
+															size={16}
+															color="#9CA3AF"
+															style={{ marginRight: 8, marginLeft: 4 }}
+														/>
 														<View>
 															<Text style={[styles.branchOptionName, isBranchSelected && styles.branchOptionNameSelected]}>
 																{b.name || b.branchKey || 'Branch'}
 															</Text>
-															<Text style={styles.branchOptionAddress}>{b.address || 'Branch Location'}</Text>
+															<Text style={styles.branchOptionAddress}>{b.address || 'Location'}</Text>
 														</View>
 													</View>
 													{isBranchSelected && <Ionicons name="checkmark-circle" size={18} color="#065637" />}
@@ -569,20 +588,24 @@ const Products = () => {
 export default Products;
 
 const styles = StyleSheet.create({
-	container: { flex: 1, backgroundColor: '#F3F4F6' },
+	container: { flex: 1, backgroundColor: '#FFFFFF' },
+
+	// Header
 	header: {
-		backgroundColor: '#065637',
+		backgroundColor: '#FFFFFF',
 		paddingTop: Platform.OS === 'android' ? 50 : 60,
-		paddingBottom: 20,
+		paddingBottom: 16,
 		paddingHorizontal: 20,
 		flexDirection: 'row',
 		justifyContent: 'space-between',
 		alignItems: 'center',
+		borderBottomWidth: 1,
+		borderBottomColor: '#F3F4F6',
 	},
 	headerTitle: {
-		fontSize: 24,
+		fontSize: 28,
 		fontWeight: '800',
-		color: '#fff',
+		color: '#111827',
 		marginBottom: 4,
 	},
 	storeSelector: {
@@ -590,49 +613,43 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 	},
 	storeSelectorText: {
-		color: '#D1FAE5',
+		color: '#6B7280',
 		fontSize: 14,
-		fontWeight: '600',
+		fontWeight: '500',
 		maxWidth: 200,
 	},
-	addButton: {
-		width: 44,
-		height: 44,
-		borderRadius: 22,
-		backgroundColor: '#fff',
+	iconButton: {
+		width: 40,
+		height: 40,
+		borderRadius: 20,
+		backgroundColor: '#F3F4F6',
 		justifyContent: 'center',
 		alignItems: 'center',
-		shadowColor: '#000',
-		shadowOffset: { width: 0, height: 2 },
-		shadowOpacity: 0.1,
-		shadowRadius: 4,
-		elevation: 3,
 	},
+
+	// Search
 	searchSection: {
-		paddingHorizontal: 16,
-		marginTop: -15,
-		marginBottom: 10,
+		paddingHorizontal: 20,
+		paddingTop: 16,
+		marginBottom: 16,
 	},
 	searchBar: {
-		backgroundColor: '#fff',
+		backgroundColor: '#F3F4F6',
 		flexDirection: 'row',
 		alignItems: 'center',
 		borderRadius: 12,
-		paddingHorizontal: 15,
-		height: 50,
-		shadowColor: '#000',
-		shadowOffset: { width: 0, height: 2 },
-		shadowOpacity: 0.05,
-		shadowRadius: 5,
-		elevation: 3,
+		paddingHorizontal: 16,
+		height: 48,
 	},
 	searchInput: { flex: 1, marginLeft: 10, fontSize: 15, color: '#1F2937' },
-	tabsContainer: { paddingBottom: 10 },
+
+	// Tabs
+	tabsContainer: { paddingBottom: 16 },
 	tab: {
 		paddingVertical: 8,
 		paddingHorizontal: 16,
 		borderRadius: 20,
-		backgroundColor: '#fff',
+		backgroundColor: '#FFFFFF',
 		borderWidth: 1,
 		borderColor: '#E5E7EB',
 		marginRight: 8,
@@ -640,87 +657,79 @@ const styles = StyleSheet.create({
 	activeTab: { backgroundColor: '#065637', borderColor: '#065637' },
 	tabText: { fontSize: 13, fontWeight: '600', color: '#6B7280' },
 	activeTabText: { color: '#fff' },
-	listContent: { paddingHorizontal: 16, paddingBottom: 100 },
+	listContent: { paddingHorizontal: 20, paddingBottom: 100 },
 
-	// Card
+	// Card - Refined
 	card: {
 		backgroundColor: '#fff',
-		borderRadius: 16,
+		borderRadius: 12,
 		marginBottom: 16,
 		flexDirection: 'row',
 		padding: 12,
-		shadowColor: '#000',
-		shadowOffset: { width: 0, height: 2 },
-		shadowOpacity: 0.05,
-		shadowRadius: 5,
-		elevation: 2,
+		borderWidth: 1,
+		borderColor: '#E5E7EB',
 	},
 	cardImage: {
-		width: 80,
-		height: 80,
-		borderRadius: 12,
+		width: 72,
+		height: 72,
+		borderRadius: 8,
 		backgroundColor: '#F3F4F6',
 	},
-	cardContent: { flex: 1, marginLeft: 12 },
-	cardTop: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
-	cardTitle: { fontSize: 15, fontWeight: '700', color: '#111827', flex: 1, marginRight: 8 },
-	moreBtn: { padding: 4, marginTop: -4 },
+	cardContent: { flex: 1, marginLeft: 12, justifyContent: 'space-between' },
+	cardHeaderRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
+	cardTitle: { fontSize: 14, fontWeight: '600', color: '#111827', marginRight: 16 },
 	cardCategory: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
-	cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 8 },
-	cardPrice: { fontSize: 16, fontWeight: '700', color: '#065637' },
-	statusBadge: { paddingHorizontal: 8, paddingVertical: 2, borderRadius: 8 },
-	statusActive: { backgroundColor: '#ECFDF5' },
-	statusInactive: { backgroundColor: '#FEF2F2' },
-	statusText: { fontSize: 11, fontWeight: '600' },
-	statusTextActive: { color: '#059669' },
-	statusTextInactive: { color: '#DC2626' },
-	typeBadge: {
-		position: 'absolute',
-		top: -4,
-		left: -96, // align with image
-		backgroundColor: 'rgba(0,0,0,0.6)',
-		paddingHorizontal: 6,
-		paddingVertical: 2,
-		borderRadius: 4,
-	},
-	typeBadgeLabel: { color: '#fff', fontSize: 10, fontWeight: '700', textTransform: 'uppercase' },
+
+	moreBtnAbsolute: { position: 'absolute', top: 12, right: 8, padding: 4 },
+
+	cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 },
+	cardPrice: { fontSize: 15, fontWeight: '700', color: '#111827' },
+	stockLabel: { fontSize: 11, color: '#6B7280' },
+
+	statusPill: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, borderWidth: 1 },
+	statusActive: { backgroundColor: '#F0FDF4', borderColor: '#BBF7D0' },
+	statusInactive: { backgroundColor: '#FEF2F2', borderColor: '#FECACA' },
+	statusText: { fontSize: 10, fontWeight: '700' },
+	statusTextActive: { color: '#166534' },
+	statusTextInactive: { color: '#991B1B' },
 
 	// Empty State
 	emptyState: { alignItems: 'center', justifyContent: 'center', marginTop: 80 },
-	emptyStateText: { fontSize: 18, fontWeight: '700', color: '#374151', marginTop: 16 },
-	emptyStateSub: { fontSize: 14, color: '#9CA3AF', marginTop: 8 },
+	emptyIconBg: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
+	emptyStateText: { fontSize: 16, fontWeight: '600', color: '#1F2937' },
+	emptyStateSub: { fontSize: 14, color: '#6B7280', marginTop: 4 },
 
 	// Modals (General)
-	modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
+	modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
 
 	// Action Menu
-	menuContent: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, padding: 20 },
+	menuContent: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40 },
 	menuHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
 	menuTitle: { fontSize: 18, fontWeight: '700', color: '#1F2937', flex: 1 },
-	menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12 },
-	menuIcon: { width: 36, height: 36, borderRadius: 18, justifyContent: 'center', alignItems: 'center', marginRight: 16 },
-	menuText: { fontSize: 16, fontWeight: '500', color: '#374151' },
-	menuDivider: { height: 1, backgroundColor: '#F3F4F6', marginVertical: 12 },
+	menuItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 14 },
+	menuIcon: { width: 40, height: 40, borderRadius: 20, justifyContent: 'center', alignItems: 'center', marginRight: 16 },
+	menuText: { fontSize: 15, fontWeight: '500', color: '#374151' },
+	menuDivider: { height: 1, backgroundColor: '#F3F4F6', marginVertical: 8 },
 
 	// Store Selector (matches Orders)
-	selectorContent: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '80%' },
-	selectorHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+	selectorContent: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '80%' },
+	selectorHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
 	selectorTitle: { fontSize: 18, fontWeight: '700', color: '#111827' },
-	storeOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderRadius: 12, backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#F3F4F6' },
-	storeOptionSelected: { backgroundColor: '#ECFDF5', borderColor: '#065637' },
-	storeOptionName: { fontSize: 16, fontWeight: '600', color: '#374151' },
+	closeBtn: { padding: 4, backgroundColor: '#F3F4F6', borderRadius: 20 },
+	storeOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderRadius: 12, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E5E7EB' },
+	storeOptionSelected: { backgroundColor: '#F0FDF4', borderColor: '#065637' },
+	storeOptionName: { fontSize: 15, fontWeight: '600', color: '#374151' },
 	storeOptionNameSelected: { color: '#065637' },
 	storeOptionAddress: { fontSize: 12, color: '#6B7280', marginTop: 2 },
-	branchOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, paddingLeft: 12, marginTop: 8 },
-	branchOptionSelected: { backgroundColor: '#F0FDF4', borderRadius: 8 },
-	branchLine: { width: 2, height: '100%', backgroundColor: '#D1D5DB', marginRight: 12, borderRadius: 1 },
-	branchOptionName: { fontSize: 15, fontWeight: '500', color: '#4B5563' },
+	branchOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, paddingLeft: 0, marginTop: 8 },
+	branchOptionSelected: { backgroundColor: '#F9FAFB', borderRadius: 8 },
+	branchLine: { width: 2, height: '100%', backgroundColor: '#E5E7EB' },
+	branchOptionName: { fontSize: 14, fontWeight: '500', color: '#4B5563' },
 	branchOptionNameSelected: { color: '#065637', fontWeight: '700' },
-	branchOptionAddress: { fontSize: 12, color: '#9CA3AF' },
+	branchOptionAddress: { fontSize: 11, color: '#9CA3AF' },
 
 	// Add/Edit Modal
 	modalContainer: { flex: 1, backgroundColor: '#fff' },
-	modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 60, paddingBottom: 20, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+	modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingHorizontal: 20, paddingTop: 60, paddingBottom: 16, backgroundColor: '#fff', borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
 	modalTitle: { fontSize: 20, fontWeight: '800', color: '#111827' },
-	closeBtn: { padding: 4 },
 });

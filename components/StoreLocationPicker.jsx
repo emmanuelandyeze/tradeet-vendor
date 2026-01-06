@@ -152,7 +152,7 @@ const StoreLocationPicker = () => {
 	const updateLocationDetails = async () => {
 		try {
 			const response = await axiosInstance.put(
-				`/businesses/${userInfo?._id}`,
+				`/stores/${userInfo?._id}`,
 				{
 					latitude: selectedLocation.latitude,
 					longitude: selectedLocation.longitude,
@@ -196,7 +196,7 @@ const StoreLocationPicker = () => {
 						size={24}
 						color="black"
 					/>
-				</TouchableOpacity> 
+				</TouchableOpacity>
 			</View>
 			<TextInput
 				style={styles.input}
@@ -284,7 +284,7 @@ const StoreLocationPicker = () => {
 					}}
 					onPress={() => updateLocationDetails()}
 				>
-					<Text style={{color: 'white', fontSize: 18}}>Save location</Text>
+					<Text style={{ color: 'white', fontSize: 18 }}>Save location</Text>
 				</TouchableOpacity>
 			</View>
 		</View>

@@ -21,8 +21,9 @@ import { StatusBar } from 'expo-status-bar';
 
 const DomainSettingsScreen = () => {
     const router = useRouter();
-    const { selectedStore, switchSelectedStore, userInfo } = useContext(AuthContext);
-    
+    const { selectedStore, switchSelectedStore, userInfo, getPlanCapability } = useContext(AuthContext);
+    const hasCustomDomain = getPlanCapability('hasCustomDomain');
+
     // Derived value: List of "Brands" (stores) the user owns.
     // userInfo.stores contains full store objects.
     const userStores = useMemo(() => {
@@ -81,7 +82,7 @@ const DomainSettingsScreen = () => {
 
     const handleSave = async () => {
         if (!targetStore?._id) return;
-        
+
         // Basic validation
         const domainRegex = /^([a-zA-Z0-9]([a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?\.)+[a-zA-Z]{2,}$/;
         if (domain && !domainRegex.test(domain)) {
@@ -105,7 +106,7 @@ const DomainSettingsScreen = () => {
                 // For now, simpler to just toast. The context update might happen on next fetch.
 
                 ToastAndroid.show(`Domain updated for ${targetStore.name}`, ToastAndroid.SHORT);
-                 router.back();
+                router.back();
             }
         } catch (error) {
             console.error(error);
@@ -143,6 +144,38 @@ const DomainSettingsScreen = () => {
         return (
             <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color="#065637" />
+            </View>
+        );
+    }
+
+    if (!hasCustomDomain) {
+        return (
+            <View style={styles.container}>
+                <StatusBar style="dark" />
+                <View style={styles.header}>
+                    <TouchableOpacity onPress={() => router.back()} style={styles.backButton}>
+                        <Ionicons name="arrow-back" size={24} color="#1A1A1A" />
+                    </TouchableOpacity>
+                    <Text style={styles.headerTitle}>Domain Settings</Text>
+                </View>
+                <View style={[styles.content, styles.centered]}>
+                    <View style={styles.lockIconContainerLarge}>
+                        <Ionicons name="globe-outline" size={64} color="#065637" />
+                        <View style={styles.lockBadge}>
+                            <Ionicons name="lock-closed" size={20} color="#fff" />
+                        </View>
+                    </View>
+                    <Text style={styles.restrictedTitle}>Business Feature</Text>
+                    <Text style={styles.restrictedSub}>
+                        Custom domains are exclusive to Business plan users. Connect your own domain to give your store a more professional look!
+                    </Text>
+                    <TouchableOpacity
+                        style={styles.upgradeButtonBusiness}
+                        onPress={() => router.push('/(app)/subscription')}
+                    >
+                        <Text style={styles.upgradeButtonTextBusiness}>Upgrade to Business</Text>
+                    </TouchableOpacity>
+                </View>
             </View>
         );
     }
@@ -205,13 +238,13 @@ const DomainSettingsScreen = () => {
                             autoCapitalize="none"
                             autoCorrect={false}
                         />
-                         <Text style={styles.helperText}>
+                        <Text style={styles.helperText}>
                             Leave empty to remove custom domain.
                         </Text>
                     </View>
 
                     <View style={{ flexDirection: 'row', gap: 12 }}>
-                        <TouchableOpacity 
+                        <TouchableOpacity
                             style={[styles.saveButton, { flex: 1, backgroundColor: '#fff', borderWidth: 1, borderColor: '#065637' }]}
                             onPress={handleVerifyDNS}
                             disabled={loading || !domain}
@@ -236,7 +269,7 @@ const DomainSettingsScreen = () => {
                 <View style={styles.instructionCard}>
                     <Text style={styles.instructionTitle}>DNS Configuration</Text>
                     <Text style={styles.instructionText}>
-                        To connect your domain, you need to add a <Text style={{fontWeight:'bold'}}>CNAME</Text> record in your domain registrar's DNS settings.
+                        To connect your domain, you need to add a <Text style={{ fontWeight: 'bold' }}>CNAME</Text> record in your domain registrar's DNS settings.
                     </Text>
 
                     <View style={styles.dnsRecord}>
@@ -244,13 +277,13 @@ const DomainSettingsScreen = () => {
                             <Text style={styles.dnsLabel}>Type</Text>
                             <Text style={styles.dnsValue}>CNAME</Text>
                         </View>
-                         <View style={styles.dnsRow}>
+                        <View style={styles.dnsRow}>
                             <Text style={styles.dnsLabel}>Host</Text>
                             <Text style={styles.dnsValue}>@ or www</Text>
                         </View>
-                         <View style={styles.dnsRow}>
+                        <View style={styles.dnsRow}>
                             <Text style={styles.dnsLabel}>Value</Text>
-                            <View style={{flexDirection:'row', alignItems:'center', gap: 8}}>
+                            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
                                 <Text style={styles.dnsValueHighlight}>custom.tradeet.ng</Text>
                                 <TouchableOpacity onPress={copyToClipboard}>
                                     <Ionicons name="copy-outline" size={16} color="#007BFF" />
@@ -260,9 +293,9 @@ const DomainSettingsScreen = () => {
                     </View>
 
                     <Text style={styles.noteText}>
-                        Example: If your domain is <Text style={{fontStyle:'italic'}}>example.com</Text>, create a CNAME record for <Text style={{fontStyle:'italic'}}>www</Text> pointing to <Text style={{fontStyle:'italic'}}>custom.tradeet.ng</Text>.
+                        Example: If your domain is <Text style={{ fontStyle: 'italic' }}>example.com</Text>, create a CNAME record for <Text style={{ fontStyle: 'italic' }}>www</Text> pointing to <Text style={{ fontStyle: 'italic' }}>custom.tradeet.ng</Text>.
                     </Text>
-                     <Text style={[styles.noteText, {marginTop: 8}]}>
+                    <Text style={[styles.noteText, { marginTop: 8 }]}>
                         Note: DNS propagation may take up to 24-48 hours.
                     </Text>
                 </View>
@@ -447,7 +480,7 @@ const styles = StyleSheet.create({
         justifyContent: 'space-between',
         alignItems: 'center',
         marginBottom: 8,
-        borderBottomWidth:1,
+        borderBottomWidth: 1,
         borderBottomColor: '#eee',
         paddingBottom: 8,
     },
@@ -554,6 +587,64 @@ const styles = StyleSheet.create({
         color: '#065637',
         fontSize: 13,
         marginLeft: 6,
+    },
+    centered: {
+        flex: 1,
+        justifyContent: 'center',
+        alignItems: 'center',
+        paddingHorizontal: 20,
+    },
+    lockIconContainerLarge: {
+        width: 120,
+        height: 120,
+        borderRadius: 60,
+        backgroundColor: '#E8F5E9',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 24,
+        position: 'relative',
+    },
+    lockBadge: {
+        position: 'absolute',
+        bottom: 5,
+        right: 5,
+        backgroundColor: '#065637',
+        width: 36,
+        height: 36,
+        borderRadius: 18,
+        justifyContent: 'center',
+        alignItems: 'center',
+        borderWidth: 3,
+        borderColor: '#fff',
+    },
+    restrictedTitle: {
+        fontSize: 24,
+        fontWeight: '800',
+        color: '#1A1A1A',
+        marginBottom: 12,
+    },
+    restrictedSub: {
+        fontSize: 16,
+        color: '#666',
+        textAlign: 'center',
+        lineHeight: 24,
+        marginBottom: 32,
+    },
+    upgradeButtonBusiness: {
+        backgroundColor: '#065637',
+        paddingVertical: 16,
+        paddingHorizontal: 40,
+        borderRadius: 12,
+        shadowColor: '#065637',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.2,
+        shadowRadius: 8,
+        elevation: 4,
+    },
+    upgradeButtonTextBusiness: {
+        color: '#fff',
+        fontSize: 18,
+        fontWeight: '700',
     },
 });
 

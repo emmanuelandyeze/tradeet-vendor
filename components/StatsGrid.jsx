@@ -57,7 +57,7 @@ const StatsGrid = ({
 				<View style={[styles.statCard, styles.invoiceCard]}>
 					<View style={styles.statHeader}>
 						<View style={[styles.iconCircle, { backgroundColor: '#E3F2FD' }]}>
-							<AntDesign name="file1" size={14} color="#1565C0" />
+							<AntDesign name="filetext1" size={14} color="#1565C0" />
 						</View>
 						<Text style={styles.statLabel}>Invoices</Text>
 					</View>
@@ -88,7 +88,7 @@ const StatsGrid = ({
 				<View style={[styles.statCard, styles.outstandingCard]}>
 					<View style={styles.statHeader}>
 						<View style={[styles.iconCircle, { backgroundColor: '#F3F4F6' }]}>
-							<AntDesign name="minuscircle" size={14} color="#4B5563" />
+							<AntDesign name="minuscircleo" size={14} color="#4B5563" />
 						</View>
 						<Text style={styles.statLabel}>Outstanding</Text>
 					</View>

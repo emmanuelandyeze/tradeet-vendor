@@ -34,15 +34,15 @@ import { AuthContext } from '@/context/AuthContext';
 const COLORS = {
 	primary: '#065637',
 	primaryLight: '#E8F5E9',
-	secondary: '#F3F4F6',
-	text: '#1F2937',
+	secondary: '#F9FAFB',
+	text: '#111827',
 	textLight: '#6B7280',
 	border: '#E5E7EB',
 	white: '#FFFFFF',
-	danger: '#EF4444',
-	success: '#10B981',
-	warning: '#F59E0B',
-	blue: '#3B82F6',
+	danger: '#DC2626',
+	success: '#059669',
+	warning: '#D97706',
+	blue: '#2563EB',
 };
 
 const ALL_STATUSES = [
@@ -82,6 +82,9 @@ const SingleOrderPage = () => {
 	});
 
 	const orderId = id;
+
+	// --- Helpers ---
+	const formatOrderId = (id) => id ? `#${id.slice(-6).toUpperCase()}` : 'N/A';
 
 	// --- Data Fetching ---
 	const fetchOrderDetails = useCallback(async () => {
@@ -171,7 +174,7 @@ const SingleOrderPage = () => {
 				if (refreshed?.customerInfo?.expoPushToken) {
 					sendPushNotification(
 						refreshed.customerInfo.expoPushToken,
-						`Order #${refreshed.orderNumber} ${status.charAt(0).toUpperCase() + status.slice(1)}!`,
+						`Order ${formatOrderId(refreshed.orderNumber)} ${status.charAt(0).toUpperCase() + status.slice(1)}!`,
 						`Your order status is now ${status}.`
 					);
 				}
@@ -193,7 +196,7 @@ const SingleOrderPage = () => {
 				sendPushNotification(
 					refreshed.storeId.expoPushToken,
 					'Payment Received!',
-					`You've received ₦${refreshed.itemsAmount?.toLocaleString()} for order #${refreshed.orderNumber}.`
+					`You've received ₦${refreshed.itemsAmount?.toLocaleString()} for order ${formatOrderId(refreshed.orderNumber)}.`
 				);
 			}
 		} catch (error) {
@@ -216,7 +219,7 @@ const SingleOrderPage = () => {
 			showToast('Order marked as delivered!');
 			if (order?.payment?.status !== 'paid') await handleProcessPaymentToRestaurant();
 			if (order?.customerInfo?.expoPushToken) {
-				sendPushNotification(order.customerInfo.expoPushToken, 'Order Delivered!', `Order #${order.orderNumber} completed.`);
+				sendPushNotification(order.customerInfo.expoPushToken, 'Order Delivered!', `Order ${formatOrderId(order.orderNumber)} completed.`);
 			}
 			router.replace('(tabs)/orders');
 		} catch (err) {
@@ -234,7 +237,7 @@ const SingleOrderPage = () => {
 			await axiosInstance.post(`/orders/${orderId}/assign-runner`, { runnerId: runner._id });
 			await fetchOrderDetails();
 			showToast(`${runner.name} assigned!`);
-			if (runner.expoPushToken) sendPushNotification(runner.expoPushToken, 'New Delivery Assignment!', `Order #${order.orderNumber} assigned.`);
+			if (runner.expoPushToken) sendPushNotification(runner.expoPushToken, 'New Delivery Assignment!', `Order ${formatOrderId(order.orderNumber)} assigned.`);
 			setShowRunnerModal(false);
 		} catch (error) {
 			Alert.alert('Error', 'Failed to assign runner.');
@@ -312,7 +315,7 @@ const SingleOrderPage = () => {
 		<View style={styles.card}>
 			<TouchableOpacity onPress={onToggle} style={styles.cardHeader} disabled={!onToggle}>
 				<Text style={styles.cardTitle}>{title}</Text>
-				{onToggle && <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={20} color={COLORS.textLight} />}
+				{onToggle && <Ionicons name={expanded ? 'chevron-up' : 'chevron-down'} size={18} color={COLORS.textLight} />}
 			</TouchableOpacity>
 			{(!onToggle || expanded) && <View style={styles.cardContent}>{children}</View>}
 		</View>
@@ -326,87 +329,107 @@ const SingleOrderPage = () => {
 				<TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
 					<Ionicons name="arrow-back" size={24} color={COLORS.text} />
 				</TouchableOpacity>
-				<Text style={styles.headerTitle}>Order #{order.orderNumber}</Text>
-				<View style={[styles.statusPill, { backgroundColor: getStatusColor(order.status) + '20' }]}>
+				<View style={styles.headerTitleContainer}>
+					<Text style={styles.headerTitle}>Order {formatOrderId(order.orderNumber)}</Text>
+					<Text style={styles.subHeaderDate}>{new Date(order.createdAt).toLocaleDateString()}</Text>
+				</View>
+				<View style={[styles.statusPill, { backgroundColor: getStatusColor(order.status) + '15', borderColor: getStatusColor(order.status) + '40' }]}>
 					<Text style={[styles.statusText, { color: getStatusColor(order.status) }]}>
-						{order.status?.toUpperCase()}
+						{order.status?.charAt(0).toUpperCase() + order.status?.slice(1)}
 					</Text>
 				</View>
 			</View>
 
-			<ScrollView contentContainerStyle={styles.scrollContent}>
+			<ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
 				{/* Customer Details */}
 				<Card
-					title="Customer Details"
+					title="Customer"
 					expanded={expandedSections.customer}
 					onToggle={() => toggleSection('customer')}
 				>
-					<View style={styles.detailRow}>
-						<View style={styles.iconBox}><Ionicons name="person-outline" size={18} color={COLORS.primary} /></View>
-						<Text style={styles.detailText}>{order.customerInfo?.name || 'N/A'}</Text>
-					</View>
-					<View style={styles.detailRow}>
-						<View style={styles.iconBox}><Ionicons name="location-outline" size={18} color={COLORS.primary} /></View>
-						<Text style={styles.detailText}>
-							{order.customerInfo?.pickUp ? 'Pickup at Store' : (order.customerInfo?.address || 'N/A')}
-						</Text>
-					</View>
-
-					{order.customerInfo?.contact && (
-						<View style={styles.contactActions}>
-							<TouchableOpacity 
-								style={[styles.contactBtn, { backgroundColor: '#EFF6FF', borderColor: '#BFDBFE' }]}
-								onPress={() => Linking.openURL(`tel:${order.customerInfo.contact}`)}
-							>
-								<Feather name="phone" size={18} color={COLORS.blue} />
-								<Text style={[styles.contactBtnText, { color: COLORS.blue }]}>Call</Text>
-							</TouchableOpacity>
-							<TouchableOpacity 
-								style={[styles.contactBtn, { backgroundColor: '#F0FDF4', borderColor: '#BBF7D0' }]}
-								onPress={() => Linking.openURL(`https://wa.me/${order.customerInfo.contact.replace('+', '')}`)}
-							>
-								<MaterialCommunityIcons name="whatsapp" size={20} color={COLORS.success} />
-								<Text style={[styles.contactBtnText, { color: COLORS.success }]}>WhatsApp</Text>
-							</TouchableOpacity>
+					<View style={styles.customerContainer}>
+						<View style={styles.customerRow}>
+							<View style={styles.avatarPlaceholder}>
+								<Text style={styles.avatarText}>{order.customerInfo?.name?.charAt(0) || 'C'}</Text>
+							</View>
+							<View style={{ flex: 1 }}>
+								<Text style={styles.customerName}>{order.customerInfo?.name || 'Guest'}</Text>
+								<Text style={styles.customerAddress}>
+									{order.customerInfo?.pickUp ? 'Pickup Order' : (order.customerInfo?.address || 'No address provided')}
+								</Text>
+							</View>
 						</View>
-					)}
+
+						{order.customerInfo?.contact && (
+							<View style={styles.contactActions}>
+								<TouchableOpacity
+									style={styles.actionButtonOutline}
+									onPress={() => Linking.openURL(`tel:${order.customerInfo.contact}`)}
+								>
+									<Feather name="phone" size={16} color={COLORS.text} />
+									<Text style={styles.actionButtonText}>Call</Text>
+								</TouchableOpacity>
+								<TouchableOpacity
+									style={styles.actionButtonOutline}
+									onPress={() => Linking.openURL(`https://wa.me/${order.customerInfo.contact.replace('+', '')}`)}
+								>
+									<MaterialCommunityIcons name="whatsapp" size={18} color={COLORS.text} />
+									<Text style={styles.actionButtonText}>Message</Text>
+								</TouchableOpacity>
+							</View>
+						)}
+					</View>
+				</Card>
+
+				{/* Order Items */}
+				<Card title={`Items (${order.items?.length || 0})`} expanded={expandedSections.items} onToggle={() => toggleSection('items')}>
+					{order.items?.map((item, idx) => (
+						<View key={idx} style={styles.itemRow}>
+							<View style={styles.qtyBadge}>
+								<Text style={styles.qtyText}>{item.quantity}x</Text>
+							</View>
+							<View style={styles.itemInfo}>
+								<Text style={styles.itemName}>{item.name}</Text>
+								{item.variants?.map((v, i) => (
+									<Text key={i} style={styles.variantText}>+ {v.name}</Text>
+								))}
+							</View>
+							<Text style={styles.itemPrice}>₦{(item.totalPrice || item.price * item.quantity).toLocaleString()}</Text>
+						</View>
+					))}
 				</Card>
 
 				{/* Delivery Method */}
 				{showDeliveryMethod && (
 					<Card title="Delivery Method">
-						<View style={styles.deliveryGrid}>
-							<TouchableOpacity 
-								style={[styles.deliveryOption, deliveryType === 'self' && styles.deliveryOptionActive]}
+						<View style={styles.deliverySelector}>
+							<TouchableOpacity
+								style={[styles.deliveryChoice, deliveryType === 'self' && styles.deliveryChoiceActive]}
 								onPress={() => handleSelectDeliveryType('self')}
 							>
-								<MaterialCommunityIcons name="truck-delivery-outline" size={28} color={deliveryType === 'self' ? COLORS.primary : COLORS.textLight} />
-								<Text style={[styles.deliveryOptionText, deliveryType === 'self' && { color: COLORS.primary }]}>Self Delivery</Text>
+								<Text style={[styles.deliveryChoiceText, deliveryType === 'self' && styles.deliveryChoiceTextActive]}>Self Delivery</Text>
 							</TouchableOpacity>
-							<TouchableOpacity 
-								style={[styles.deliveryOption, deliveryType === 'assigned' && styles.deliveryOptionActive]}
+							<TouchableOpacity
+								style={[styles.deliveryChoice, deliveryType === 'assigned' && styles.deliveryChoiceActive]}
 								onPress={() => handleSelectDeliveryType('assigned')}
 							>
-								<MaterialCommunityIcons name="account-group-outline" size={28} color={deliveryType === 'assigned' ? COLORS.primary : COLORS.textLight} />
-								<Text style={[styles.deliveryOptionText, deliveryType === 'assigned' && { color: COLORS.primary }]}>Use Runner</Text>
+								<Text style={[styles.deliveryChoiceText, deliveryType === 'assigned' && styles.deliveryChoiceTextActive]}>Runner</Text>
 							</TouchableOpacity>
 						</View>
 
 						{isRunnerAssigned && (
-							<View style={styles.runnerCard}>
-								<View style={styles.runnerHeader}>
-									<Image
-										source={{ uri: order.runnerInfo.profileImage || 'https://via.placeholder.com/40' }}
-										style={styles.runnerAvatar}
-									/>
-									<View style={{ flex: 1 }}>
-										<Text style={styles.runnerName}>{order.runnerInfo.name}</Text>
-										<Text style={styles.runnerPhone}>{order.runnerInfo.contact}</Text>
-									</View>
-									<TouchableOpacity onPress={handleRemoveRunner}>
-										<Ionicons name="trash-outline" size={20} color={COLORS.danger} />
-									</TouchableOpacity>
+							<View style={styles.runnerInfoContainer}>
+								<Image
+									source={{ uri: order.runnerInfo.profileImage || 'https://via.placeholder.com/40' }}
+									style={styles.runnerAvatar}
+								/>
+								<View style={{ flex: 1 }}>
+									<Text style={styles.runnerName}>{order.runnerInfo.name}</Text>
+									<Text style={styles.runnerPhone}>{order.runnerInfo.contact}</Text>
 								</View>
+								<TouchableOpacity onPress={handleRemoveRunner} style={styles.iconButton}>
+									<Ionicons name="close" size={20} color={COLORS.textLight} />
+								</TouchableOpacity>
 							</View>
 						)}
 					</Card>
@@ -414,68 +437,51 @@ const SingleOrderPage = () => {
 
 				{/* Complete Delivery Input */}
 				{shouldShowCompleteDeliverySection && !['completed', 'cancelled'].includes(order.status) && (
-					<Card title="Complete Delivery">
-						<Text style={styles.helpText}>Ask customer for the 4-digit verification code</Text>
+					<Card title="Verification">
+						<Text style={styles.helpText}>Enter the 4-digit code provided by the customer</Text>
 						<View style={styles.codeRow}>
 							<TextInput
 								style={styles.codeInput}
 								value={deliveryCode}
 								onChangeText={setDeliveryCode}
 								placeholder="0000"
+								placeholderTextColor="#D1D5DB"
 								keyboardType="number-pad"
 								maxLength={4}
 							/>
-							<TouchableOpacity 
-								style={[styles.goBtn, (deliveryCode.length !== 4 || isSubmitting) && { opacity: 0.5 }]}
+							<TouchableOpacity
+								style={[styles.verifyBtn, (deliveryCode.length !== 4 || isSubmitting) && { opacity: 0.5 }]}
 								disabled={deliveryCode.length !== 4 || isSubmitting}
 								onPress={() => handleCompleteDelivery()}
 							>
-								{isSubmitting ? <ActivityIndicator color="#fff" /> : <Ionicons name="arrow-forward" size={24} color="#fff" />}
+								{isSubmitting ? <ActivityIndicator color="#fff" size="small" /> : <Ionicons name="checkmark" size={24} color="#fff" />}
 							</TouchableOpacity>
 						</View>
 					</Card>
 				)}
 
-				{/* Order Items */}
-				<Card title={`Items (${order.items?.length || 0})`} expanded={expandedSections.items} onToggle={() => toggleSection('items')}>
-					{order.items?.map((item, idx) => (
-						<View key={idx} style={styles.itemRow}>
-							<View style={styles.itemInfo}>
-								<Text style={styles.itemName}>{item.quantity}x {item.name}</Text>
-								{item.variants?.map((v, i) => (
-									<Text key={i} style={styles.variantText}>+ {v.name}</Text>
-								))}
-								{item.type === 'service' && item.service?.startAt && (
-									<Text style={styles.variantText}>📅 {new Date(item.service.startAt).toLocaleString()}</Text>
-								)}
-								{item.type === 'digital' && (
-									<Text style={[styles.variantText, { color: COLORS.blue }]}>📎 Digital File</Text>
-								)}
-							</View>
-							<Text style={styles.itemPrice}>₦{(item.totalPrice || item.price * item.quantity).toLocaleString()}</Text>
-						</View>
-					))}
-				</Card>
-
 				{/* Summary */}
-				<Card title="Summary" expanded={expandedSections.summary} onToggle={() => toggleSection('summary')}>
+				<Card title="Payment Summary" expanded={expandedSections.summary} onToggle={() => toggleSection('summary')}>
 					<View style={styles.summaryRow}><Text style={styles.summaryLabel}>Subtotal</Text><Text style={styles.summaryValue}>₦{order.itemsAmount?.toLocaleString()}</Text></View>
 					{order.deliveryFee > 0 && (
-						<View style={styles.summaryRow}><Text style={styles.summaryLabel}>Delivery</Text><Text style={styles.summaryValue}>₦{order.deliveryFee?.toLocaleString()}</Text></View>
+						<View style={styles.summaryRow}><Text style={styles.summaryLabel}>Delivery Fee</Text><Text style={styles.summaryValue}>₦{order.deliveryFee?.toLocaleString()}</Text></View>
+					)}
+					{order.serviceFee > 0 && (
+						<View style={styles.summaryRow}><Text style={styles.summaryLabel}>Service Fee</Text><Text style={styles.summaryValue}>-₦{order.serviceFee?.toLocaleString()}</Text></View>
 					)}
 
 					{order.discountAmount > 0 && (
 						<View style={styles.summaryRow}><Text style={[styles.summaryLabel, { color: COLORS.danger }]}>Discount</Text><Text style={[styles.summaryValue, { color: COLORS.danger }]}>-₦{order.discountAmount?.toLocaleString()}</Text></View>
 					)}
-					<View style={[styles.totalRow, { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#f0f0f0' }]}>
-						<Text style={[styles.totalLabel, { color: COLORS.primary }]}>Total Earnings</Text>
-						<Text style={[styles.totalValue, { color: COLORS.primary }]}>
+					<View style={styles.totalRow}>
+						<Text style={styles.totalLabel}>Total Payout</Text>
+						<Text style={styles.totalValue}>
 							₦{((order.totalAmount || 0) - (order.serviceFee || 0)).toLocaleString()}
 						</Text>
 					</View>
 				</Card>
 
-				<View style={{ height: 100 }} /> 
+				<View style={{ height: 100 }} />
 			</ScrollView>
 
 			{/* Bottom Actions */}
@@ -483,32 +489,32 @@ const SingleOrderPage = () => {
 				<View style={styles.actionBar}>
 					{order.status === 'pending' ? (
 						<View style={styles.pendingActions}>
-							<TouchableOpacity style={[styles.actionBtn, { backgroundColor: COLORS.danger, flex: 1, marginRight: 8 }]} onPress={() => handleUpdateOrderStatus('rejected')}>
-								<Text style={styles.actionBtnText}>Reject</Text>
+							<TouchableOpacity style={[styles.actionBtn, styles.rejectBtn]} onPress={() => handleUpdateOrderStatus('rejected')}>
+								<Text style={[styles.actionBtnText, { color: COLORS.danger }]}>Reject</Text>
 							</TouchableOpacity>
-							<TouchableOpacity style={[styles.actionBtn, { backgroundColor: COLORS.success, flex: 2 }]} onPress={() => handleUpdateOrderStatus('accepted')}>
-								<Text style={styles.actionBtnText}>Accept Order</Text>
+							<TouchableOpacity style={[styles.actionBtn, styles.acceptBtn]} onPress={() => handleUpdateOrderStatus('accepted')}>
+								<Text style={[styles.actionBtnText, { color: COLORS.white }]}>Accept Order</Text>
 							</TouchableOpacity>
 						</View>
 					) : (
-							<TouchableOpacity style={[styles.actionBtn, { backgroundColor: COLORS.primary }]} onPress={() => setShowStatusModal(true)}>
-								<Text style={styles.actionBtnText}>Update Status</Text>
-							</TouchableOpacity>
+						<TouchableOpacity style={[styles.actionBtn, styles.updateBtn]} onPress={() => setShowStatusModal(true)}>
+							<Text style={styles.actionBtnText}>Update Status</Text>
+						</TouchableOpacity>
 					)}
 				</View>
 			)}
 
 			{/* Status Modal */}
-			<Modal visible={showStatusModal} transparent animationType="slide" onRequestClose={() => setShowStatusModal(false)}>
+			<Modal visible={showStatusModal} transparent animationType="fade" onRequestClose={() => setShowStatusModal(false)}>
 				<TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowStatusModal(false)}>
 					<View style={styles.modalContent}>
 						<Text style={styles.modalTitle}>Update Status</Text>
 						{ALL_STATUSES.map(status => (
 							<TouchableOpacity key={status} style={styles.modalItem} onPress={() => handleUpdateOrderStatus(status)}>
 								<Text style={[styles.modalItemText, { color: status === order.status ? COLORS.primary : COLORS.text }]}>
-									{status.toUpperCase()}
+									{status.charAt(0).toUpperCase() + status.slice(1)}
 								</Text>
-								{status === order.status && <Ionicons name="checkmark" size={20} color={COLORS.primary} />}
+								{status === order.status && <Ionicons name="checkmark-circle" size={20} color={COLORS.primary} />}
 							</TouchableOpacity>
 						))}
 					</View>
@@ -519,20 +525,23 @@ const SingleOrderPage = () => {
 			<Modal visible={showRunnerModal} transparent animationType="slide" onRequestClose={() => setShowRunnerModal(false)}>
 				<TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowRunnerModal(false)}>
 					<View style={styles.modalContent}>
-						<Text style={styles.modalTitle}>Select Runner</Text>
-						{runnerLoading ? <ActivityIndicator /> : (
+						<Text style={styles.modalTitle}>Assign Runner</Text>
+						{runnerLoading ? <ActivityIndicator size="small" color={COLORS.primary} /> : (
 							<ScrollView style={{ maxHeight: 400 }}>
-								{availableRunners.map(runner => (
+								{availableRunners && availableRunners.length > 0 ? availableRunners.map(runner => (
 									<TouchableOpacity key={runner._id} style={styles.runnerModalItem} onPress={() => assignRunner(runner)}>
 										<Image source={{ uri: runner.profileImage || 'https://via.placeholder.com/40' }} style={styles.runnerAvatarSmall} />
 										<View style={{ flex: 1, marginLeft: 12 }}>
 											<Text style={styles.runnerName}>{runner.name}</Text>
 											<Text style={styles.runnerPhone}>{runner.contact || runner.phone}</Text>
 										</View>
-										<Ionicons name="add-circle" size={24} color={COLORS.primary} />
+										<Ionicons name="arrow-forward-circle" size={24} color={COLORS.primary} />
 									</TouchableOpacity>
-								))}
-								{availableRunners.length === 0 && <Text style={{ textAlign: 'center', color: COLORS.textLight, padding: 20 }}>No runners found</Text>}
+								)) : (
+									<View style={{ padding: 20, alignItems: 'center' }}>
+										<Text style={{ color: COLORS.textLight }}>No runners available</Text>
+									</View>
+								)}
 							</ScrollView>
 						)}
 					</View>
@@ -540,34 +549,35 @@ const SingleOrderPage = () => {
 			</Modal>
 
 			{/* Self Delivery Confirm */}
-			<Modal visible={showSelfDeliveryModal} transparent animationType="slide" onRequestClose={() => setShowSelfDeliveryModal(false)}>
+			<Modal visible={showSelfDeliveryModal} transparent animationType="fade" onRequestClose={() => setShowSelfDeliveryModal(false)}>
 				<View style={styles.modalCenterOverlay}>
 					<View style={styles.modalCard}>
-						<Text style={styles.modalTitle}>Self Delivery</Text>
-						<Text style={styles.helpText}>Enter 4-digit code to confirm:</Text>
+						<Text style={styles.modalTitle}>Confirm Self Delivery</Text>
+						<Text style={styles.helpText}>Enter 4-digit verification code:</Text>
 						<TextInput
-							style={[styles.codeInput, { width: '100%', textAlign: 'center', letterSpacing: 8, fontSize: 24 }]}
+							style={styles.modalCodeInput}
 							value={selfDeliveryCode}
 							onChangeText={setSelfDeliveryCode}
 							keyboardType="number-pad"
 							maxLength={4}
 							autoFocus
+							placeholder="0000"
 						/>
 						<View style={styles.modalActions}>
-							<TouchableOpacity onPress={() => setShowSelfDeliveryModal(false)} style={[styles.mdlBtn, { backgroundColor: COLORS.secondary }]}>
+							<TouchableOpacity onPress={() => setShowSelfDeliveryModal(false)} style={styles.mdlBtnOutline}>
 								<Text style={{ color: COLORS.text }}>Cancel</Text>
 							</TouchableOpacity>
-							<TouchableOpacity 
+							<TouchableOpacity
 								onPress={async () => {
 									if (selfDeliveryCode.length !== 4) return;
 									setShowSelfDeliveryModal(false);
 									setDeliveryType('self');
 									await handleCompleteDelivery(selfDeliveryCode);
 									setSelfDeliveryCode('');
-								}} 
-								style={[styles.mdlBtn, { backgroundColor: COLORS.primary }]}
+								}}
+								style={styles.mdlBtnPrimary}
 							>
-								<Text style={{ color: COLORS.white }}>Confirm</Text>
+								<Text style={{ color: COLORS.white }}>Verify & Complete</Text>
 							</TouchableOpacity>
 						</View>
 					</View>
@@ -579,102 +589,108 @@ const SingleOrderPage = () => {
 };
 
 const styles = StyleSheet.create({
-	container: { flex: 1, backgroundColor: COLORS.secondary },
+	container: { flex: 1, backgroundColor: '#FFFFFF' },
 	center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
 	header: {
 		backgroundColor: COLORS.white,
-		padding: 16,
-		paddingTop: Platform.OS === 'android' ? 40 : 16,
+		paddingHorizontal: 20,
+		paddingVertical: 16,
 		flexDirection: 'row',
 		alignItems: 'center',
 		borderBottomWidth: 1,
-		borderBottomColor: COLORS.border,
-		elevation: 2,
+		borderBottomColor: '#F3F4F6',
 	},
-	iconBtn: { padding: 8, marginRight: 8 },
-	headerTitle: { fontSize: 18, fontWeight: '700', color: COLORS.text, flex: 1 },
-	statusPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
-	statusText: { fontSize: 12, fontWeight: '700' },
+	iconBtn: { padding: 4, marginRight: 12 },
+	headerTitleContainer: { flex: 1 },
+	headerTitle: { fontSize: 18, fontWeight: '600', color: COLORS.text, letterSpacing: -0.5 },
+	subHeaderDate: { fontSize: 12, color: COLORS.textLight, marginTop: 2 },
+	statusPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 20, borderWidth: 1 },
+	statusText: { fontSize: 11, fontWeight: '600' },
 
-	scrollContent: { padding: 16 },
+	scrollContent: { padding: 20 },
 
 	card: {
-		backgroundColor: COLORS.white,
-		borderRadius: 16,
-		marginBottom: 16,
-		padding: 16,
-		shadowColor: '#000',
-		shadowOpacity: 0.05,
-		shadowRadius: 5,
-		elevation: 2,
+		marginBottom: 24,
 	},
-	cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 8 },
-	cardTitle: { fontSize: 16, fontWeight: '700', color: COLORS.text },
-	cardContent: { marginTop: 8 },
+	cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 12 },
+	cardTitle: { fontSize: 15, fontWeight: '600', color: '#111827', letterSpacing: 0.2, textTransform: 'uppercase' },
+	cardContent: {
+		backgroundColor: '#FFFFFF',
+		// No heavy borders or shadows, just clean layout
+	},
 
-	detailRow: { flexDirection: 'row', marginBottom: 12, alignItems: 'center' },
-	iconBox: { width: 32, height: 32, borderRadius: 8, backgroundColor: COLORS.primaryLight, justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-	detailText: { fontSize: 15, color: COLORS.text, flex: 1 },
+	// Customer
+	customerContainer: { flexDirection: 'column', gap: 16 },
+	customerRow: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+	avatarPlaceholder: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#F3F4F6', alignItems: 'center', justifyContent: 'center' },
+	avatarText: { fontSize: 16, fontWeight: '600', color: '#4B5563' },
+	customerName: { fontSize: 16, fontWeight: '500', color: COLORS.text },
+	customerAddress: { fontSize: 13, color: COLORS.textLight, marginTop: 2 },
+	contactActions: { flexDirection: 'row', gap: 10 },
+	actionButtonOutline: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: COLORS.border, gap: 8 },
+	actionButtonText: { fontSize: 13, fontWeight: '500', color: COLORS.text },
 
-	contactActions: { flexDirection: 'row', marginTop: 8, gap: 12 },
-	contactBtn: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 10, borderRadius: 10, borderWidth: 1, gap: 8 },
-	contactBtnText: { fontWeight: '600', fontSize: 14 },
-
-	deliveryGrid: { flexDirection: 'row', gap: 12 },
-	deliveryOption: { flex: 1, alignItems: 'center', padding: 16, borderRadius: 12, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#FAFAFA' },
-	deliveryOptionActive: { borderColor: COLORS.primary, backgroundColor: COLORS.primaryLight },
-	deliveryOptionText: { marginTop: 8, fontWeight: '600', color: COLORS.textLight, fontSize: 13 },
-
-	runnerCard: { marginTop: 16, padding: 12, backgroundColor: '#FAFAFA', borderRadius: 12, borderWidth: 1, borderColor: COLORS.border },
-	runnerHeader: { flexDirection: 'row', alignItems: 'center' },
-	runnerAvatar: { width: 40, height: 40, borderRadius: 20, marginRight: 12 },
-	runnerName: { fontSize: 14, fontWeight: '700', color: COLORS.text },
-	runnerPhone: { fontSize: 12, color: COLORS.textLight },
-
-	helpText: { fontSize: 14, color: COLORS.textLight, marginBottom: 12 },
-	codeRow: { flexDirection: 'row', gap: 12 },
-	codeInput: { flex: 1, borderWidth: 1, borderColor: COLORS.border, borderRadius: 12, padding: 12, fontSize: 18, textAlign: 'center', letterSpacing: 4, backgroundColor: '#FAFAFA' },
-	goBtn: { backgroundColor: COLORS.primary, width: 50, borderRadius: 12, justifyContent: 'center', alignItems: 'center' },
-
-	itemRow: { flexDirection: 'row', justifyContent: 'space-between', paddingVertical: 8, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+	// Items
+	itemRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+	qtyBadge: { backgroundColor: '#F3F4F6', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 4, marginRight: 12 },
+	qtyText: { fontSize: 12, fontWeight: '600', color: '#374151' },
 	itemInfo: { flex: 1 },
-	itemName: { fontSize: 15, fontWeight: '600', color: COLORS.text },
-	variantText: { fontSize: 13, color: COLORS.textLight, marginTop: 2, paddingLeft: 8 },
-	itemPrice: { fontSize: 15, fontWeight: '600', color: COLORS.text },
+	itemName: { fontSize: 14, fontWeight: '500', color: COLORS.text, lineHeight: 20 },
+	variantText: { fontSize: 12, color: COLORS.textLight, marginTop: 2 },
+	itemPrice: { fontSize: 14, fontWeight: '600', color: COLORS.text },
 
-	summaryRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 8 },
+	// Delivery Method
+	deliverySelector: { flexDirection: 'row', backgroundColor: '#F3F4F6', borderRadius: 8, padding: 4, marginBottom: 12 },
+	deliveryChoice: { flex: 1, paddingVertical: 8, alignItems: 'center', borderRadius: 6 },
+	deliveryChoiceActive: { backgroundColor: '#FFFFFF', shadowColor: '#000', shadowOffset: { height: 1, width: 0 }, shadowOpacity: 0.1, shadowRadius: 2, elevation: 1 },
+	deliveryChoiceText: { fontSize: 13, fontWeight: '500', color: COLORS.textLight },
+	deliveryChoiceTextActive: { color: COLORS.text, fontWeight: '600' },
+	runnerInfoContainer: { flexDirection: 'row', alignItems: 'center', padding: 12, backgroundColor: '#F9FAFB', borderRadius: 12, borderWidth: 1, borderColor: '#F3F4F6', gap: 12 },
+	iconButton: { padding: 8 },
+
+	// Verification
+	helpText: { fontSize: 13, color: COLORS.textLight, marginBottom: 12 },
+	codeRow: { flexDirection: 'row', gap: 12 },
+	codeInput: { flex: 1, borderWidth: 1, borderColor: COLORS.border, borderRadius: 8, padding: 12, fontSize: 18, textAlign: 'center', letterSpacing: 4, color: COLORS.text },
+	verifyBtn: { backgroundColor: COLORS.primary, width: 48, borderRadius: 8, justifyContent: 'center', alignItems: 'center' },
+
+	// Summary
+	summaryRow: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 10 },
 	summaryLabel: { fontSize: 14, color: COLORS.textLight },
-	summaryValue: { fontSize: 15, color: COLORS.text, fontWeight: '500' },
-	totalRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: COLORS.border },
-	totalLabel: { fontSize: 18, fontWeight: '800', color: COLORS.text },
-	totalValue: { fontSize: 18, fontWeight: '800', color: COLORS.primary },
+	summaryValue: { fontSize: 14, color: COLORS.text, fontWeight: '500' },
+	totalRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 16, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#E5E7EB' },
+	totalLabel: { fontSize: 16, fontWeight: '600', color: COLORS.text },
+	totalValue: { fontSize: 18, fontWeight: '700', color: COLORS.primary },
 
+	// Actions
 	actionBar: {
 		position: 'absolute', bottom: 0, left: 0, right: 0,
-		backgroundColor: COLORS.white, padding: 16,
+		backgroundColor: COLORS.white, paddingHorizontal: 20, paddingVertical: 16,
 		borderTopWidth: 1,
-		borderTopColor: COLORS.border,
-		elevation: 10,
+		borderTopColor: '#F3F4F6',
 	},
-	pendingActions: { flexDirection: 'row' },
-	actionBtn: { padding: 16, borderRadius: 14, alignItems: 'center', justifyContent: 'center' },
-	actionBtnText: { color: COLORS.white, fontSize: 16, fontWeight: '700' },
+	pendingActions: { flexDirection: 'row', gap: 12 },
+	actionBtn: { flex: 1, paddingVertical: 14, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+	rejectBtn: { backgroundColor: '#FEF2F2', borderWidth: 1, borderColor: '#FECACA' },
+	acceptBtn: { backgroundColor: COLORS.primary },
+	updateBtn: { backgroundColor: COLORS.text },
+	actionBtnText: { color: COLORS.white, fontSize: 15, fontWeight: '600' },
 
 	// Modals
-	modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-	modalCenterOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'center', padding: 20 },
-	modalContent: { backgroundColor: COLORS.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, maxHeight: '70%' },
+	modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+	modalCenterOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'center', padding: 24 },
+	modalContent: { backgroundColor: COLORS.white, borderTopLeftRadius: 24, borderTopRightRadius: 24, padding: 24, paddingBottom: 40 },
 	modalCard: { backgroundColor: COLORS.white, borderRadius: 20, padding: 24 },
-	modalTitle: { fontSize: 20, fontWeight: '700', color: COLORS.text, marginBottom: 16 },
+	modalTitle: { fontSize: 18, fontWeight: '600', color: COLORS.text, marginBottom: 20, textAlign: 'center' },
 	modalItem: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 16, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
-	modalItemText: { fontSize: 16, fontWeight: '600' },
-
+	modalItemText: { fontSize: 15, fontWeight: '500' },
 	runnerModalItem: { flexDirection: 'row', alignItems: 'center', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
 	runnerAvatarSmall: { width: 36, height: 36, borderRadius: 18 },
-
-	modalActions: { flexDirection: 'row', gap: 12, marginTop: 24 },
-	mdlBtn: { flex: 1, padding: 14, borderRadius: 12, alignItems: 'center', justifyContent: 'center' },
+	modalCodeInput: { borderWidth: 1, borderColor: COLORS.border, borderRadius: 12, padding: 16, fontSize: 24, textAlign: 'center', letterSpacing: 8, marginVertical: 16 },
+	modalActions: { flexDirection: 'row', gap: 12 },
+	mdlBtnOutline: { flex: 1, padding: 14, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: COLORS.border },
+	mdlBtnPrimary: { flex: 1, padding: 14, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.primary },
 });
 
 export default SingleOrderPage;

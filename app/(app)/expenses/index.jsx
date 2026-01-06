@@ -32,6 +32,10 @@ const ExpensesScreen = () => {
     const [isCreatingExpense, setIsCreatingExpense] = useState(false);
     const [error, setError] = useState(null);
 
+    // Filter & Search
+    const [searchQuery, setSearchQuery] = useState('');
+    const [categoryFilter, setCategoryFilter] = useState('All');
+
     const [newExpense, setNewExpense] = useState({
         title: '',
         category: 'Inventory',
@@ -69,7 +73,6 @@ const ExpensesScreen = () => {
         setExpensesLoading(true);
         setError(null);
         try {
-            // Using parent store ID if it's a branch, or the store ID itself
             const storeId = selectedStore.parent || selectedStore._id;
             const response = await axiosInstance.get(`/expenses/${storeId}`);
             setExpenses(response.data.expenses);
@@ -118,7 +121,7 @@ const ExpensesScreen = () => {
             await axiosInstance.post('/expenses/create', {
                 ...newExpense,
                 amount: Number(newExpense.amount),
-                businessId: storeId, // Backend maps this to storeId
+                businessId: storeId,
                 branchId,
                 createdBy: userInfo?._id
             });
@@ -158,10 +161,19 @@ const ExpensesScreen = () => {
                 newExpense.category === item && styles.categoryTextSelected
             ]}>{item}</Text>
             {newExpense.category === item && (
-                <Ionicons name="checkmark-circle" size={20} color="#007BFF" />
+                <Ionicons name="checkmark-circle" size={20} color="#065637" />
             )}
         </TouchableOpacity>
     );
+
+    const filteredExpenses = expenses.filter(exp => {
+        const matchesSearch = (exp.title || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+            (exp.description || '').toLowerCase().includes(searchQuery.toLowerCase());
+        const matchesCategory = categoryFilter === 'All' || exp.category === categoryFilter;
+        return matchesSearch && matchesCategory;
+    });
+
+    const filterOptions = ['All', ...categories];
 
     return (
         <View style={styles.container}>
@@ -169,15 +181,14 @@ const ExpensesScreen = () => {
 
             {/* Header Section */}
             <View style={styles.headerContainer}>
-                <View style={styles.headerLeft}>
-                    <TouchableOpacity onPress={() => router.push('/(tabs)')} style={styles.backButton}>
-                        <Ionicons name="arrow-back" size={24} color="#1A1A1A" />
-                    </TouchableOpacity>
+                <TouchableOpacity onPress={() => router.push('/(tabs)')}>
+                    <Ionicons name="arrow-back" size={24} color="#1F2937" />
+                </TouchableOpacity>
+
+                <View style={styles.headerContent}>
                     <Text style={styles.headerTitle}>Expenses</Text>
-                </View>
-                {expenses?.length > 0 && (
                     <TouchableOpacity
-                        style={styles.addButtonHeader}
+                        style={styles.createButtonHeader}
                         onPress={() => {
                             setNewExpense({
                                 title: '',
@@ -189,49 +200,86 @@ const ExpensesScreen = () => {
                             setModalVisible(true);
                         }}
                     >
-                        <Ionicons name="add" size={24} color="#fff" />
-                        <Text style={styles.addButtonHeaderText}>New</Text>
+                        <Text style={styles.createButtonText}>Add Expense</Text>
                     </TouchableOpacity>
-                )}
+                </View>
+            </View>
+
+            {/* Filter Section */}
+            <View style={styles.filterSection}>
+                <View style={styles.searchContainer}>
+                    <Ionicons name="search" size={20} color="#9CA3AF" style={{ marginRight: 8 }} />
+                    <TextInput
+                        style={styles.searchInput}
+                        placeholder="Search expenses..."
+                        value={searchQuery}
+                        onChangeText={setSearchQuery}
+                        placeholderTextColor="#9CA3AF"
+                    />
+                    {searchQuery.length > 0 && (
+                        <TouchableOpacity onPress={() => setSearchQuery('')}>
+                            <Ionicons name="close-circle" size={18} color="#9CA3AF" />
+                        </TouchableOpacity>
+                    )}
+                </View>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
+                    {filterOptions.map((cat) => (
+                        <TouchableOpacity
+                            key={cat}
+                            style={[styles.filterChip, categoryFilter === cat && styles.filterChipActive]}
+                            onPress={() => setCategoryFilter(cat)}
+                        >
+                            <Text style={[styles.filterText, categoryFilter === cat && styles.filterTextActive]}>
+                                {cat}
+                            </Text>
+                        </TouchableOpacity>
+                    ))}
+                </ScrollView>
             </View>
 
             {/* Main Content Area */}
             {expensesLoading ? (
-                <View style={styles.centerContainer}>
-                    <ActivityIndicator size="large" color="#007BFF" />
+                <View style={[styles.centerContainer, { marginTop: 40 }]}>
+                    <ActivityIndicator size="large" color="#065637" />
                 </View>
             ) : error ? (
-                    <View style={styles.centerContainer}>
-                        <View style={styles.errorIconContainer}>
-                            <Ionicons name="alert-outline" size={32} color="#DC3545" />
-                        </View>
+                <View style={styles.centerContainer}>
+                    <Ionicons name="alert-circle-outline" size={48} color="#EF4444" style={{ marginBottom: 12 }} />
                     <Text style={styles.errorText}>{error}</Text>
                     <TouchableOpacity style={styles.retryButton} onPress={fetchExpenses}>
-                            <Text style={styles.retryButtonText}>Try Again</Text>
+                        <Text style={styles.retryButtonText}>Try Again</Text>
                     </TouchableOpacity>
                 </View>
-            ) : expenses.length === 0 ? (
-                        <View style={styles.emptyContainer}>
-                            <View style={styles.emptyIconCircle}>
-                                <Ionicons name="receipt-outline" size={64} color="#007BFF" />
-                            </View>
-                            <Text style={styles.emptyTitle}>No Expenses Yet</Text>
-                            <Text style={styles.emptySubtitle}>
-                                Record your business expenses to track your spending and calculate your net profit.
+            ) : filteredExpenses.length === 0 ? (
+                <View style={styles.emptyContainer}>
+                    <View style={styles.emptyIconCircle}>
+                        <Ionicons name="receipt-outline" size={64} color="#9CA3AF" />
+                    </View>
+                    <Text style={styles.emptyTitle}>No Expenses Found</Text>
+                    <Text style={styles.emptySubtitle}>
+                        {searchQuery ? "Try adjusting your search or filters." : "Record your business expenses to track your spending."}
                     </Text>
-                    <TouchableOpacity
-                                style={styles.createButtonLarge}
-                                onPress={() => {
-                            setModalVisible(true);
-                                    setValidationErrors({});
-                        }}
-                    >
-                                <Text style={styles.createButtonLargeText}>Record First Expense</Text>
-                    </TouchableOpacity>
+                    {!searchQuery && (
+                        <TouchableOpacity
+                            style={styles.createButtonLarge}
+                            onPress={() => {
+                                setNewExpense({
+                                    title: '',
+                                    category: 'Inventory',
+                                    amount: '',
+                                    description: '',
+                                });
+                                setValidationErrors({});
+                                setModalVisible(true);
+                            }}
+                        >
+                            <Text style={styles.createButtonLargeText}>Record Expense</Text>
+                        </TouchableOpacity>
+                    )}
                 </View>
             ) : (
                 <ExpenseTable
-                    expenses={expenses}
+                    expenses={filteredExpenses}
                     userInfo={userInfo}
                     fetchExpenses={fetchExpenses}
                 />
@@ -288,7 +336,7 @@ const ExpensesScreen = () => {
                                 <TextInput
                                     style={[styles.input, validationErrors.title && styles.inputError]}
                                     placeholder="What did you pay for?"
-                                    placeholderTextColor="#999"
+                                    placeholderTextColor="#9CA3AF"
                                     value={newExpense.title}
                                     onChangeText={(text) => {
                                         setNewExpense({ ...newExpense, title: text });
@@ -329,7 +377,7 @@ const ExpensesScreen = () => {
                                 <TextInput
                                     style={[styles.input, styles.textArea]}
                                     placeholder="Add notes..."
-                                    placeholderTextColor="#999"
+                                    placeholderTextColor="#9CA3AF"
                                     value={newExpense.description}
                                     multiline
                                     numberOfLines={3}
@@ -360,48 +408,93 @@ const ExpensesScreen = () => {
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F8F9FA',
+        paddingTop: Platform.OS === 'android' ? 30 : 40,
+        backgroundColor: '#F9FAFB',
     },
     headerContainer: {
+        paddingHorizontal: 16,
+        paddingBottom: 16,
+        paddingTop: 10,
+        flexDirection: 'row',
+        alignItems: 'center',
+        backgroundColor: '#fff',
+        borderBottomWidth: 1,
+        borderBottomColor: '#E5E7EB',
+    },
+    headerContent: {
+        flex: 1,
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        paddingHorizontal: 16,
-        paddingTop: 60,
-        paddingBottom: 12,
-        backgroundColor: '#fff',
-        borderBottomWidth: 1,
-        borderBottomColor: '#eee',
-    },
-    headerLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: 12,
+        paddingLeft: 12,
     },
     headerTitle: {
         fontSize: 20,
         fontWeight: '700',
-        color: '#1A1A1A',
-        letterSpacing: -0.5,
+        color: '#111827',
     },
-    backButton: {
-        padding: 4,
-        marginLeft: -4,
+    createButtonHeader: {
+        backgroundColor: '#065637',
+        paddingVertical: 8,
+        paddingHorizontal: 14,
+        borderRadius: 8,
     },
-    addButtonHeader: {
+    createButtonText: {
+        color: '#fff',
+        fontSize: 13,
+        fontWeight: '600',
+    },
+
+    // Filters
+    filterSection: {
+        backgroundColor: '#fff',
+        paddingBottom: 12,
+        borderBottomWidth: 1,
+        borderBottomColor: '#E5E7EB',
+    },
+    searchContainer: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#1A1A1A',
-        paddingVertical: 8,
-        paddingHorizontal: 16,
-        borderRadius: 100,
-        gap: 4,
+        backgroundColor: '#F3F4F6',
+        marginHorizontal: 16,
+        marginTop: 12,
+        paddingHorizontal: 12,
+        borderRadius: 8,
+        height: 40,
     },
-    addButtonHeaderText: {
-        color: '#fff',
-        fontWeight: '600',
+    searchInput: {
+        flex: 1,
         fontSize: 14,
+        color: '#111827',
+        height: '100%',
     },
+    filterScroll: {
+        paddingHorizontal: 16,
+        paddingTop: 12,
+        gap: 8,
+    },
+    filterChip: {
+        paddingHorizontal: 14,
+        paddingVertical: 6,
+        borderRadius: 20,
+        backgroundColor: '#F3F4F6',
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+    },
+    filterChipActive: {
+        backgroundColor: '#ECFDF5',
+        borderColor: '#10B981',
+    },
+    filterText: {
+        fontSize: 13,
+        color: '#4B5563',
+        fontWeight: '500',
+    },
+    filterTextActive: {
+        color: '#059669',
+        fontWeight: '600',
+    },
+
     centerContainer: {
         flex: 1,
         justifyContent: 'center',
@@ -415,51 +508,43 @@ const styles = StyleSheet.create({
         padding: 40,
     },
     emptyIconCircle: {
-        width: 100,
-        height: 100,
-        borderRadius: 50,
-        backgroundColor: '#EAF4FF',
+        width: 80,
+        height: 80,
+        borderRadius: 40,
+        backgroundColor: '#F3F4F6',
         justifyContent: 'center',
         alignItems: 'center',
         marginBottom: 24,
     },
     emptyTitle: {
-        fontSize: 22,
+        fontSize: 20,
         fontWeight: '700',
-        color: '#1A1A1A',
-        marginBottom: 12,
+        color: '#111827',
+        marginBottom: 8,
     },
     emptySubtitle: {
-        fontSize: 16,
-        color: '#666',
+        fontSize: 15,
+        color: '#6B7280',
         textAlign: 'center',
-        lineHeight: 24,
+        lineHeight: 22,
         marginBottom: 32,
     },
     createButtonLarge: {
-        backgroundColor: '#007BFF',
-        paddingVertical: 16,
+        backgroundColor: '#065637',
+        paddingVertical: 14,
         paddingHorizontal: 32,
-        borderRadius: 12,
-        width: '100%',
+        borderRadius: 8,
         alignItems: 'center',
-        shadowColor: "#007BFF",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.3,
-        shadowRadius: 12,
-        elevation: 8,
+        width: '100%',
     },
     createButtonLargeText: {
         color: '#fff',
-        fontSize: 16,
-        fontWeight: '700',
-    },
-    errorIconContainer: {
-        marginBottom: 16,
+        fontSize: 15,
+        fontWeight: '600',
     },
     errorText: {
         fontSize: 16,
-        color: '#666',
+        color: '#6B7280',
         textAlign: 'center',
         marginBottom: 24,
     },
@@ -468,13 +553,14 @@ const styles = StyleSheet.create({
         paddingHorizontal: 24,
         borderRadius: 8,
         borderWidth: 1,
-        borderColor: '#007BFF',
+        borderColor: '#2563EB',
     },
     retryButtonText: {
-        color: '#007BFF',
+        color: '#2563EB',
         fontWeight: '600',
     },
-    // Modal Styles
+
+    // Modal
     modalOverlay: {
         flex: 1,
         justifyContent: 'flex-end',
@@ -498,7 +584,7 @@ const styles = StyleSheet.create({
     modalTitle: {
         fontSize: 18,
         fontWeight: '700',
-        color: '#1A1A1A',
+        color: '#111827',
     },
     closeModalButton: {
         padding: 4,
@@ -531,7 +617,7 @@ const styles = StyleSheet.create({
     amountInput: {
         fontSize: 40,
         fontWeight: '700',
-        color: '#1A1A1A',
+        color: '#1F2937',
         minWidth: 100,
         textAlign: 'center',
     },
@@ -541,7 +627,7 @@ const styles = StyleSheet.create({
     label: {
         fontSize: 14,
         fontWeight: '600',
-        color: '#444',
+        color: '#374151',
         marginBottom: 8,
         marginLeft: 4,
     },
@@ -551,15 +637,15 @@ const styles = StyleSheet.create({
         borderColor: '#E5E7EB',
         borderRadius: 12,
         padding: 16,
-        fontSize: 16,
-        color: '#1A1A1A',
+        fontSize: 15,
+        color: '#111827',
     },
     inputError: {
-        borderColor: '#DC3545',
+        borderColor: '#EF4444',
         backgroundColor: '#FEF2F2',
     },
     errorTextSmall: {
-        color: '#DC3545',
+        color: '#EF4444',
         fontSize: 12,
         marginTop: 6,
         marginLeft: 4,
@@ -570,8 +656,8 @@ const styles = StyleSheet.create({
         alignItems: 'center',
     },
     inputText: {
-        fontSize: 16,
-        color: '#1A1A1A',
+        fontSize: 15,
+        color: '#111827',
     },
     dropdownContainer: {
         marginTop: 8,
@@ -596,31 +682,26 @@ const styles = StyleSheet.create({
         borderBottomColor: '#F3F4F6',
     },
     categoryItemSelected: {
-        backgroundColor: '#F0F7FF',
+        backgroundColor: '#ECFDF5',
     },
     categoryText: {
-        fontSize: 16,
-        color: '#333333',
+        fontSize: 15,
+        color: '#1F2937',
     },
     categoryTextSelected: {
         fontWeight: '600',
-        color: '#007BFF',
+        color: '#059669',
     },
     textArea: {
         minHeight: 100,
         textAlignVertical: 'top',
     },
     saveButton: {
-        backgroundColor: '#1A1A1A',
+        backgroundColor: '#065637',
         borderRadius: 12,
-        paddingVertical: 18,
+        paddingVertical: 16,
         alignItems: 'center',
         marginTop: 24,
-        shadowColor: "#000",
-        shadowOffset: { width: 0, height: 4 },
-        shadowOpacity: 0.2,
-        shadowRadius: 8,
-        elevation: 6,
     },
     saveButtonText: {
         color: '#fff',

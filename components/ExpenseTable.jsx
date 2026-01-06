@@ -12,11 +12,12 @@ import {
 	TextInput,
 } from 'react-native';
 import * as Sharing from 'expo-sharing';
+import * as Print from 'expo-print';
 import { captureRef } from 'react-native-view-shot';
 import { AuthContext } from '@/context/AuthContext';
 import PlaceholderLogo from './PlaceholderLogo';
 import Ionicons from '@expo/vector-icons/Ionicons';
-import axiosInstance from '@/utils/axiosInstance'; 
+import axiosInstance from '@/utils/axiosInstance';
 
 const ExpenseTable = ({
 	expenses,
@@ -129,13 +130,148 @@ const ExpenseTable = ({
 			);
 	};
 
+	// Helper to get the display store (Parent if current is Branch, else current)
+	const getDisplayStore = () => {
+		// Attempt to grab fresh store data from userInfo if available
+		const freshStore =
+			userInfo?.stores?.find((s) => s._id === (userInfo?.activeStore || userInfo?.stores?.[0]?._id)) ||
+			userInfo?.stores?.[0] || {};
+
+		// Return store object, handling potential branch logic if needed
+		return freshStore;
+	};
+
+	function buildExpenseHtml(expense) {
+		const displayStore = getDisplayStore();
+		const logoUrl = displayStore.logoUrl || '';
+		const storeName = (displayStore.name || '').replace(/&/g, '&amp;');
+		const storeAddress = displayStore.address || '';
+		const storeTin = displayStore.tin || '';
+
+		const amount = Number(expense.amount || 0).toLocaleString('en-NG', { minimumFractionDigits: 2 });
+		const date = formatDate(expense.date);
+		const refNumber = String(expense._id).slice(-6).toUpperCase();
+
+		const html = `
+    <!doctype html>
+    <html>
+    <head>
+      <meta charset="utf-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <title>Expense ${refNumber}</title>
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+      <style>
+        body { font-family: 'Inter', sans-serif; color: #1F2937; margin: 0; padding: 40px; background: #fff; }
+        .container { 
+          max-width: 600px; 
+          margin: 0 auto; 
+          border: 1px solid #E5E7EB;
+          border-radius: 12px;
+          padding: 32px;
+        }
+        .header { 
+            display: flex; 
+            justify-content: space-between; 
+            align-items: flex-start; 
+            margin-bottom: 32px;
+            padding-bottom: 24px;
+            border-bottom: 1px solid #F3F4F6;
+        }
+        .store-info { flex: 1; }
+        .store-name { font-size: 16px; font-weight: 700; color: #111827; }
+        .store-detail { font-size: 13px; color: #6B7280; margin-top: 2px; }
+        
+        .receipt-label { 
+            text-align: right; 
+            font-size: 11px; 
+            text-transform: uppercase; 
+            color: #9CA3AF; 
+            font-weight: 700; 
+            letter-spacing: 0.5px;
+        }
+        .receipt-code { 
+            text-align: right; 
+            font-size: 18px; 
+            font-weight: 700; 
+            color: #111827; 
+            margin-top: 4px;
+        }
+
+        .amount-section {
+            text-align: center;
+            padding: 24px 0;
+            background: #F9FAFB;
+            border-radius: 8px;
+            margin-bottom: 32px;
+        }
+        .amount-title { font-size: 12px; text-transform: uppercase; color: #6B7280; font-weight: 600; }
+        .amount-value { font-size: 36px; font-weight: 800; color: #EF4444; margin-top: 8px; }
+
+        .details-grid { display: grid; gap: 16px; margin-bottom: 32px; }
+        .row { display: flex; justify-content: space-between; padding-bottom: 12px; border-bottom: 1px solid #F3F4F6; font-size: 14px; }
+        .label { color: #6B7280; }
+        .value { color: #111827; font-weight: 600; }
+
+        .footer { text-align: center; margin-top: 32px; font-size: 11px; color: #9CA3AF; }
+      </style>
+    </head>
+    <body>
+      <div class="container">
+        <div class="header">
+            <div class="store-info">
+                <div class="store-name">${storeName}</div>
+                <div class="store-detail">${storeAddress}</div>
+                ${storeTin ? `<div class="store-detail">TIN: ${storeTin}</div>` : ''}
+            </div>
+            <div>
+                <div class="receipt-label">Expense Receipt</div>
+                <div class="receipt-code">#${refNumber}</div>
+            </div>
+        </div>
+
+        <div class="amount-section">
+            <div class="amount-title">Total Expense</div>
+            <div class="amount-value">₦${amount}</div>
+        </div>
+
+        <div class="details-grid">
+            <div class="row">
+                <span class="label">Date</span>
+                <span class="value">${date}</span>
+            </div>
+            <div class="row">
+                <span class="label">Category</span>
+                <span class="value">${expense.category}</span>
+            </div>
+             <div class="row">
+                <span class="label">Title</span>
+                <span class="value">${expense.title}</span>
+            </div>
+            ${expense.description ? `
+            <div class="row">
+                <span class="label">Description</span>
+                <span class="value" style="max-width: 60%; text-align: right;">${expense.description}</span>
+            </div>` : ''}
+        </div>
+
+        <div class="footer">
+            Powered by <b>Tradeet Business</b>
+        </div>
+      </div>
+    </body>
+    </html>
+        `;
+		return html;
+	}
+
 	const handleShareExpense = async (expense) => {
 		try {
-			const uri = await captureRef(invoiceRef.current, {
-				format: 'jpg',
-				quality: 1,
+			const html = buildExpenseHtml(expense);
+			const { uri } = await Print.printToFileAsync({ html });
+			await Sharing.shareAsync(uri, {
+				mimeType: 'application/pdf',
+				dialogTitle: `Expense #${String(expense._id).slice(-6)}`
 			});
-			await Sharing.shareAsync(uri);
 		} catch (error) {
 			console.error('Error sharing expense:', error);
 			Alert.alert('Error', 'Failed to share expense');

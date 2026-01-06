@@ -105,9 +105,7 @@ async function registerForPushNotificationsAsync() {
 	}
 
 	if (!Device.isDevice) {
-		handleRegistrationError(
-			'Push notifications require a physical device or supported emulator.',
-		);
+		console.warn('Push notifications require a physical device or supported emulator.');
 		return null;
 	}
 
@@ -307,15 +305,14 @@ const AuthProvider = ({ children }) => {
 			return;
 		}
 		try {
-			const label = `${Device.manufacturer || ''} ${
-				Device.modelName || ''
-			}`.trim();
+			const label = `${Device.manufacturer || ''} ${Device.modelName || ''
+				}`.trim();
 			const config = authToken
 				? {
-						headers: {
-							Authorization: `Bearer ${authToken}`,
-						},
-				  }
+					headers: {
+						Authorization: `Bearer ${authToken}`,
+					},
+				}
 				: undefined;
 			await axiosInstance.post(
 				`/stores/${selectedStore?._id}/device-tokens`,
@@ -340,11 +337,11 @@ const AuthProvider = ({ children }) => {
 		try {
 			const config = authToken
 				? {
-						headers: {
-							Authorization: `Bearer ${authToken}`,
-						},
-						data: { token },
-				  }
+					headers: {
+						Authorization: `Bearer ${authToken}`,
+					},
+					data: { token },
+				}
 				: { data: { token } };
 			await axiosInstance.delete(
 				`/stores/${storeId}/device-tokens`,
@@ -380,10 +377,10 @@ const AuthProvider = ({ children }) => {
 				? selectedStore._storeId
 				: selectedStore._id
 			: userObj &&
-			  Array.isArray(userObj.stores) &&
-			  userObj.stores.length
-			? userObj.stores[0]._id
-			: null;
+				Array.isArray(userObj.stores) &&
+				userObj.stores.length
+				? userObj.stores[0]._id
+				: null;
 
 		if (!attachTo) {
 			console.warn(
@@ -415,7 +412,13 @@ const AuthProvider = ({ children }) => {
 			});
 			const userObj = resp.data?.user ?? resp.data;
 			// IMPORTANT: userObj.stores is expected to be an array of full store objects
-			console.log('getUserInfo ->', userObj);
+			console.log('[AUTH] getUserInfo -> Full user object:', userObj);
+			console.log('[AUTH] getUserInfo -> Plan details:', {
+				name: userObj?.plan?.name,
+				isTrial: userObj?.plan?.isTrial,
+				expiryDate: userObj?.plan?.expiryDate,
+				isActive: userObj?.plan?.isActive
+			});
 			setUserInfo(userObj);
 			return userObj;
 		} catch (err) {
@@ -1423,6 +1426,64 @@ const AuthProvider = ({ children }) => {
 		// eslint-disable-next-line react-hooks/exhaustive-deps
 	}, []);
 
+	// --- Plan Capabilities Helper ---
+	// --- Plan Capabilities Helper ---
+	const getPlanCapability = (capability) => {
+		let planName = userInfo?.plan?.name || 'Starter';
+
+		// If user is on a trial, grant them Business capabilities (highest tier)
+		// unless they are already on a specific plan that is higher than Starter?
+		// Actually, trials are usually for the paid plans. 
+		// If plan is 'Starter' but isTrial is true, it means they are trialing a paid plan.
+		// For now, let's treat any trial as 'Business' access to unlock everything.
+		if (userInfo?.plan?.isTrial) {
+			planName = 'Business';
+		}
+
+		const capabilities = {
+			productLimit: {
+				Starter: 5,
+				Economy: 50,
+				Pro: 50,
+				Business: 1000000,
+			},
+			storeLimit: {
+				Starter: 1,
+				Economy: 1,
+				Pro: 1,
+				Business: 100,
+			},
+			branchLimit: {
+				Starter: 1,
+				Economy: 5,
+				Pro: 5,
+				Business: 100,
+			},
+			hasDiscounts: {
+				Starter: false,
+				Economy: true,
+				Pro: true,
+				Business: true,
+			},
+			hasCustomDomain: {
+				Starter: false,
+				Economy: false,
+				Pro: false,
+				Business: true,
+			},
+			hasAdvancedAnalytics: {
+				Starter: false,
+				Economy: false,
+				Pro: false,
+				Business: true,
+			},
+		};
+
+		// Default to 'Starter' capability if plan not found, instead of 'false' (which is 0 in numeric comparison)
+		const planCaps = capabilities[capability];
+		return planCaps?.[planName] ?? planCaps?.['Starter'] ?? false;
+	};
+
 	return (
 		<AuthContext.Provider
 			value={{
@@ -1450,6 +1511,7 @@ const AuthProvider = ({ children }) => {
 				updateUserInfo,
 				updatePassword,
 				getRedirectPath,
+				getPlanCapability,
 				registerDeviceTokenForStore:
 					saveDeviceTokenForStore,
 				removeDeviceTokenForStore,

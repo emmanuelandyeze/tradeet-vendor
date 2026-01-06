@@ -47,7 +47,8 @@ const Orders = () => {
 	const {
 		userInfo,
 		selectedStore,
-		switchSelectedBranch, // Assuming this is available in AuthContext if not, we use local state or similar logic
+		switchSelectedBranch,
+		switchSelectedStore,
 	} = useContext(AuthContext);
 
 	// Build stores list
@@ -64,29 +65,20 @@ const Orders = () => {
 
 	// Store Selection Modal State
 	const [storeModalVisible, setStoreModalVisible] = useState(false);
-	
-	// Determine current active identifiers
-	// If selectedStore is set, use it. Otherwise default to first store.
-	const activeStoreId = selectedStore?.parent /* if branch */ || selectedStore?._id /* if store */ || storesList[0]?._id;
-	const activeBranchId = selectedStore?._id; 
+
 	const isActiveIsBranch = !!selectedStore?.parent; // heuristic
 
 	// Display Name Logic
 	const displayStoreName = selectedStore?.parentStoreName || selectedStore?.name || 'Select Store';
-	const displayBranchName = isActiveIsBranch ? (selectedStore?.name || selectedStore?.branchKey || 'Branch') : (selectedStore?.defaultBranch ? 'Main Branch check' : null);
 
 	// Fetch orders based on CURRENT selectedStore from Context
-	// We rely on AuthContext.selectedStore being the source of truth for "Current Context"
 	const fetchOrders = useCallback(async () => {
 		if (!selectedStore) return;
 		setLoading(true);
 		try {
 			let url = `/orders`;
 			const params = [];
-			
-			// logic: if selectedStore is a Branch, pass branchId & storeId
-			// if selectedStore is a Store, pass storeId
-			
+
 			if (selectedStore.parent) {
 				// It's a branch
 				params.push(`storeId=${encodeURIComponent(selectedStore.parent)}`);
@@ -94,8 +86,6 @@ const Orders = () => {
 			} else {
 				// It's a store
 				params.push(`storeId=${encodeURIComponent(selectedStore._id)}`);
-				// Optionally, if the store has a default branch or we want all branch orders?
-				// Typically standard is: if no branchId, might return all orders for store or just store-level ones
 			}
 
 			if (params.length) url = `${url}?${params.join('&')}`;
@@ -109,9 +99,9 @@ const Orders = () => {
 
 			const sortedOrders = Array.isArray(fetched)
 				? fetched.sort(
-						(a, b) =>
-							new Date(b.createdAt) - new Date(a.createdAt),
-				  )
+					(a, b) =>
+						new Date(b.createdAt) - new Date(a.createdAt),
+				)
 				: [];
 
 			setOrders(sortedOrders);
@@ -173,23 +163,12 @@ const Orders = () => {
 	const handleSelectStoreBranch = async (obj) => {
 		try {
 			if (!obj) return;
-			// If obj is a branch, it usually has .parent
-			// If obj is a store, check standard fields
-			// We assume switchSelectedBranch works as (branchId, storeId) or similar. 
-			// Adapting to AuthContext signature from analysis: switchSelectedBranch(branchId, storeId)
-			
+
 			if (obj.type === 'branch') {
-				await switchSelectedBranch(obj._id, obj.storeObj?._id || obj.parent);
+				await switchSelectedBranch(obj._id, obj.parent);
 			} else {
-				// Switching to a Store (Brand) directly - behavior depends on app logic
-				// Assuming we switch to its default branch or just the store context
-				// For safety, if switchSelectedBranch expects an ID, pass it.
-				
-				// Checking if AuthContext handles store-only switch. 
-				// Usually we select the store object itself.
-				// Based on products.jsx: await switchSelectedBranch(obj._id, obj.parent);
-				// If store, obj.parent is undefined.
-				await switchSelectedBranch(obj._id, null); 
+				// Was calling switchSelectedBranch(obj._id, null) which is wrong for stores
+				await switchSelectedStore(obj);
 			}
 			setStoreModalVisible(false);
 		} catch (err) {
@@ -206,12 +185,13 @@ const Orders = () => {
 	// Styling Helpers
 	const getStatusColor = (status) => {
 		switch (String(status).toLowerCase()) {
-			case 'pending': return '#F59E0B';
-			case 'accepted': return '#3B82F6';
-			case 'processing': return '#8B5CF6';
-			case 'out-for-delivery': return '#10B981';
-			case 'completed': return '#065637';
-			case 'cancelled': return '#EF4444';
+			case 'pending': return '#D97706'; // Warning
+			case 'accepted': return '#2563EB'; // Blue
+			case 'processing': return '#7C3AED'; // Purple
+			case 'out-for-delivery': return '#059669'; // Success
+			case 'completed': return '#065637'; // Brand Dark Green
+			case 'cancelled':
+			case 'rejected': return '#DC2626'; // Danger
 			default: return '#6B7280';
 		}
 	};
@@ -220,23 +200,24 @@ const Orders = () => {
 
 	return (
 		<View style={styles.container}>
-			<StatusBar style="light" backgroundColor="#065637" />
-			
+			<StatusBar style="dark" backgroundColor="#FFFFFF" />
+
 			{/* Header */}
 			<View style={styles.header}>
 				<View>
 					<Text style={styles.headerTitle}>Orders</Text>
-					<TouchableOpacity 
+					<TouchableOpacity
 						style={styles.storeSelector}
 						onPress={() => setStoreModalVisible(true)}
 					>
 						<Text style={styles.storeSelectorText} numberOfLines={1}>
-							{displayStoreName} 
+							{displayStoreName}
 							{isActiveIsBranch && ` • ${selectedStore?.name}`}
 						</Text>
-						<Ionicons name="chevron-down" size={14} color="#D1FAE5" style={{ marginLeft: 4 }} />
+						<Ionicons name="chevron-down" size={14} color="#6B7280" style={{ marginLeft: 4 }} />
 					</TouchableOpacity>
 				</View>
+				{/* Could place add icon here if needed */}
 			</View>
 
 			{/* Search */}
@@ -270,7 +251,7 @@ const Orders = () => {
 						{ id: 'all', label: 'All Orders', count: orders.length },
 					]}
 					keyExtractor={item => item.id}
-					contentContainerStyle={{ paddingHorizontal: 16, gap: 10 }}
+					contentContainerStyle={{ paddingHorizontal: 20, gap: 10 }}
 					renderItem={({ item }) => {
 						const isActive = statusFilter === item.id;
 						return (
@@ -301,9 +282,11 @@ const Orders = () => {
 				ListEmptyComponent={
 					!loading && (
 						<View style={styles.emptyState}>
-							<MaterialCommunityIcons name="clipboard-text-outline" size={64} color="#D1D5DB" />
+							<View style={styles.emptyIconBg}>
+								<Ionicons name="documents-outline" size={48} color="#9CA3AF" />
+							</View>
 							<Text style={styles.emptyStateText}>No orders found</Text>
-							<Text style={styles.emptyStateSub}>Check a different status or clear your search</Text>
+							<Text style={styles.emptyStateSub}>Items you receive will appear here</Text>
 						</View>
 					)
 				}
@@ -311,6 +294,7 @@ const Orders = () => {
 					const statusColor = getStatusColor(item.status);
 					const totalAmount = item.totalAmount || 0;
 					const itemCount = item.items?.length || 0;
+					const orderIdShort = `#${(item.orderNumber || String(item._id).slice(-6)).slice(-6).toUpperCase()}`;
 
 					return (
 						<TouchableOpacity
@@ -320,31 +304,33 @@ const Orders = () => {
 						>
 							<View style={styles.cardHeader}>
 								<View style={styles.orderIdRow}>
-									<Text style={styles.orderId}>#{item.orderNumber || String(item._id).slice(-6).toUpperCase()}</Text>
+									<Text style={styles.orderId}>{orderIdShort}</Text>
 									<Text style={styles.timeAgo}>{formatTimeAgo(item.createdAt)}</Text>
 								</View>
-								<View style={[styles.statusPill, { backgroundColor: statusColor + '20' }]}>
+								<View style={[styles.statusPill, { backgroundColor: statusColor + '10', borderColor: statusColor + '40' }]}>
 									<Text style={[styles.statusText, { color: statusColor }]}>{getStatusLabel(item.status)}</Text>
 								</View>
 							</View>
-							<View style={styles.divider} />
+
 							<View style={styles.cardBody}>
 								<View style={styles.customerRow}>
 									<View style={styles.avatar}>
 										<Text style={styles.avatarText}>{(item.customerInfo?.name || item.customerName || 'C').charAt(0).toUpperCase()}</Text>
 									</View>
-									<View>
-										<Text style={styles.customerName}>{item.customerInfo?.name || item.customerName || 'Walk-in Customer'}</Text>
+									<View style={{ flex: 1 }}>
+										<Text style={styles.customerName} numberOfLines={1}>{item.customerInfo?.name || item.customerName || 'Walk-in Customer'}</Text>
 										<Text style={styles.itemsText}>{itemCount} item{itemCount !== 1 ? 's' : ''}</Text>
 									</View>
 								</View>
 								<View style={styles.amountContainer}>
-									<Text style={styles.amountLabel}>Total</Text>
 									<Text style={styles.amountValue}>₦{Number(totalAmount).toLocaleString()}</Text>
+									<Text style={[
+										styles.paymentStatus,
+										{ color: item.payment?.status === 'paid' ? '#059669' : '#D97706' }
+									]}>
+										{item.payment?.status === 'paid' ? 'Paid' : 'Pending'}
+									</Text>
 								</View>
-							</View>
-							<View style={[styles.paymentStrip, { backgroundColor: item.payment?.status === 'paid' ? '#10B981' : '#F59E0B' }]}>
-								<Text style={styles.paymentStripText}>{item.payment?.status === 'paid' ? 'PAID' : 'PAYMENT PENDING'}</Text>
 							</View>
 						</TouchableOpacity>
 					);
@@ -358,22 +344,22 @@ const Orders = () => {
 				transparent
 				onRequestClose={() => setStoreModalVisible(false)}
 			>
-				<TouchableOpacity 
-					style={styles.modalOverlay} 
-					activeOpacity={1} 
+				<TouchableOpacity
+					style={styles.modalOverlay}
+					activeOpacity={1}
 					onPress={() => setStoreModalVisible(false)}
 				>
 					<View style={styles.modalContent}>
 						<View style={styles.modalHeader}>
 							<Text style={styles.modalTitle}>Select Business</Text>
-							<TouchableOpacity onPress={() => setStoreModalVisible(false)}>
-								<Ionicons name="close" size={24} color="#374151" />
+							<TouchableOpacity onPress={() => setStoreModalVisible(false)} style={styles.closeBtn}>
+								<Ionicons name="close" size={20} color="#374151" />
 							</TouchableOpacity>
 						</View>
 						<FlatList
 							data={userInfo?.stores || []}
 							keyExtractor={(s) => s._id}
-							contentContainerStyle={{ padding: 16 }}
+							contentContainerStyle={{ padding: 20 }}
 							renderItem={({ item: s }) => {
 								const isStoreSelected = selectedStore?._id === s._id;
 								return (
@@ -398,14 +384,17 @@ const Orders = () => {
 													onPress={() => handleSelectStoreBranch({ type: 'branch', _id: b._id, parent: s._id, storeObj: s, ...b })}
 													style={[styles.branchOption, isBranchSelected && styles.branchOptionSelected]}
 												>
-													<View style={{ flexDirection: 'row', alignItems: 'center' }}>
-														<View style={styles.branchLine} />
-														<View>
-															<Text style={[styles.branchOptionName, isBranchSelected && styles.branchOptionNameSelected]}>
-																{b.name || b.branchKey || 'Branch'}
-															</Text>
-															<Text style={styles.branchOptionAddress}>{b.address || 'Branch Location'}</Text>
-														</View>
+													<Ionicons
+														name="return-down-forward-outline"
+														size={16}
+														color="#9CA3AF"
+														style={{ marginRight: 8, marginLeft: 4 }}
+													/>
+													<View style={{ flex: 1 }}>
+														<Text style={[styles.branchOptionName, isBranchSelected && styles.branchOptionNameSelected]}>
+															{b.name || b.branchKey || 'Branch'}
+														</Text>
+														<Text style={styles.branchOptionAddress}>{b.address || 'Location'}</Text>
 													</View>
 													{isBranchSelected && <Ionicons name="checkmark-circle" size={18} color="#065637" />}
 												</TouchableOpacity>
@@ -425,20 +414,22 @@ const Orders = () => {
 export default Orders;
 
 const styles = StyleSheet.create({
-	container: { flex: 1, backgroundColor: '#F3F4F6' },
+	container: { flex: 1, backgroundColor: '#FFFFFF' },
 	header: {
-		backgroundColor: '#065637',
+		backgroundColor: '#FFFFFF',
 		paddingTop: Platform.OS === 'android' ? 45 : 60,
-		paddingBottom: 20,
+		paddingBottom: 16,
 		paddingHorizontal: 20,
 		flexDirection: 'row',
 		justifyContent: 'space-between',
 		alignItems: 'center',
+		borderBottomWidth: 1,
+		borderBottomColor: '#F3F4F6',
 	},
 	headerTitle: {
-		fontSize: 24,
+		fontSize: 28,
 		fontWeight: '800',
-		color: '#fff',
+		color: '#111827',
 		marginBottom: 4,
 	},
 	storeSelector: {
@@ -446,97 +437,104 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 	},
 	storeSelectorText: {
-		color: '#D1FAE5',
+		color: '#6B7280',
 		fontSize: 14,
-		fontWeight: '600',
+		fontWeight: '500',
 		maxWidth: 250,
 	},
 	searchSection: {
-		paddingHorizontal: 16,
-		marginTop: -15,
-		marginBottom: 10,
+		paddingHorizontal: 20,
+		paddingTop: 16,
+		marginBottom: 16,
 	},
 	searchBar: {
-		backgroundColor: '#fff',
+		backgroundColor: '#F3F4F6',
 		flexDirection: 'row',
 		alignItems: 'center',
 		borderRadius: 12,
-		paddingHorizontal: 15,
-		height: 50,
-		shadowColor: '#000',
-		shadowOffset: { width: 0, height: 2 },
-		shadowOpacity: 0.05,
-		shadowRadius: 5,
-		elevation: 3,
+		paddingHorizontal: 16,
+		height: 48,
+		borderWidth: 1,
+		borderColor: 'transparent',
 	},
 	searchInput: { flex: 1, marginLeft: 10, fontSize: 15, color: '#1F2937' },
-	tabsContainer: { paddingBottom: 10 },
+	tabsContainer: { paddingBottom: 16 },
 	tab: {
 		flexDirection: 'row',
 		alignItems: 'center',
 		paddingVertical: 8,
 		paddingHorizontal: 16,
 		borderRadius: 20,
-		backgroundColor: '#fff',
+		backgroundColor: '#FFFFFF',
 		borderWidth: 1,
 		borderColor: '#E5E7EB',
 		marginRight: 8,
 	},
 	activeTab: { backgroundColor: '#065637', borderColor: '#065637' },
-	tabText: { fontSize: 14, fontWeight: '600', color: '#6B7280' },
+	tabText: { fontSize: 13, fontWeight: '600', color: '#6B7280' },
 	activeTabText: { color: '#fff' },
-	badge: { backgroundColor: '#E5E7EB', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, marginLeft: 6 },
+	badge: { backgroundColor: '#F3F4F6', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 10, marginLeft: 8 },
 	activeBadge: { backgroundColor: 'rgba(255,255,255,0.2)' },
-	badgeText: { fontSize: 11, fontWeight: '700', color: '#4B5563' },
+	badgeText: { fontSize: 10, fontWeight: '700', color: '#4B5563' },
 	activeBadgeText: { color: '#fff' },
-	listContent: { paddingHorizontal: 16, paddingBottom: 20 },
+	listContent: { paddingHorizontal: 20, paddingBottom: 100 },
+
+	// Card Styles - Professional
 	card: {
 		backgroundColor: '#fff',
-		borderRadius: 16,
+		borderRadius: 12,
 		marginBottom: 16,
-		shadowColor: '#000',
-		shadowOffset: { width: 0, height: 2 },
-		shadowOpacity: 0.05,
-		shadowRadius: 5,
-		elevation: 2,
-		overflow: 'hidden',
+		borderWidth: 1,
+		borderColor: '#E5E7EB',
+		// Removed heavy shadow for cleaner look
 	},
-	cardHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16 },
+	cardHeader: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		alignItems: 'flex-start',
+		padding: 16,
+		paddingBottom: 12,
+		borderBottomWidth: 1,
+		borderBottomColor: '#F9FAFB'
+	},
 	orderIdRow: { flexDirection: 'column' },
-	orderId: { fontSize: 16, fontWeight: '700', color: '#111827' },
-	timeAgo: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
-	statusPill: { paddingHorizontal: 10, paddingVertical: 4, borderRadius: 12 },
-	statusText: { fontSize: 12, fontWeight: '700' },
-	divider: { height: 1, backgroundColor: '#F3F4F6', marginHorizontal: 16 },
+	orderId: { fontSize: 15, fontWeight: '600', color: '#111827', letterSpacing: -0.3 },
+	timeAgo: { fontSize: 11, color: '#9CA3AF', marginTop: 4 },
+	statusPill: { paddingHorizontal: 8, paddingVertical: 4, borderRadius: 6, borderWidth: 1 },
+	statusText: { fontSize: 11, fontWeight: '600' },
+
 	cardBody: { padding: 16, flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
 	customerRow: { flexDirection: 'row', alignItems: 'center', flex: 1 },
-	avatar: { width: 40, height: 40, borderRadius: 20, backgroundColor: '#E0E7FF', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
-	avatarText: { fontSize: 18, fontWeight: '700', color: '#4F46E5' },
-	customerName: { fontSize: 14, fontWeight: '600', color: '#374151' },
+	avatar: { width: 36, height: 36, borderRadius: 18, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center', marginRight: 12 },
+	avatarText: { fontSize: 14, fontWeight: '600', color: '#4B5563' },
+	customerName: { fontSize: 14, fontWeight: '500', color: '#1F2937' },
 	itemsText: { fontSize: 12, color: '#6B7280', marginTop: 2 },
+
 	amountContainer: { alignItems: 'flex-end' },
-	amountLabel: { fontSize: 11, color: '#9CA3AF', textTransform: 'uppercase' },
-	amountValue: { fontSize: 18, fontWeight: '700', color: '#065637' },
-	paymentStrip: { height: 4, width: '100%', flexDirection: 'row', justifyContent: 'center', alignItems: 'center' },
-	paymentStripText: { fontSize: 0, height: 0, opacity: 0 }, /* hidden text mainly for screen readers if needed or debug, simplified to color strip */
-	emptyState: { alignItems: 'center', justifyContent: 'center', marginTop: 60 },
-	emptyStateText: { fontSize: 18, fontWeight: '700', color: '#374151', marginTop: 16 },
-	emptyStateSub: { fontSize: 14, color: '#9CA3AF', marginTop: 8 },
+	amountValue: { fontSize: 16, fontWeight: '700', color: '#111827' },
+	paymentStatus: { fontSize: 11, fontWeight: '500', marginTop: 2 },
+
+	emptyState: { alignItems: 'center', justifyContent: 'center', marginTop: 80 },
+	emptyIconBg: { width: 80, height: 80, borderRadius: 40, backgroundColor: '#F3F4F6', justifyContent: 'center', alignItems: 'center', marginBottom: 16 },
+	emptyStateText: { fontSize: 16, fontWeight: '600', color: '#1F2937' },
+	emptyStateSub: { fontSize: 14, color: '#6B7280', marginTop: 4 },
 
 	// Modal Styles
-	modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.5)', justifyContent: 'flex-end' },
-	modalContent: { backgroundColor: '#fff', borderTopLeftRadius: 20, borderTopRightRadius: 20, maxHeight: '80%' },
-	modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
+	modalOverlay: { flex: 1, backgroundColor: 'rgba(0,0,0,0.4)', justifyContent: 'flex-end' },
+	modalContent: { backgroundColor: '#fff', borderTopLeftRadius: 24, borderTopRightRadius: 24, maxHeight: '80%' },
+	modalHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 20, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
 	modalTitle: { fontSize: 18, fontWeight: '700', color: '#111827' },
-	storeOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, borderRadius: 12, backgroundColor: '#F9FAFB', borderWidth: 1, borderColor: '#F3F4F6' },
-	storeOptionSelected: { backgroundColor: '#ECFDF5', borderColor: '#065637' },
-	storeOptionName: { fontSize: 16, fontWeight: '600', color: '#374151' },
+	closeBtn: { padding: 4, backgroundColor: '#F3F4F6', borderRadius: 20 },
+	storeOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 16, borderRadius: 12, backgroundColor: '#FFFFFF', borderWidth: 1, borderColor: '#E5E7EB' },
+	storeOptionSelected: { backgroundColor: '#F0FDF4', borderColor: '#065637' },
+	storeOptionName: { fontSize: 15, fontWeight: '600', color: '#374151' },
 	storeOptionNameSelected: { color: '#065637' },
 	storeOptionAddress: { fontSize: 12, color: '#6B7280', marginTop: 2 },
-	branchOption: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', padding: 12, paddingLeft: 12, marginTop: 8 },
-	branchOptionSelected: { backgroundColor: '#F0FDF4', borderRadius: 8 },
-	branchLine: { width: 2, height: '100%', backgroundColor: '#D1D5DB', marginRight: 12, borderRadius: 1 },
-	branchOptionName: { fontSize: 15, fontWeight: '500', color: '#4B5563' },
+	branchOption: { flexDirection: 'row', alignItems: 'center', padding: 12, marginTop: 8, paddingLeft: 0 },
+	branchOptionSelected: { backgroundColor: '#F9FAFB', borderRadius: 8 },
+	branchLineContainer: { width: 24, alignItems: 'center', height: '100%' },
+	branchLine: { width: 2, height: '100%', backgroundColor: '#E5E7EB' },
+	branchOptionName: { fontSize: 14, fontWeight: '500', color: '#4B5563' },
 	branchOptionNameSelected: { color: '#065637', fontWeight: '700' },
-	branchOptionAddress: { fontSize: 12, color: '#9CA3AF' },
+	branchOptionAddress: { fontSize: 11, color: '#9CA3AF' },
 });

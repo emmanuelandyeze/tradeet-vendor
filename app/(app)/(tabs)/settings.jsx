@@ -1,3 +1,4 @@
+// app/(app)/(tabs)/settings.jsx
 import React, { useContext, useState } from 'react';
 import {
 	View,
@@ -9,6 +10,7 @@ import {
 	Alert,
 	Switch,
 	Image,
+	Platform,
 } from 'react-native';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import { AuthContext } from '@/context/AuthContext';
@@ -17,7 +19,7 @@ import { StatusBar } from 'expo-status-bar';
 
 const ProfileScreen = () => {
 	const router = useRouter();
-	const { logout, userInfo, selectedStore, switchSelectedStore } = useContext(AuthContext);
+	const { logout, userInfo, selectedStore, switchSelectedStore, getPlanCapability } = useContext(AuthContext);
 	const [darkMode, setDarkMode] = useState(false);
 
 	// Open website
@@ -59,10 +61,7 @@ const ProfileScreen = () => {
 
 	const handleSwitchStore = async (store) => {
 		try {
-			// switchSelectedStore uses the same methodsignature: storeId or storeObj
-			// Since we have the store object here, we can pass it directly or its id
 			await switchSelectedStore(store);
-			// Optionally show a toast, but UI update should be enough
 		} catch (error) {
 			Alert.alert('Error', 'Failed to switch store');
 		}
@@ -71,12 +70,12 @@ const ProfileScreen = () => {
 	// Settings categories
 	const settingsSections = [
 		{
-			title: 'Account Settings',
+			title: 'Account',
 			data: [
 				{
 					id: '2',
 					title: 'Change Password',
-					icon: 'lock-closed',
+					icon: 'lock-closed-outline',
 					onPress: () => router.push('/change-password'),
 				},
 			],
@@ -87,26 +86,26 @@ const ProfileScreen = () => {
 				{
 					id: '8',
 					title: 'Custom Domain',
-					icon: 'globe-outline', // Updated icon
+					icon: 'globe-outline',
 					onPress: () => router.push('/(app)/domain-settings'),
 				},
 				{
 					id: '3',
 					title: 'Website Settings',
-					icon: 'globe',
+					icon: 'desktop-outline',
 					onPress: () => router.push('/(app)/setupstore'),
 				},
 				{
 					id: '1',
 					title: 'Business Hours',
-					icon: 'time',
+					icon: 'time-outline',
 					onPress: () =>
 						router.push('/(app)/business-hours'),
 				},
 				{
 					id: '4',
 					title: 'Payment & Payouts',
-					icon: 'card',
+					icon: 'card-outline',
 					onPress: () => router.push('/(app)/payment-info'),
 				},
 			],
@@ -116,26 +115,28 @@ const ProfileScreen = () => {
 			data: [
 				{
 					id: '5',
-					title: 'Dark Mode (coming soon)',
-					icon: 'moon',
+					title: 'Dark Mode',
+					icon: 'moon-outline',
 					toggle: true,
 					value: darkMode,
 					onToggle: () => setDarkMode((prev) => !prev),
+					disabled: true
 				},
 				{
 					id: '6',
-					title: 'Notifications (coming soon)',
-					icon: 'notifications',
+					title: 'Notifications',
+					icon: 'notifications-outline',
+					disabled: true
 				},
 			],
 		},
 		{
-			title: 'Help & Support',
+			title: 'Support',
 			data: [
 				{
 					id: '7',
 					title: 'Help & FAQs',
-					icon: 'help-circle',
+					icon: 'help-circle-outline',
 					onPress: openSupport,
 				},
 			],
@@ -144,29 +145,14 @@ const ProfileScreen = () => {
 
 	return (
 		<View style={styles.container}>
-			<StatusBar style="light" backgroundColor="#065637" />
-			<View
-				style={{
-					paddingTop: 25,
-					elevation: 3,
-					backgroundColor: '#065637',
-					paddingHorizontal: 16,
-					paddingBottom: 20,
-				}}
-			>
-				<View
-					style={{
-						display: 'flex',
-						flexDirection: 'row',
-						justifyContent: 'space-between',
-						alignItems: 'center',
-					}}
-				>
-					<Text style={{ fontSize: 24, color: '#f1f1f1', fontWeight: 'bold' }}>Settings</Text>
-				</View>
+			<StatusBar style="dark" backgroundColor="#FFFFFF" />
+
+			{/* Header */}
+			<View style={styles.header}>
+				<Text style={styles.headerTitle}>More</Text>
 			</View>
 
-			<ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
+			<ScrollView contentContainerStyle={{ paddingBottom: 40, paddingTop: 16 }}>
 				{/* My Businesses Section */}
 				<View style={styles.section}>
 					<Text style={styles.sectionTitle}>My Businesses</Text>
@@ -178,6 +164,7 @@ const ProfileScreen = () => {
 								selectedStore?._id === store._id && styles.selectedBusiness,
 							]}
 							onPress={() => handleSwitchStore(store)}
+							activeOpacity={0.7}
 						>
 							<View style={styles.businessInfo}>
 								{store.logoUrl ? (
@@ -199,19 +186,31 @@ const ProfileScreen = () => {
 									</Text>
 								</View>
 							</View>
-							{selectedStore?._id === store._id && (
+							{selectedStore?._id === store._id ? (
 								<Ionicons name="checkmark-circle" size={24} color="#065637" />
+							) : (
+								<View style={styles.radioOutline} />
 							)}
 						</TouchableOpacity>
 					))}
 
-					<TouchableOpacity
-						style={styles.addBusinessButton}
-						onPress={() => router.push('/(app)/create-business')}
-					>
-						<Ionicons name="add-circle-outline" size={20} color="#065637" />
-						<Text style={styles.addBusinessText}>Add New Business</Text>
-					</TouchableOpacity>
+					{userInfo?.stores?.length < getPlanCapability('storeLimit') ? (
+						<TouchableOpacity
+							style={styles.addBusinessButton}
+							onPress={() => router.push('/(app)/create-business')}
+						>
+							<Ionicons name="add" size={18} color="#065637" />
+							<Text style={styles.addBusinessText}>Add New Business</Text>
+						</TouchableOpacity>
+					) : (
+						<TouchableOpacity
+							style={[styles.addBusinessButton, { borderColor: '#6366f1', borderStyle: 'solid' }]}
+							onPress={() => router.push('/(app)/subscription')}
+						>
+							<Ionicons name="star" size={18} color="#6366f1" />
+							<Text style={[styles.addBusinessText, { color: '#6366f1' }]}>Upgrade for Multi-Store</Text>
+						</TouchableOpacity>
+					)}
 				</View>
 
 				{/* Settings Sections */}
@@ -220,177 +219,229 @@ const ProfileScreen = () => {
 						<Text style={styles.sectionTitle}>
 							{section.title}
 						</Text>
-						{section.data.map((item) => (
-							<TouchableOpacity
-								key={item.id}
-								style={styles.settingButton}
-								onPress={item.onPress}
-							>
-								<Ionicons
-									name={item.icon}
-									size={20}
-									color="#000"
-								/>
-								<Text style={styles.settingText}>
-									{item.title}
-								</Text>
-								{item.toggle ? (
-									<Switch
-										value={item.value}
-										onValueChange={item.onToggle}
-									/>
-								) : (
-									<Ionicons
-										name="chevron-forward"
-										size={20}
-										color="#000"
-									/>
-								)}
-							</TouchableOpacity>
-						))}
+						<View style={styles.sectionCard}>
+							{section.data.map((item, index) => (
+								<TouchableOpacity
+									key={item.id}
+									style={[
+										styles.settingButton,
+										index !== section.data.length - 1 && styles.settingDivider
+									]}
+									onPress={item.onPress}
+									disabled={item.disabled}
+								>
+									<View style={styles.settingIconBox}>
+										<Ionicons
+											name={item.icon}
+											size={20}
+											color="#4B5563"
+										/>
+									</View>
+									<View style={{ flex: 1 }}>
+										<Text style={[styles.settingText, item.disabled && styles.disabledText]}>
+											{item.title}
+										</Text>
+										{item.disabled && (
+											<Text style={styles.comingSoon}>Coming soon</Text>
+										)}
+									</View>
+
+									{item.toggle ? (
+										<Switch
+											value={item.value}
+											onValueChange={item.onToggle}
+											trackColor={{ false: '#E5E7EB', true: '#BBF7D0' }}
+											thumbColor={item.value ? '#065637' : '#F3F4F6'}
+											disabled={item.disabled}
+										/>
+									) : (
+										!item.disabled && (
+											<Ionicons
+												name="chevron-forward"
+												size={18}
+												color="#9CA3AF"
+											/>
+										)
+									)}
+								</TouchableOpacity>
+							))}
+						</View>
 					</View>
 				))}
 
 				{/* Logout Button */}
-				<TouchableOpacity
-					onPress={confirmLogout}
-					style={styles.logoutButton}
-				>
-					<Text style={styles.logoutText}>Logout</Text>
-					<Ionicons name="log-out" size={20} color="red" />
-				</TouchableOpacity>
+				<View style={[styles.section, { marginTop: 12 }]}>
+					<TouchableOpacity
+						onPress={confirmLogout}
+						style={styles.logoutButton}
+					>
+						<Ionicons name="log-out-outline" size={20} color="#EF4444" />
+						<Text style={styles.logoutText}>Log Out</Text>
+					</TouchableOpacity>
+				</View>
+
+				<Text style={styles.versionText}>Version 1.0.0</Text>
 			</ScrollView>
 		</View>
 	);
 };
 
+export default ProfileScreen;
+
 const styles = StyleSheet.create({
 	container: {
 		flex: 1,
-		backgroundColor: '#f5f5f5',
-		paddingTop: 0,
-		paddingBottom: 0,
+		backgroundColor: '#F9FAFB',
 	},
 	header: {
-		flexDirection: 'row',
-		paddingHorizontal: 15,
-		backgroundColor: '#fff',
-		alignItems: 'center',
-		gap: 10,
+		backgroundColor: '#FFFFFF',
+		paddingTop: Platform.OS === 'android' ? 50 : 60,
+		paddingBottom: 16,
+		paddingHorizontal: 20,
 		borderBottomWidth: 1,
-		borderBottomColor: '#ccc',
-		paddingVertical: 10,
+		borderBottomColor: '#F3F4F6',
+	},
+	headerTitle: {
+		fontSize: 28,
+		fontWeight: '800',
+		color: '#111827',
 	},
 	section: {
-		padding: 15,
-		backgroundColor: '#fff',
-		marginBottom: 10,
-		marginTop: 10,
+		paddingHorizontal: 20,
+		marginBottom: 24,
 	},
 	sectionTitle: {
-		fontSize: 18,
-		fontWeight: 'bold',
-		marginBottom: 10,
-		color: '#333',
+		fontSize: 14,
+		fontWeight: '600',
+		marginBottom: 12,
+		color: '#6B7280',
+		textTransform: 'uppercase',
+		letterSpacing: 0.5,
+	},
+	sectionCard: {
+		backgroundColor: '#FFFFFF',
+		borderRadius: 12,
+		borderWidth: 1,
+		borderColor: '#E5E7EB',
+		overflow: 'hidden',
 	},
 	settingButton: {
 		flexDirection: 'row',
 		alignItems: 'center',
-		padding: 15,
-		borderBottomWidth: 1,
-		borderBottomColor: '#eee',
-		gap: 10,
+		padding: 16,
 	},
-	settingText: { fontSize: 16, flex: 1, color: '#333' },
+	settingDivider: {
+		borderBottomWidth: 1,
+		borderBottomColor: '#F3F4F6',
+	},
+	settingIconBox: {
+		width: 32,
+		height: 32,
+		borderRadius: 8,
+		backgroundColor: '#F3F4F6',
+		justifyContent: 'center',
+		alignItems: 'center',
+		marginRight: 12,
+	},
+	settingText: { fontSize: 15, fontWeight: '500', color: '#1F2937' },
+	disabledText: { color: '#9CA3AF' },
+	comingSoon: { fontSize: 11, color: '#9CA3AF' },
+
 	logoutButton: {
 		flexDirection: 'row',
-		padding: 15,
-		marginTop: 20,
+		padding: 16,
 		alignItems: 'center',
 		justifyContent: 'center',
-		marginBottom: 30,
-		borderColor: 'red',
+		borderRadius: 12,
+		backgroundColor: '#FEF2F2',
 		borderWidth: 1,
-		borderRadius: 5,
-		backgroundColor: '#fff',
-		width: '90%',
-		alignSelf: 'center',
+		borderColor: '#FEE2E2',
+		gap: 8,
 	},
 	logoutText: {
-		fontSize: 16,
-		color: 'red',
-		marginRight: 5,
-		fontWeight: 'bold',
+		fontSize: 15,
+		color: '#EF4444',
+		fontWeight: '600',
 	},
+	versionText: {
+		textAlign: 'center',
+		color: '#9CA3AF',
+		fontSize: 12,
+		marginBottom: 30,
+	},
+
 	// My Business Styles
 	businessItem: {
 		flexDirection: 'row',
 		alignItems: 'center',
 		justifyContent: 'space-between',
 		padding: 12,
-		borderRadius: 8,
+		borderRadius: 12,
 		borderWidth: 1,
-		borderColor: '#eee',
-		marginBottom: 8,
-		backgroundColor: '#fafafa',
+		borderColor: '#E5E7EB',
+		marginBottom: 12,
+		backgroundColor: '#FFFFFF',
 	},
 	selectedBusiness: {
 		borderColor: '#065637',
-		backgroundColor: '#e8f5e9',
+		backgroundColor: '#F0FDF4',
 	},
 	businessInfo: {
 		flexDirection: 'row',
 		alignItems: 'center',
-		gap: 10,
+		gap: 12,
 		flex: 1,
 	},
 	businessLogo: {
-		width: 40,
-		height: 40,
-		borderRadius: 20,
-		borderWidth: 1,
-		borderColor: '#ddd',
+		width: 48,
+		height: 48,
+		borderRadius: 8,
+		backgroundColor: '#F3F4F6',
 	},
 	placeholderLogo: {
-		width: 40,
-		height: 40,
-		borderRadius: 20,
-		backgroundColor: '#eee',
+		width: 48,
+		height: 48,
+		borderRadius: 8,
+		backgroundColor: '#F3F4F6',
 		alignItems: 'center',
 		justifyContent: 'center',
-		borderWidth: 1,
-		borderColor: '#ddd',
 	},
 	placeholderText: {
-		fontSize: 18,
-		fontWeight: 'bold',
-		color: '#555',
+		fontSize: 20,
+		fontWeight: '700',
+		color: '#9CA3AF',
 	},
 	businessName: {
 		fontSize: 16,
 		fontWeight: '600',
-		color: '#333',
+		color: '#111827',
 	},
 	businessLink: {
-		fontSize: 12,
-		color: '#666',
+		fontSize: 13,
+		color: '#6B7280',
+	},
+	radioOutline: {
+		width: 20,
+		height: 20,
+		borderRadius: 10,
+		borderWidth: 2,
+		borderColor: '#D1D5DB',
 	},
 	addBusinessButton: {
 		flexDirection: 'row',
 		alignItems: 'center',
 		justifyContent: 'center',
-		padding: 12,
-		marginTop: 5,
+		padding: 14,
+		borderRadius: 12,
+		backgroundColor: '#FFFFFF',
 		borderWidth: 1,
-		borderColor: '#065637',
-		borderRadius: 8,
+		borderColor: '#E5E7EB',
 		borderStyle: 'dashed',
 	},
 	addBusinessText: {
-		marginLeft: 5,
+		marginLeft: 8,
 		color: '#065637',
 		fontWeight: '600',
+		fontSize: 15,
 	},
 });
-
-export default ProfileScreen;

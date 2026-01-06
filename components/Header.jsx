@@ -29,6 +29,7 @@ import {
 } from '@expo/vector-icons';
 import axiosInstance from '@/utils/axiosInstance';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useRouter } from 'expo-router';
 
 // Fast shimmer for loading state
 const Shimmer = ({ style }) => {
@@ -75,10 +76,12 @@ export default function Header({
 	userInfo,
 	storeInfo,
 }) {
+	const router = useRouter();
 	const {
 		selectedStore,
 		switchSelectedStore,
 		switchSelectedBranch,
+		getPlanCapability,
 	} = useContext(AuthContext);
 
 	// Multi-business logic (preserved)
@@ -149,7 +152,7 @@ export default function Header({
 			!parentStoreObj &&
 			storeInfo &&
 			String(storeInfo._id) ===
-				String(selectedStore._storeId)
+			String(selectedStore._storeId)
 		) {
 			parentStoreObj = storeInfo;
 		}
@@ -237,8 +240,8 @@ export default function Header({
 			const refreshed = Array.isArray(resp.data?.branches)
 				? resp.data.branches
 				: created
-				? [...(branchesForStore || []), created]
-				: branchesForStore;
+					? [...(branchesForStore || []), created]
+					: branchesForStore;
 			setBranchesForStore(refreshed);
 
 			if (
@@ -292,12 +295,12 @@ export default function Header({
 
 	const sections = Array.isArray(userInfo?.stores)
 		? userInfo.stores.map((store) => ({
-				title: store.name || 'Unnamed Store',
-				data: Array.isArray(store.branches)
-					? store.branches
-					: [],
-				store,
-		  }))
+			title: store.name || 'Unnamed Store',
+			data: Array.isArray(store.branches)
+				? store.branches
+				: [],
+			store,
+		}))
 		: [];
 
 	// Render ---------------------------------------------------
@@ -335,7 +338,7 @@ export default function Header({
 							style={styles.logo}
 						/>
 					) : (
-							<PlaceholderLogo name={storeDisplayName} size={42} />
+						<PlaceholderLogo name={storeDisplayName} size={42} />
 					)}
 					{/* Status Dot */}
 					<View style={styles.activeDot} />
@@ -363,9 +366,9 @@ export default function Header({
 
 					<View style={styles.metaRow}>
 						{userInfo?.plan?.name && (
-							<View style={styles.planBadge}>
-								<Text style={styles.planText}>
-									{userInfo.plan.name}
+							<View style={[styles.planBadge, userInfo.plan.isTrial && { backgroundColor: '#EEF2FF', borderColor: '#C7D2FE' }]}>
+								<Text style={[styles.planText, userInfo.plan.isTrial && { color: '#4338ca' }]}>
+									{userInfo.plan.name}{userInfo.plan.isTrial ? ' (TRIAL)' : ''}
 								</Text>
 							</View>
 						)}
@@ -433,11 +436,20 @@ export default function Header({
 												For: <Text style={{ fontWeight: '600', color: '#111' }}>{safeName(branchesParentStore)}</Text>
 											</Text>
 											<TouchableOpacity
-												onPress={() => setAddBranchModalVisible(true)}
-												style={styles.addBranchBtn}
+												onPress={() => {
+													if (branchesForStore.length < getPlanCapability('branchLimit')) {
+														setAddBranchModalVisible(true);
+													} else {
+														setModalVisible(false);
+														router.push('/(app)/subscription');
+													}
+												}}
+												style={[styles.addBranchBtn, branchesForStore.length >= getPlanCapability('branchLimit') && { backgroundColor: '#6366f1' }]}
 											>
-												<Feather name="plus" size={14} color="#fff" />
-												<Text style={styles.addBranchText}>New</Text>
+												<Feather name={branchesForStore.length >= getPlanCapability('branchLimit') ? "star" : "plus"} size={14} color="#fff" />
+												<Text style={styles.addBranchText}>
+													{branchesForStore.length >= getPlanCapability('branchLimit') ? "Upgrade" : "New"}
+												</Text>
 											</TouchableOpacity>
 										</View>
 									) : null
@@ -473,24 +485,24 @@ export default function Header({
 								ListEmptyComponent={<Text style={styles.emptyText}>No branches found.</Text>}
 							/>
 						) : (
-								<SectionList
+							<SectionList
 								sections={sections}
-									keyExtractor={(item) => item._id}
-									style={{ maxHeight: 500 }}
-									renderSectionHeader={({ section }) => (
-										<TouchableOpacity
-											style={styles.sectionHeader}
-											onPress={() => {
-												switchSelectedStore(section.store);
-												setModalVisible(false);
-											}}
-										>
-											<Text style={styles.sectionTitle}>{section.title}</Text>
-											{selectedStore?._id === section.store._id && !selectedStore?._isBranch && (
-												<Feather name="check-circle" size={16} color="#065637" />
-											)}
-										</TouchableOpacity>
-									)}
+								keyExtractor={(item) => item._id}
+								style={{ maxHeight: 500 }}
+								renderSectionHeader={({ section }) => (
+									<TouchableOpacity
+										style={styles.sectionHeader}
+										onPress={() => {
+											switchSelectedStore(section.store);
+											setModalVisible(false);
+										}}
+									>
+										<Text style={styles.sectionTitle}>{section.title}</Text>
+										{selectedStore?._id === section.store._id && !selectedStore?._isBranch && (
+											<Feather name="check-circle" size={16} color="#065637" />
+										)}
+									</TouchableOpacity>
+								)}
 								renderItem={({ item, section }) => {
 									const isSelected = selectedStore?._id === item._id && selectedStore?._isBranch;
 									return (
@@ -581,7 +593,7 @@ export default function Header({
 					<View style={styles.quickSwapCard}>
 						<Text style={styles.quickSwapTitle}>Switch Business</Text>
 						{userInfo?.stores?.map(s => (
-							<TouchableOpacity 
+							<TouchableOpacity
 								key={s._id}
 								style={styles.quickSwapRow}
 								onPress={() => {

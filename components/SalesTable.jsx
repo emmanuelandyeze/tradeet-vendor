@@ -14,6 +14,7 @@ import {
 	ActivityIndicator, // Added for loading states
 } from 'react-native';
 import * as Sharing from 'expo-sharing';
+import * as Print from 'expo-print';
 import { captureRef } from 'react-native-view-shot';
 import { AuthContext } from '@/context/AuthContext';
 import PlaceholderLogo from './PlaceholderLogo';
@@ -48,15 +49,11 @@ const SalesTable = ({
 
 	const openPaymentModal = () => {
 		if (!selectedInvoice) return; // Ensure an invoice is selected
+		const total = selectedInvoice.totalAmount || 0;
+		const paid = selectedInvoice.paidAmount || selectedInvoice.amountPaid || 0;
+		const balance = total - paid;
 		setAmountPaid(
-			selectedInvoice.totalAmount -
-				selectedInvoice.amountPaid >
-				0
-				? (
-						selectedInvoice.totalAmount -
-						selectedInvoice.amountPaid
-				  ).toString()
-				: '',
+			balance > 0 ? balance.toString() : ''
 		); // Pre-fill with balance or empty
 		setPaymentModalVisible(true);
 	};
@@ -151,9 +148,8 @@ const SalesTable = ({
 								error.response?.data || error.message,
 							);
 							ToastAndroid.show(
-								`Failed to record payment: ${
-									error.response?.data?.message ||
-									'Something went wrong'
+								`Failed to record payment: ${error.response?.data?.message ||
+								'Something went wrong'
 								}`,
 								ToastAndroid.LONG,
 							);
@@ -167,32 +163,173 @@ const SalesTable = ({
 		);
 	};
 
-	const handleShareInvoice = async () => {
+	/*
+	 * Build a receipt HTML for the selected invoice
+	 */
+	const buildReceiptHtml = (invoice) => {
+		const storeName = (userInfo?.name || '').replace(/&/g, '&amp;');
+		const storeAddress = userInfo?.address || '';
+		const storePhone = userInfo?.phone || '';
+		const logoUrl = userInfo?.logoUrl || '';
+
+		const invoiceNumber = invoice?.orderNumber || (invoice?._id ? `#${String(invoice._id).slice(-6)}` : '—');
+		const issueDate = formatDateTime(invoice?.createdAt || new Date());
+		const customerName = invoice?.customerInfo?.name || 'Customer';
+
+		// Calculate total paid
+		const paidAmount = invoice.paidAmount || invoice.amountPaid ||
+			((invoice.payments || []).reduce((sum, p) => sum + (p.amount || 0), 0));
+
+		// Determine payment method from last payment or 'Multiple'
+		const lastPayment = (invoice.payments && invoice.payments.length > 0)
+			? invoice.payments[invoice.payments.length - 1]
+			: null;
+		const paymentMethod = lastPayment?.method || invoice?.payment?.method || (invoice?.payment?.status === 'paid' ? 'Cash' : '—');
+
+		const logoHtml = logoUrl
+			? `<img src="${logoUrl}" alt="logo" style="height:50px;width:auto;object-fit:contain;" />`
+			: `<div style="height:50px;width:50px;display:flex;align-items:center;justify-content:center;border-radius:6px;background:#F3F4F6;color:#6B7280;font-weight:700;font-size:9px;">NO LOGO</div>`;
+
+		return `
+    <!doctype html>
+    <html>
+    <head>
+      <meta charset="utf-8" />
+      <meta name="viewport" content="width=device-width, initial-scale=1" />
+      <title>Receipt ${invoiceNumber}</title>
+      <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+      <style>
+        body { font-family: 'Inter', sans-serif; color: #1F2937; margin: 0; padding: 40px; background: #fff; }
+        .watermark {
+          position: fixed;
+          top: 50%;
+          left: 50%;
+          transform: translate(-50%, -50%) rotate(-45deg);
+          font-size: 60px;
+          color: rgba(0, 0, 0, 0.03);
+          font-weight: 800;
+          white-space: nowrap;
+          pointer-events: none;
+          z-index: -1;
+        }
+        .container { 
+          max-width: 600px; 
+          margin: 0 auto; 
+          border: 1px solid #E5E7EB;
+          border-radius: 12px;
+          padding: 32px;
+        }
+        .header { text-align: center; margin-bottom: 32px; }
+        .success-icon { 
+          font-size: 48px; 
+          color: #059669; 
+          margin-bottom: 16px; 
+          display: block;
+        }
+        .receipt-title { font-size: 24px; font-weight: 800; color: #111827; }
+        .receipt-subtitle { color: #6B7280; font-size: 14px; margin-top: 4px; }
+        
+        .amount-box {
+          text-align: center;
+          margin-bottom: 32px;
+          padding: 24px;
+          background: #F9FAFB;
+          border-radius: 8px;
+        }
+        .amount-label { font-size: 12px; text-transform: uppercase; color: #6B7280; font-weight: 600; letter-spacing: 0.5px; }
+        .amount-value { font-size: 36px; font-weight: 800; color: #111827; margin-top: 8px; }
+
+        .details-grid {
+          display: grid;
+          gap: 16px;
+          margin-bottom: 32px;
+        }
+        .row { display: flex; justify-content: space-between; font-size: 14px; padding-bottom: 12px; border-bottom: 1px solid #F3F4F6; }
+        .label { color: #6B7280; }
+        .value { color: #111827; font-weight: 500; }
+        
+        .store-info { text-align: center; padding-top: 24px; border-top: 1px dashed #E5E7EB; }
+        .store-name { font-weight: 700; color: #111827; }
+        .store-addr { font-size: 13px; color: #6B7280; margin-top: 4px; }
+
+        .footer { text-align: center; margin-top: 32px; font-size: 11px; color: #9CA3AF; }
+      </style>
+    </head>
+    <body>
+      <div class="watermark">TRADEET BUSINESS</div>
+      <div class="container">
+        <div class="header">
+          <div class="success-icon">✓</div>
+          <div class="receipt-title">Payment Receipt</div>
+          <div class="receipt-subtitle">Order #${invoiceNumber}</div>
+        </div>
+
+        <div class="amount-box">
+          <div class="amount-label">Total Paid</div>
+          <div class="amount-value">₦${Number(paidAmount).toLocaleString('en-NG', { minimumFractionDigits: 2 })}</div>
+        </div>
+
+        <div class="details-grid">
+           <div class="row">
+            <span class="label">Date</span>
+            <span class="value">${issueDate}</span>
+          </div>
+          <div class="row">
+            <span class="label">Payment Method</span>
+            <span class="value" style="text-transform: capitalize;">${paymentMethod}</span>
+          </div>
+          <div class="row">
+            <span class="label">Billed To</span>
+            <span class="value">${customerName}</span>
+          </div>
+        </div>
+        
+        <div class="store-info">
+          <div style="margin-bottom: 12px;">${logoHtml}</div>
+          <div class="store-name">${storeName}</div>
+          <div class="store-addr">${storeAddress}</div>
+          <div class="store-addr">${storePhone}</div>
+        </div>
+
+        <div class="footer">Powered by <b>Tradeet Business</b></div>
+      </div>
+    </body>
+    </html>
+  `;
+	};
+
+	const handleShareReceipt = async () => {
 		try {
-			setInvoiceLoading(true); // Indicate loading for share
-			const uri = await captureRef(invoiceRef, {
-				format: 'jpg',
-				quality: 1,
+			setInvoiceLoading(true);
+			const html = buildReceiptHtml(selectedInvoice);
+			const { uri } = await Print.printToFileAsync({
+				html,
+				base64: false
 			});
-			await Sharing.shareAsync(uri);
+			await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
 		} catch (error) {
-			console.error('Error sharing invoice:', error);
-			Alert.alert('Error', 'Failed to share invoice.');
+			console.error('Error sharing receipt:', error);
+			Alert.alert('Error', 'Failed to generate receipt.');
 		} finally {
-			setInvoiceLoading(false); // Stop loading regardless of success/failure
+			setInvoiceLoading(false);
 		}
 	};
 
 	const getPaymentStatusStyle = (status) => {
-		switch (status) {
+		const s = (status || '').toLowerCase();
+		switch (s) {
 			case 'completed':
+			case 'paid':
 				return styles.statusCompleted;
 			case 'partial':
 				return styles.statusPartial;
 			case 'pending':
-				return styles.statusPending; // Renamed from 'red' to 'pending' for clarity
+				return styles.statusPending;
+			case 'failed':
+			case 'cancelled':
+				return { backgroundColor: '#EF4444' };
 			default:
-				return {};
+				return { backgroundColor: '#9CA3AF' }; // Grey for unknown
 		}
 	};
 
@@ -202,28 +339,48 @@ const SalesTable = ({
 				styles.row,
 				index % 2 === 0 ? styles.evenRow : styles.oddRow,
 			]}
-			onPress={() => router.push(`/(app)/orders/${item._id}`)}
+			onPress={() => openModal(item)}
 		>
-			<Text style={[styles.cell, { fontWeight: '500' }]}>
-				#{item.orderNumber}
-			</Text>
-			<Text style={styles.cell}>
-				₦{item.totalAmount?.toLocaleString()}
-			</Text>
-			<Text style={styles.cell}>
-				₦
-				{(
-					item.totalAmount - item.amountPaid
-				)?.toLocaleString()}
-			</Text>
-			<View style={styles.statusCellContainer}>
+			{/* Order # & Date */}
+			<View style={[styles.cell, { flex: 0.8, alignItems: 'flex-start' }]}>
+				<Text style={{ fontSize: 13, fontWeight: '600', color: '#374151' }}>
+					#{item.orderNumber || String(item._id).slice(-6)}
+				</Text>
+				<Text style={{ fontSize: 11, color: '#9CA3AF' }}>
+					{formatDate(item.createdAt)}
+				</Text>
+			</View>
+
+			{/* Customer */}
+			<View style={[styles.cell, { flex: 1.2, alignItems: 'flex-start' }]}>
+				<Text style={{ fontSize: 13, color: '#111827', fontWeight: '500' }} numberOfLines={1}>
+					{item.customerInfo?.name || 'Walk-in'}
+				</Text>
+			</View>
+
+			{/* Amount */}
+			<View style={[styles.cell, { flex: 1, alignItems: 'flex-end', paddingRight: 8 }]}>
+				<Text style={{ fontSize: 13, fontWeight: '600', color: '#111827' }}>
+					₦{item.totalAmount?.toLocaleString()}
+				</Text>
+				{/* Show balance if not paid */}
+				{item.payment?.status !== 'paid' && (
+					<Text style={{ fontSize: 10, color: '#EF4444' }}>
+						Bal: ₦{((item.totalAmount || 0) - (item.paidAmount || item.amountPaid || 0)).toLocaleString()}
+					</Text>
+				)}
+			</View>
+
+			{/* Status */}
+			<View style={[styles.statusCellContainer, { flex: 0.8 }]}>
 				<Text
 					style={[
 						styles.statusBadge,
-						getPaymentStatusStyle(item?.payment?.status),
+						getPaymentStatusStyle(item?.payment?.status || item.status),
+						{ fontSize: 9, paddingHorizontal: 6, minWidth: 60 }
 					]}
 				>
-					{item?.payment?.status}
+					{item?.payment?.status || item.status}
 				</Text>
 			</View>
 		</TouchableOpacity>
@@ -233,10 +390,10 @@ const SalesTable = ({
 		<View style={styles.container}>
 			{/* Table Header */}
 			<View style={styles.header}>
-				<Text style={styles.headerCell}>Order Number</Text>
-				<Text style={styles.headerCell}>Amount</Text>
-				<Text style={styles.headerCell}>Balance</Text>
-				<Text style={styles.headerCell}>Status</Text>
+				<Text style={[styles.headerCell, { flex: 0.8, textAlign: 'left' }]}>Order #</Text>
+				<Text style={[styles.headerCell, { flex: 1.2, textAlign: 'left' }]}>Customer</Text>
+				<Text style={[styles.headerCell, { flex: 1, textAlign: 'right', paddingRight: 8 }]}>Amount</Text>
+				<Text style={[styles.headerCell, { flex: 0.8 }]}>Status</Text>
 			</View>
 
 			{/* Table Body */}
@@ -245,10 +402,12 @@ const SalesTable = ({
 				renderItem={renderItem}
 				keyExtractor={(item) => item._id}
 				ListEmptyComponent={() => (
-					<Text style={styles.emptyListText}>
-						No invoices found.
-					</Text>
+					<View style={{ padding: 40, alignItems: 'center' }}>
+						<Ionicons name="receipt-outline" size={48} color="#D1D5DB" />
+						<Text style={styles.emptyListText}>No sales records found.</Text>
+					</View>
 				)}
+				contentContainerStyle={{ paddingBottom: 20 }}
 			/>
 
 			{/* Modal for Invoice Details */}
@@ -261,6 +420,10 @@ const SalesTable = ({
 				>
 					<View style={styles.modalContainer}>
 						<View style={styles.modalContent}>
+							<Text style={styles.watermarkText}>
+								TRADEET BUSINESS
+							</Text>
+
 							<ScrollView // Allow content to scroll if it overflows
 								style={styles.invoiceDetailScroll}
 								contentContainerStyle={
@@ -268,287 +431,184 @@ const SalesTable = ({
 								}
 								ref={invoiceRef} // Ref for screenshot
 							>
-								{/* Store/Business Info */}
-								<View style={styles.invoiceHeaderSection}>
-									<View>
-										<Text style={styles.invoiceId}>
-											Invoice #
-											{selectedInvoice?.orderNumber}
-										</Text>
-										<Text style={styles.invoiceDate}>
-											{formatDate(
-												selectedInvoice?.createdAt,
-											)}
-										</Text>
-										<Text
-											style={[
-												styles.statusBadge,
-												getPaymentStatusStyle(
-													selectedInvoice?.payment?.status,
-												),
-												styles.modalStatusBadge,
-											]}
-										>
-											{selectedInvoice.payment.status}
-										</Text>
-									</View>
-									<View style={styles.storeInfo}>
-										{userInfo?.logoUrl ? (
-											<Image
-												source={{ uri: userInfo.logoUrl }}
-												style={styles.storeLogo}
-											/>
-										) : (
-											<PlaceholderLogo
-												name={userInfo?.name}
-											/>
-										)}
-										<Text style={styles.storeName}>
-											{userInfo?.name}
-										</Text>
-										<Text style={styles.storeContact}>
-											{userInfo?.address}
-										</Text>
-										<Text style={styles.storeContact}>
-											{userInfo?.phone}
-										</Text>
-									</View>
-								</View>
+								{(() => {
+									const isPaid = (selectedInvoice?.payment?.status || '').toLowerCase() === 'paid' ||
+										(selectedInvoice?.status || '').toLowerCase() === 'completed';
+									const docTitle = isPaid ? 'Payment Receipt' : 'Invoice';
+									const docLabel = isPaid ? 'Receipt #' : 'Invoice #';
 
-								{/* Billed To */}
-								<View style={styles.billedToSection}>
-									<Text style={styles.sectionTitle}>
-										Billed to:
-									</Text>
-									<Text style={styles.customerName}>
-										{selectedInvoice?.customerInfo?.name}
-									</Text>
-									{selectedInvoice?.customerInfo
-										?.address && (
-										<Text style={styles.customerContact}>
-											{
-												selectedInvoice?.customerInfo
-													?.address
-											}
-										</Text>
-									)}
-									<Text style={styles.customerContact}>
-										{selectedInvoice?.customerInfo?.contact}
-									</Text>
-								</View>
+									const paidAmount = selectedInvoice?.paidAmount || selectedInvoice?.amountPaid || 0;
+									const totalAmount = selectedInvoice?.totalAmount || 0;
+									const balance = totalAmount - paidAmount;
 
-								{/* Invoice Items Table */}
-								<Text style={styles.sectionTitle}>
-									Invoice Details
-								</Text>
-								<View style={styles.itemsHeader}>
-									<Text
-										style={[
-											styles.itemHeaderCell,
-											{ flex: 3, textAlign: 'left' },
-										]}
-									>
-										Item
-									</Text>
-									<Text style={styles.itemHeaderCell}>
-										Qty
-									</Text>
-									<Text style={styles.itemHeaderCell}>
-										Amount
-									</Text>
-								</View>
-								{selectedInvoice?.items?.map(
-									(item, index) => (
-										<View
-											key={index}
-											style={styles.itemRow}
-										>
-											<View style={{ flex: 3 }}>
-												<Text style={styles.itemName}>
-													{item?.name || item?.product}
-												</Text>
-												{item?.addOns?.map((addon, idx) => (
-													<Text
-														key={idx}
-														style={styles.itemAddon}
-													>
-														{addon.name} (x
-														{addon.quantity})
+									return (
+										<>
+											{/* Header Section */}
+											<View style={styles.invoiceHeaderSection}>
+												<View>
+													<Text style={{ fontSize: 18, fontWeight: '700', color: '#111827', marginBottom: 4 }}>
+														{docTitle}
 													</Text>
+													<Text style={styles.invoiceId}>
+														{docLabel} {selectedInvoice?.orderNumber || String(selectedInvoice._id).slice(-6)}
+													</Text>
+													<Text style={styles.invoiceDate}>
+														{formatDate(selectedInvoice?.createdAt)}
+													</Text>
+													<View style={{ marginTop: 8 }}>
+														<Text
+															style={[
+																styles.statusBadge,
+																getPaymentStatusStyle(selectedInvoice?.payment?.status),
+																styles.modalStatusBadge,
+																{ alignSelf: 'flex-start' }
+															]}
+														>
+															{selectedInvoice?.payment?.status || 'Pending'}
+														</Text>
+													</View>
+												</View>
+
+												<View style={styles.storeInfo}>
+													{userInfo?.logoUrl ? (
+														<Image
+															source={{ uri: userInfo.logoUrl }}
+															style={styles.storeLogo}
+														/>
+													) : (
+														<PlaceholderLogo name={userInfo?.name} />
+													)}
+													<Text style={styles.storeName}>{userInfo?.name}</Text>
+													<Text style={styles.storeContact}>{userInfo?.address}</Text>
+													<Text style={styles.storeContact}>{userInfo?.phone}</Text>
+													{userInfo?.tin && (
+														<Text style={styles.storeContact}>TIN: {userInfo.tin}</Text>
+													)}
+												</View>
+											</View>
+
+											{/* Billed To */}
+											<View style={styles.billedToSection}>
+												<Text style={styles.sectionTitle}>Billed to:</Text>
+												<Text style={styles.customerName}>
+													{selectedInvoice?.customerInfo?.name || 'Walk-in Customer'}
+												</Text>
+												{selectedInvoice?.customerInfo?.phone && (
+													<Text style={styles.customerContact}>
+														{selectedInvoice.customerInfo.phone}
+													</Text>
+												)}
+												{selectedInvoice?.customerInfo?.address && (
+													<Text style={styles.customerContact}>
+														{selectedInvoice.customerInfo.address}
+													</Text>
+												)}
+											</View>
+
+											{/* Items Table */}
+											<View style={{ marginTop: 24 }}>
+												<Text style={styles.sectionTitle}>Details</Text>
+												<View style={[styles.itemsHeader, { borderBottomWidth: 1, borderColor: '#E5E7EB', paddingBottom: 8 }]}>
+													<Text style={[styles.itemHeaderCell, { flex: 3, textAlign: 'left' }]}>Item</Text>
+													<Text style={[styles.itemHeaderCell, { flex: 0.8 }]}>Qty</Text>
+													<Text style={[styles.itemHeaderCell, { flex: 1.2 }]}>Amount</Text>
+												</View>
+
+												{selectedInvoice?.items?.map((item, index) => (
+													<View key={index} style={[styles.itemRow, { borderBottomWidth: 1, borderBottomColor: '#F3F4F6', paddingVertical: 12 }]}>
+														<View style={{ flex: 3 }}>
+															<Text style={[styles.itemName, { fontWeight: '500', color: '#1F2937' }]}>
+																{item?.name || item?.product}
+															</Text>
+															{item?.addOns?.map((addon, idx) => (
+																<Text key={idx} style={styles.itemAddon}>
+																	+ {addon.name} (x{addon.quantity})
+																</Text>
+															))}
+														</View>
+														<Text style={[styles.itemQuantity, { flex: 0.8 }]}>{item?.quantity}</Text>
+														<Text style={[styles.itemAmount, { flex: 1.2, fontWeight: '600', color: '#111827' }]}>
+															₦{(item?.total || item?.totalPrice || 0).toLocaleString()}
+														</Text>
+													</View>
 												))}
 											</View>
-											<Text style={styles.itemQuantity}>
-												{item?.quantity}
-											</Text>
-											<Text style={styles.itemAmount}>
-												₦
-												{item?.total?.toLocaleString() ||
-													item?.totalPrice?.toLocaleString()}
-											</Text>
-										</View>
-									),
-								)}
 
-								{/* Totals */}
-								<View style={styles.summaryRow}>
-									<Text style={styles.summaryLabel}>
-										Sub-total
-									</Text>
-									<Text style={styles.summaryValue}>
-										₦
-										{selectedInvoice?.itemsAmount?.toLocaleString()}
-									</Text>
-								</View>
-								{selectedInvoice?.deliveryFee > 0 && (
-									<View>
-										<View style={styles.summaryRow}>
-											<Text style={styles.summaryLabel}>
-												Delivery Fee
-											</Text>
-											<Text style={styles.summaryValue}>
-												₦
-												{selectedInvoice?.deliveryFee?.toLocaleString()}
-											</Text>
-										</View>
-										<View style={styles.summaryRow}>
-											<Text style={styles.summaryLabel}>
-												Service Fee
-											</Text>
-											<Text style={styles.summaryValue}>
-												₦
-												{selectedInvoice?.serviceFee?.toLocaleString()}
-											</Text>
-										</View>
-									</View>
-								)}
-								<View style={styles.totalRow}>
-									<Text style={styles.totalLabel}>
-										Total
-									</Text>
-									<Text style={styles.totalValue}>
-										₦
-										{selectedInvoice?.totalAmount?.toLocaleString()}
-									</Text>
-								</View>
-								{selectedInvoice?.amountPaid > 0 && (
-									<View style={styles.balanceRow}>
-										<Text style={styles.balanceLabel}>
-											Balance Due
-										</Text>
-										<Text style={styles.balanceValue}>
-											₦
-											{(
-												selectedInvoice?.totalAmount -
-												selectedInvoice?.amountPaid
-											)?.toLocaleString()}
-										</Text>
-									</View>
-								)}
+											{/* Totals */}
+											<View style={{ marginTop: 24, paddingTop: 16, borderTopWidth: 1, borderTopColor: '#E5E7EB' }}>
+												<View style={styles.summaryRow}>
+													<Text style={styles.summaryLabel}>Sub-total</Text>
+													<Text style={styles.summaryValue}>₦{(selectedInvoice?.itemsAmount || 0).toLocaleString()}</Text>
+												</View>
 
-								{/* Payment History */}
-								{selectedInvoice?.payments?.length > 0 && (
-									<View
-										style={styles.paymentHistorySection}
-									>
-										<Text
-											style={styles.paymentHistoryTitle}
-										>
-											Payment History
-										</Text>
-										{selectedInvoice.payments.map(
-											(payment, index) => (
-												<View
-													key={index}
-													style={styles.paymentHistoryItem}
-												>
-													<Text
-														style={
-															styles.paymentHistoryText
-														}
-													>
-														{formatDateTime(payment.date)}
+												{selectedInvoice?.taxAmount > 0 && (
+													<View style={styles.summaryRow}>
+														<Text style={styles.summaryLabel}>Tax</Text>
+														<Text style={styles.summaryValue}>₦{selectedInvoice.taxAmount.toLocaleString()}</Text>
+													</View>
+												)}
+
+												<View style={[styles.totalRow, { marginTop: 12, paddingTop: 12, borderTopWidth: 1, borderTopColor: '#E5E7EB' }]}>
+													<Text style={styles.totalLabel}>Total</Text>
+													<Text style={styles.totalValue}>₦{totalAmount.toLocaleString()}</Text>
+												</View>
+
+												{/* Paid Amount */}
+												{(paidAmount > 0 || isPaid) && (
+													<View style={styles.balanceRow}>
+														<Text style={[styles.balanceLabel, { color: '#059669' }]}>Amount Paid</Text>
+														<Text style={[styles.balanceValue, { color: '#059669' }]}>
+															₦{paidAmount.toLocaleString()}
+														</Text>
+													</View>
+												)}
+
+												{/* Balance Due (only if pending/partial) */}
+												{balance > 0 && !isPaid && (
+													<View style={styles.balanceRow}>
+														<Text style={[styles.balanceLabel, { color: '#DC2626' }]}>Balance Due</Text>
+														<Text style={[styles.balanceValue, { color: '#DC2626' }]}>
+															₦{balance.toLocaleString()}
+														</Text>
+													</View>
+												)}
+											</View>
+
+											{/* Payment History */}
+											{selectedInvoice?.payments?.length > 0 && (
+												<View style={styles.paymentHistorySection}>
+													<Text style={styles.paymentHistoryTitle}>Payment History</Text>
+													{selectedInvoice.payments.map((payment, index) => (
+														<View key={index} style={styles.paymentHistoryItem}>
+															<Text style={styles.paymentHistoryText}>{formatDateTime(payment.date)}</Text>
+															<Text style={styles.paymentHistoryMethod}>{payment.method || payment.provider}</Text>
+															<Text style={styles.paymentHistoryAmount}>₦{payment.amount.toLocaleString()}</Text>
+														</View>
+													))}
+												</View>
+											)}
+
+											{/* Bank Info (only if unpaid) */}
+											{!isPaid && (
+												<View style={{ marginTop: 20, padding: 16, backgroundColor: '#F9FAFB', borderRadius: 8 }}>
+													<Text style={{ fontSize: 12, fontWeight: '700', color: '#6B7280', marginBottom: 8, textTransform: 'uppercase' }}>
+														Payment Details
 													</Text>
-													<Text
-														style={
-															styles.paymentHistoryMethod
-														}
-													>
-														{payment.method}
+													<Text style={{ fontSize: 14, fontWeight: '700', color: '#111827' }}>
+														{userInfo?.paymentInfo?.[0]?.bankName || 'Bank Name'}
 													</Text>
-													<Text
-														style={
-															styles.paymentHistoryAmount
-														}
-													>
-														₦
-														{payment.amount.toLocaleString()}
+													<Text style={{ fontSize: 14, color: '#4B5563' }}>
+														{userInfo?.paymentInfo?.[0]?.accountNumber || '0000000000'}
+													</Text>
+													<Text style={{ fontSize: 14, color: '#4B5563' }}>
+														{userInfo?.paymentInfo?.[0]?.accountName || 'Account Name'}
 													</Text>
 												</View>
-											),
-										)}
-									</View>
-								)}
-								{selectedInvoice?.payment?.status !==
-									'completed' && (
-									<View style={{ marginTop: 10 }}>
-										<Text
-											style={{
-												fontSize: 16,
-												fontWeight: 'bold',
-												color: '#333',
-												width: '70%',
-											}}
-										>
-											Payment should be made to the account
-											details below:
-										</Text>
-										<View style={{ marginTop: 10 }}>
-											<Text
-												style={{
-													fontSize: 16,
-													fontWeight: 'bold',
-													color: '#333',
-													width: '70%',
-												}}
-											>
-												{
-													userInfo?.paymentInfo[0]
-														?.accountNumber
-												}
-											</Text>
-											<Text
-												style={{
-													fontSize: 14,
-													// fontWeight: 'bold',
-													color: '#333',
-													// width: '70%',
-												}}
-											>
-												{userInfo?.paymentInfo[0]?.bankName}
-											</Text>
-											<Text
-												style={{
-													fontSize: 14,
-													// fontWeight: 'bold',
-													color: '#333',
-													// width: '70%',
-												}}
-											>
-												{
-													userInfo?.paymentInfo[0]
-														?.accountName
-												}
-											</Text>
-										</View>
-									</View>
-								)}
-
-								<Text
-									style={{
-										textAlign: 'center',
-										marginTop: 20,
-									}}
-								>
+											)}
+										</>
+									);
+								})()}
+								<Text style={{ textAlign: 'center', marginTop: 24, fontSize: 12, color: '#9CA3AF' }}>
 									Powered by Tradeet Business
 								</Text>
 							</ScrollView>
@@ -557,18 +617,18 @@ const SalesTable = ({
 							<View style={styles.modalActions}>
 								{selectedInvoice?.payment?.status !==
 									'completed' && (
-									<TouchableOpacity
-										style={[
-											styles.actionButton,
-											styles.recordPaymentButton,
-										]}
-										onPress={openPaymentModal}
-									>
-										<Text style={styles.actionButtonText}>
-											Record Payment
-										</Text>
-									</TouchableOpacity>
-								)}
+										<TouchableOpacity
+											style={[
+												styles.actionButton,
+												styles.recordPaymentButton,
+											]}
+											onPress={openPaymentModal}
+										>
+											<Text style={styles.actionButtonText}>
+												Record Payment
+											</Text>
+										</TouchableOpacity>
+									)}
 
 								<View style={styles.rightActionButtons}>
 									<TouchableOpacity
@@ -587,14 +647,14 @@ const SalesTable = ({
 											styles.actionButton,
 											styles.shareButton,
 										]}
-										onPress={handleShareInvoice}
+										onPress={handleShareReceipt}
 										disabled={invoiceLoading}
 									>
 										{invoiceLoading ? (
 											<ActivityIndicator color="#fff" />
 										) : (
 											<Text style={styles.actionButtonText}>
-												Share
+												Share Receipt
 											</Text>
 										)}
 									</TouchableOpacity>
@@ -660,7 +720,7 @@ const SalesTable = ({
 										style={[
 											styles.paymentMethodButton,
 											selectedMethod === 'transfer' &&
-												styles.selectedPaymentMethod,
+											styles.selectedPaymentMethod,
 										]}
 										onPress={() =>
 											setSelectedMethod('transfer')
@@ -670,7 +730,7 @@ const SalesTable = ({
 											style={[
 												styles.circle,
 												selectedMethod === 'transfer' &&
-													styles.selectedCircle,
+												styles.selectedCircle,
 											]}
 										>
 											{selectedMethod === 'transfer' && (
@@ -687,7 +747,7 @@ const SalesTable = ({
 										style={[
 											styles.paymentMethodButton,
 											selectedMethod === 'cash' &&
-												styles.selectedPaymentMethod,
+											styles.selectedPaymentMethod,
 										]}
 										onPress={() =>
 											setSelectedMethod('cash')
@@ -697,7 +757,7 @@ const SalesTable = ({
 											style={[
 												styles.circle,
 												selectedMethod === 'cash' &&
-													styles.selectedCircle,
+												styles.selectedCircle,
 											]}
 										>
 											{selectedMethod === 'cash' && (
@@ -737,318 +797,301 @@ const SalesTable = ({
 };
 
 const styles = StyleSheet.create({
-	container: {
-		flex: 1,
-		backgroundColor: '#f8f8f8', // Lighter background for the main screen
-	},
+	container: { flex: 1, backgroundColor: '#F9FAFB' },
 	header: {
 		flexDirection: 'row',
-		backgroundColor: '#e0e0e0', // Slightly darker header background
 		paddingVertical: 12,
+		paddingHorizontal: 16,
 		borderBottomWidth: 1,
-		borderBottomColor: '#ccc',
-		paddingHorizontal: 10,
+		borderBottomColor: '#E5E7EB',
+		backgroundColor: '#F9FAFB',
 	},
 	headerCell: {
-		flex: 1,
-		fontWeight: 'bold',
-		textAlign: 'center',
-		fontSize: 13,
-		color: '#333',
+		fontSize: 12,
+		fontWeight: '600',
+		color: '#6B7280',
+		textTransform: 'uppercase',
+		letterSpacing: 0.5,
 	},
 	row: {
 		flexDirection: 'row',
-		paddingVertical: 15,
-		paddingHorizontal: 10,
+		paddingVertical: 12,
+		paddingHorizontal: 16,
 		borderBottomWidth: 1,
-		borderBottomColor: '#eee', // Lighter border
-		alignItems: 'center', // Align items vertically in the center
+		borderBottomColor: '#F3F4F6',
+		alignItems: 'center',
 	},
-	evenRow: {
-		backgroundColor: '#ffffff', // White background for even rows
-	},
-	oddRow: {
-		backgroundColor: '#fcfcfc', // Slightly off-white for odd rows
-	},
+	evenRow: { backgroundColor: '#ffffff' },
+	oddRow: { backgroundColor: '#F9FAFB' },
 	cell: {
-		flex: 1,
-		textAlign: 'center',
 		fontSize: 13,
-		color: '#555',
+		color: '#374151',
 	},
 	statusCellContainer: {
-		flex: 1,
-		alignItems: 'center', // Center the badge in its cell
+		alignItems: 'flex-start',
 	},
 	statusBadge: {
-		paddingVertical: 4,
+		paddingVertical: 2,
 		paddingHorizontal: 8,
-		borderRadius: 15, // More rounded badge
-		fontSize: 10,
-		fontWeight: 'bold',
-		color: '#fff',
-		textTransform: 'uppercase', // Make status text uppercase
-		minWidth: 70, // Ensure a minimum width for badges
+		borderRadius: 12,
+		overflow: 'hidden',
+		fontSize: 11,
+		fontWeight: '600',
 		textAlign: 'center',
-		overflow: 'hidden', // Ensures content stays within rounded corners
 	},
 	statusCompleted: {
-		backgroundColor: '#4CAF50', // Green
-	},
-	statusPartial: {
-		backgroundColor: '#FFC107', // Amber/Orange
+		backgroundColor: '#ECFDF5',
+		color: '#059669',
 	},
 	statusPending: {
-		backgroundColor: '#F44336', // Red
+		backgroundColor: '#FEF3C7',
+		color: '#D97706',
+	},
+	statusPartial: {
+		backgroundColor: '#DBEAFE',
+		color: '#2563EB',
+	},
+	statusFailed: {
+		backgroundColor: '#FEE2E2',
+		color: '#DC2626'
 	},
 	emptyListText: {
 		textAlign: 'center',
 		marginTop: 20,
-		fontSize: 16,
-		color: '#777',
+		fontSize: 15,
+		color: '#6B7280',
 	},
 
-	// Modal Styles (Invoice Details)
+	// --- Modal Styles (Mirrored from InvoiceTable) ---
 	modalContainer: {
 		flex: 1,
 		justifyContent: 'center',
 		alignItems: 'center',
-		backgroundColor: 'rgba(0, 0, 0, 0.7)', // Darker overlay
+		backgroundColor: 'rgba(0, 0, 0, 0.5)',
 	},
 	modalContent: {
-		width: '90%', // Wider modal for more content
-		maxHeight: '90%', // Limit height and enable scroll
+		width: '100%',
+		maxHeight: '100%',
 		backgroundColor: '#fff',
-		borderRadius: 12, // More rounded corners
-		padding: 5,
-		elevation: 10, // Add shadow for Android
-		shadowColor: '#000', // Shadow for iOS
+		padding: 0,
+		elevation: 10,
+		shadowColor: '#000',
 		shadowOffset: { width: 0, height: 4 },
-		shadowOpacity: 0.3,
-		shadowRadius: 5,
+		shadowOpacity: 0.1,
+		shadowRadius: 10,
+		height: '100%',
 	},
 	invoiceDetailScroll: {
-		flexGrow: 1, // Allow content to grow
+		flexGrow: 1,
 		width: '100%',
-		backgroundColor: '#fff', // Ensure background is white for the scroll view
-		// borderRadius: 12, // More rounded corners
-        paddingTop: 15,
-        paddingHorizontal: 15, // Add horizontal padding for better spacing
+		backgroundColor: '#fff',
+		paddingTop: 20,
+		paddingHorizontal: 20,
 	},
-	invoiceDetailContent: {
-		paddingBottom: 20, // Add padding at the bottom for scroll
-	},
+	invoiceDetailContent: { paddingBottom: 40 },
 	invoiceHeaderSection: {
 		flexDirection: 'row',
 		justifyContent: 'space-between',
 		alignItems: 'flex-start',
-		marginBottom: 20,
+		marginBottom: 24,
 		borderBottomWidth: 1,
-		borderBottomColor: '#eee',
-		paddingBottom: 15,
+		borderBottomColor: '#F3F4F6',
+		paddingBottom: 20,
 	},
 	invoiceId: {
-		fontSize: 20,
-		fontWeight: 'bold',
-		color: '#333',
+		fontSize: 22,
+		fontWeight: '800',
+		color: '#111827',
+		marginBottom: 4,
 	},
 	invoiceDate: {
-		fontSize: 14,
-		color: '#777',
-		marginTop: 5,
+		fontSize: 13,
+		color: '#6B7280',
+		marginTop: 4,
 	},
 	modalStatusBadge: {
-		marginTop: 8,
-		alignSelf: 'flex-start', // Align badge to the left
+		marginTop: 10,
+		alignSelf: 'flex-start',
 	},
-	storeInfo: {
-		alignItems: 'flex-end', // Align store info to the right
-	},
+	storeInfo: { alignItems: 'flex-end' },
 	storeLogo: {
-		width: 60,
-		height: 60,
-		borderRadius: 30,
+		width: 50,
+		height: 50,
+		borderRadius: 25,
 		marginBottom: 8,
 		borderWidth: 1,
-		borderColor: '#eee',
-		resizeMode: 'contain', // Ensure logo fits well
+		borderColor: '#E5E7EB',
+		resizeMode: 'contain',
+		backgroundColor: '#F9FAFB',
 	},
 	storeName: {
-		fontSize: 18,
-		fontWeight: 'bold',
-		color: '#333',
+		fontSize: 16,
+		fontWeight: '700',
+		color: '#111827',
 		textAlign: 'right',
 	},
 	storeContact: {
-		fontSize: 13,
-		color: '#666',
+		fontSize: 12,
+		color: '#6B7280',
 		textAlign: 'right',
+		marginTop: 2,
 	},
 	billedToSection: {
-		marginBottom: 20,
-		paddingBottom: 15,
+		marginBottom: 24,
+		paddingBottom: 20,
 		borderBottomWidth: 1,
-		borderBottomColor: '#eee',
+		borderBottomColor: '#F3F4F6',
 	},
 	sectionTitle: {
-		fontSize: 16,
-		fontWeight: 'bold',
-		marginBottom: 10,
-		color: '#444',
+		fontSize: 12,
+		fontWeight: '700',
+		marginBottom: 8,
+		color: '#9CA3AF',
+		textTransform: 'uppercase',
+		letterSpacing: 0.5,
 	},
 	customerName: {
 		fontSize: 16,
-		fontWeight: 'bold',
-		color: '#333',
-		marginBottom: 2,
+		fontWeight: '600',
+		color: '#111827',
+		marginBottom: 4,
 	},
-	customerContact: {
-		fontSize: 13,
-		color: '#666',
-	},
+	customerContact: { fontSize: 13, color: '#4B5563', lineHeight: 20 },
 	itemsHeader: {
 		flexDirection: 'row',
-		backgroundColor: '#f0f0f0',
-		paddingVertical: 8,
-		borderRadius: 5,
+		borderBottomWidth: 2,
+		borderColor: '#E5E7EB',
+		paddingBottom: 8,
 		marginBottom: 10,
 	},
 	itemHeaderCell: {
 		flex: 1,
-		fontWeight: 'bold',
+		fontWeight: '700',
 		textAlign: 'left',
-		fontSize: 12,
-		color: '#555',
-		paddingHorizontal: 10,
+		fontSize: 11,
+		color: '#6B7280',
+		textTransform: 'uppercase',
 	},
 	itemRow: {
 		flexDirection: 'row',
-		paddingVertical: 8,
+		paddingVertical: 12,
 		borderBottomWidth: 1,
-		borderBottomColor: '#f7f7f7',
+		borderBottomColor: '#F3F4F6',
 		alignItems: 'flex-start',
-		paddingHorizontal: 5,
 	},
 	itemName: {
-		fontSize: 14,
-		color: '#333',
+		fontSize: 13,
+		color: '#1F2937',
+		fontWeight: '500',
+		lineHeight: 20,
 	},
 	itemAddon: {
-		fontSize: 12,
-		color: '#777',
-		marginLeft: 10, // Indent addons slightly
+		fontSize: 11,
+		color: '#6B7280',
+		marginTop: 2,
 	},
 	itemQuantity: {
 		flex: 1,
 		textAlign: 'left',
-		fontSize: 14,
-		color: '#555',
+		fontSize: 13,
+		color: '#4B5563',
 	},
 	itemAmount: {
 		flex: 1,
 		textAlign: 'left',
-		fontSize: 14,
-		fontWeight: '500',
-		color: '#333',
+		fontSize: 13,
+		fontWeight: '600',
+		color: '#111827',
 	},
 	summaryRow: {
 		flexDirection: 'row',
+		paddingVertical: 6,
+		paddingHorizontal: 0,
 		justifyContent: 'space-between',
-		alignItems: 'center',
-		paddingBottom: 5,
-		paddingTop: 10,
-		paddingRight: 20,
-		paddingLeft: 5,
 	},
 	summaryLabel: {
-		fontSize: 14,
-		color: '#555',
-		textAlign: 'left',
+		fontSize: 13,
+		color: '#6B7280',
 	},
 	summaryValue: {
-		fontSize: 14,
+		fontSize: 13,
 		fontWeight: '500',
-		color: '#333',
-		textAlign: 'left',
+		color: '#111827',
+		textAlign: 'right',
 	},
 	totalRow: {
 		flexDirection: 'row',
 		justifyContent: 'space-between',
 		alignItems: 'center',
-		marginTop: 15,
-		paddingTop: 10,
+		marginTop: 12,
+		paddingTop: 12,
 		borderTopWidth: 1,
-		borderTopColor: '#eee',
-		paddingRight: 15,
-		paddingLeft: 5,
+		borderTopColor: '#E5E7EB',
 	},
 	totalLabel: {
-		fontSize: 18,
-		fontWeight: 'bold',
-		color: '#222',
+		fontSize: 16,
+		fontWeight: '700',
+		color: '#111827',
 	},
 	totalValue: {
-		fontSize: 18,
-		fontWeight: 'bold',
-		color: '#222',
+		fontSize: 16,
+		fontWeight: '700',
+		color: '#111827',
 	},
 	balanceRow: {
 		flexDirection: 'row',
 		justifyContent: 'space-between',
 		alignItems: 'center',
-		marginTop: 10,
-		paddingTop: 8,
-		borderTopWidth: 1,
-        borderTopColor: '#f0f0f0',
-        paddingRight: 20
+		marginTop: 8,
 	},
 	balanceLabel: {
-		fontSize: 16,
-		fontWeight: 'bold',
-		color: '#D32F2F', // Red for balance due
+		fontSize: 14,
+		fontWeight: '600',
+		color: '#DC2626',
 	},
 	balanceValue: {
-		fontSize: 16,
-		fontWeight: 'bold',
-		color: '#D32F2F',
-        textAlign: 'center'
+		fontSize: 14,
+		fontWeight: '600',
+		color: '#DC2626',
 	},
 	paymentHistorySection: {
-		marginTop: 20,
-		paddingTop: 15,
+		marginTop: 30,
+		paddingTop: 20,
 		borderTopWidth: 1,
-		borderTopColor: '#eee',
+		borderTopColor: '#F3F4F6',
 	},
 	paymentHistoryTitle: {
-		fontSize: 16,
-		fontWeight: 'bold',
-		marginBottom: 10,
-		color: '#444',
+		fontSize: 13,
+		fontWeight: '700',
+		marginBottom: 12,
+		color: '#374151',
+		textTransform: 'uppercase',
 	},
 	paymentHistoryItem: {
 		flexDirection: 'row',
 		justifyContent: 'space-between',
 		alignItems: 'center',
-		paddingVertical: 8,
-		borderBottomWidth: 0.5,
-		borderBottomColor: '#f5f5f5',
+		paddingVertical: 10,
+		borderBottomWidth: 1,
+		borderBottomColor: '#F9FAFB',
 	},
 	paymentHistoryText: {
-		fontSize: 13,
-		color: '#666',
+		fontSize: 12,
+		color: '#6B7280',
 		flex: 2,
 	},
 	paymentHistoryMethod: {
-		fontSize: 13,
-		color: '#666',
+		fontSize: 12,
+		color: '#374151',
 		flex: 1.5,
 		textAlign: 'center',
 		textTransform: 'capitalize',
+		fontWeight: '500',
 	},
 	paymentHistoryAmount: {
-		fontSize: 13,
-		fontWeight: '500',
-		color: '#333',
+		fontSize: 12,
+		fontWeight: '600',
+		color: '#111827',
 		flex: 1,
 		textAlign: 'right',
 	},
@@ -1057,130 +1100,149 @@ const styles = StyleSheet.create({
 		justifyContent: 'space-between',
 		marginTop: 0,
 		borderTopWidth: 1,
-		borderTopColor: '#eee',
-		paddingTop: 15,
+		borderTopColor: '#E5E7EB',
+		paddingTop: 16,
+		paddingHorizontal: 16,
+		paddingBottom: 24,
+		backgroundColor: '#fff',
 	},
 	actionButton: {
 		paddingVertical: 12,
-		paddingHorizontal: 10,
-		borderRadius: 8,
+		paddingHorizontal: 16,
+		borderRadius: 10,
 		justifyContent: 'center',
 		alignItems: 'center',
-		minWidth: 100, // Ensure buttons have a reasonable minimum width
+		minWidth: 100,
 	},
-	recordPaymentButton: {
-		backgroundColor: '#18a54a', // Green for recording payment
-	},
+	recordPaymentButton: { backgroundColor: '#059669' },
 	shareButton: {
-		backgroundColor: '#007BFF', // Blue for share
-		marginLeft: 10, // Space between buttons
+		backgroundColor: '#2563EB',
+		marginLeft: 12,
 	},
 	closeModalButton: {
-		backgroundColor: '#e0e0e0', // Light gray for close
-		paddingHorizontal: 3,
-		minWidth: 60,
+		backgroundColor: '#F3F4F6',
+		paddingHorizontal: 16,
+		minWidth: 80,
 	},
 	actionButtonText: {
 		color: '#fff',
-		fontWeight: 'bold',
-		fontSize: 15,
+		fontWeight: '600',
+		fontSize: 14,
 	},
 	closeButtonText: {
-		color: '#333',
-		fontWeight: 'bold',
-		fontSize: 15,
+		color: '#374151',
+		fontWeight: '600',
+		fontSize: 14,
 	},
 	rightActionButtons: {
 		flexDirection: 'row',
 		justifyContent: 'flex-end',
-		flex: 1, // Allows them to take up remaining space
+		flex: 1,
 	},
 
-	// Payment Modal Styles
+	// Payment modal
 	paymentModalHeader: {
 		flexDirection: 'row',
 		justifyContent: 'space-between',
 		alignItems: 'center',
-		marginBottom: 20,
+		marginBottom: 24,
 	},
 	paymentModalTitle: {
-		fontSize: 20,
-		fontWeight: 'bold',
-		color: '#333',
+		fontSize: 18,
+		fontWeight: '700',
+		color: '#111827',
 	},
-	inputGroup: {
-		marginBottom: 15,
-	},
+	inputGroup: { marginBottom: 20 },
 	inputLabel: {
-		fontSize: 16,
+		fontSize: 14,
 		marginBottom: 8,
-		color: '#333',
+		color: '#374151',
 		fontWeight: '500',
 	},
 	textInput: {
 		borderWidth: 1,
-		borderColor: '#ddd', // Lighter border
+		borderColor: '#D1D5DB',
 		padding: 12,
-		borderRadius: 8, // More rounded corners
-		fontSize: 16,
-		color: '#333',
+		borderRadius: 8,
+		fontSize: 15,
+		color: '#111827',
+		backgroundColor: '#fff',
 	},
 	paymentMethodContainer: {
 		flexDirection: 'row',
 		justifyContent: 'space-between',
-		marginTop: 10,
-		marginBottom: 20,
+		marginTop: 8,
+		marginBottom: 24,
+		gap: 12,
 	},
 	paymentMethodButton: {
 		flexDirection: 'row',
 		alignItems: 'center',
 		paddingVertical: 12,
-		paddingHorizontal: 15,
-		borderWidth: 2, // Thicker border for selection
-		borderColor: '#e0e0e0', // Default light gray border
-		borderRadius: 10,
-		width: '48%',
+		paddingHorizontal: 12,
+		borderWidth: 1,
+		borderColor: '#E5E7EB',
+		borderRadius: 8,
+		flex: 1,
+		backgroundColor: '#fff',
 	},
 	selectedPaymentMethod: {
-		borderColor: '#18a54a', // Green border when selected
-		backgroundColor: '#e6f7ed', // Light green background when selected
+		borderColor: '#059669',
+		backgroundColor: '#ECFDF5',
 	},
 	paymentMethodText: {
-		fontSize: 15,
-		marginLeft: 10,
-		color: '#333',
+		fontSize: 14,
+		marginLeft: 8,
+		color: '#374151',
 		fontWeight: '500',
 	},
 	circle: {
-		height: 20,
-		width: 20,
-		borderRadius: 10,
+		height: 18,
+		width: 18,
+		borderRadius: 9,
 		borderWidth: 2,
-		borderColor: '#ccc',
+		borderColor: '#D1D5DB',
 		alignItems: 'center',
 		justifyContent: 'center',
 	},
-	selectedCircle: {
-		borderColor: '#18a54a',
-	},
+	selectedCircle: { borderColor: '#059669' },
 	circleInner: {
-		height: 10,
-		width: 10,
-		borderRadius: 5,
-		backgroundColor: '#18a54a',
+		height: 9,
+		width: 9,
+		borderRadius: 4.5,
+		backgroundColor: '#059669',
 	},
 	recordPaymentSubmitButton: {
-		backgroundColor: '#18a54a',
-		paddingVertical: 15,
-		borderRadius: 8,
+		backgroundColor: '#059669',
+		paddingVertical: 14,
+		borderRadius: 10,
 		alignItems: 'center',
-		marginTop: 10,
+		marginTop: 8,
 	},
 	recordPaymentSubmitButtonText: {
 		color: '#fff',
-		fontWeight: 'bold',
-		fontSize: 16,
+		fontWeight: '600',
+		fontSize: 15,
 	},
+	watermarkText: {
+		position: 'absolute',
+		top: '40%',
+		left: '10%',
+		right: '10%',
+		textAlign: 'center',
+		fontSize: 40,
+		fontWeight: '800',
+		color: 'rgba(0, 0, 0, 0.02)',
+		transform: [{ rotate: '-45deg' }],
+		zIndex: 0,
+		textTransform: 'uppercase',
+	},
+	formSection: { marginBottom: 20 },
+	paymentMethodChip: { paddingVertical: 6, paddingHorizontal: 12, borderRadius: 16, borderWidth: 1, borderColor: '#E5E7EB', backgroundColor: '#F9FAFB' },
+	paymentMethodChipActive: { backgroundColor: '#ECFDF5', borderColor: '#10B981' },
+	paymentMethodTextActive: { color: '#065637', fontWeight: '600' },
+	paymentMethodOptions: { flexDirection: 'row', gap: 8 },
+	paymentMethodLabel: { fontSize: 13, fontWeight: '500', color: '#374151', marginBottom: 8 },
 });
 
 export default SalesTable;

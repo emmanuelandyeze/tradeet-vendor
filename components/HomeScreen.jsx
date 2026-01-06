@@ -38,7 +38,8 @@ const { width } = Dimensions.get('window');
 
 const HomeScreen = ({ userInfo }) => {
 	const router = useRouter();
-	const { selectedStore } = useContext(AuthContext);
+	const { selectedStore, getPlanCapability } = useContext(AuthContext);
+	const hasAdvancedAnalytics = getPlanCapability('hasAdvancedAnalytics');
 
 	// State
 	const [loading, setLoading] = useState(true);
@@ -113,6 +114,17 @@ const HomeScreen = ({ userInfo }) => {
 			setLoading(false);
 		}
 	};
+
+	const getRemainingTrialDays = () => {
+		if (!userInfo?.plan?.isTrial || !userInfo?.plan?.expiryDate) return null;
+		const expiry = new Date(userInfo.plan.expiryDate);
+		const now = new Date();
+		const diff = expiry - now;
+		const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
+		return days > 0 ? days : 0;
+	};
+
+	const trialDays = getRemainingTrialDays();
 
 	useEffect(() => {
 		if (selectedStore) {
@@ -327,6 +339,24 @@ const HomeScreen = ({ userInfo }) => {
 					<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#065637" />
 				}
 			>
+				{trialDays !== null && (
+					<TouchableOpacity
+						style={styles.trialBanner}
+						onPress={() => router.push('/(app)/subscription')}
+						activeOpacity={0.9}
+					>
+						<View style={styles.trialBannerIcon}>
+							<Ionicons name="gift" size={20} color="#6366f1" />
+						</View>
+						<View style={{ flex: 1 }}>
+							<Text style={styles.trialBannerTitle}>14-Day Business Trial Active</Text>
+							<Text style={styles.trialBannerSub}>
+								{trialDays > 0 ? `${trialDays} days remaining` : 'Last day of trial'} — Enjoy all premium features!
+							</Text>
+						</View>
+						<Ionicons name="chevron-forward" size={18} color="#6366f1" />
+					</TouchableOpacity>
+				)}
 
 
 				{/* Financial Overview */}
@@ -348,10 +378,30 @@ const HomeScreen = ({ userInfo }) => {
 							currentFilter={financialFilter}
 							onFilterChange={setFinancialFilter}
 							onMonthSelect={(d) => {
+								if (!hasAdvancedAnalytics) {
+									return Alert.alert(
+										'Business Feature',
+										'Advanced analytics filters are available on the Business plan.',
+										[
+											{ text: 'Cancel', style: 'cancel' },
+											{ text: 'Upgrade', onPress: () => router.push('/(app)/subscription') }
+										]
+									);
+								}
 								setSelectedFinancialMonth(d);
 								setFinancialFilter('selectedMonth');
 							}}
 							onWeekSelect={(range) => {
+								if (!hasAdvancedAnalytics) {
+									return Alert.alert(
+										'Business Feature',
+										'Advanced analytics filters are available on the Business plan.',
+										[
+											{ text: 'Cancel', style: 'cancel' },
+											{ text: 'Upgrade', onPress: () => router.push('/(app)/subscription') }
+										]
+									);
+								}
 								setSelectedFinancialWeek(range);
 								setFinancialFilter('selectedWeek');
 							}}
@@ -396,7 +446,7 @@ const HomeScreen = ({ userInfo }) => {
 				</View>
 
 			</ScrollView>
-		</View>
+		</View >
 	);
 };
 
@@ -436,5 +486,35 @@ const styles = StyleSheet.create({
 		fontSize: 18,
 		fontWeight: '700',
 		color: '#111827',
+	},
+	trialBanner: {
+		marginHorizontal: 16,
+		marginBottom: 16,
+		backgroundColor: '#EEF2FF',
+		borderRadius: 12,
+		padding: 12,
+		flexDirection: 'row',
+		alignItems: 'center',
+		borderWidth: 1,
+		borderColor: '#C7D2FE',
+		gap: 12,
+	},
+	trialBannerIcon: {
+		width: 40,
+		height: 40,
+		borderRadius: 20,
+		backgroundColor: '#fff',
+		justifyContent: 'center',
+		alignItems: 'center',
+	},
+	trialBannerTitle: {
+		fontSize: 14,
+		fontWeight: '700',
+		color: '#312E81',
+	},
+	trialBannerSub: {
+		fontSize: 12,
+		color: '#4338CA',
+		marginTop: 2,
 	},
 });

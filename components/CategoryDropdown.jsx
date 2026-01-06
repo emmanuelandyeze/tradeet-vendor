@@ -72,9 +72,11 @@ const CategoryDropdown = ({ selectedCategory, setSelectedCategory }) => {
         onPress={() => setModalVisible(true)}
         style={styles.dropdown}
       >
-        <Text style={styles.dropdownText}>
-          {selectedCategory || 'Choose a category'}
+        <Text style={selectedCategory ? styles.dropdownText : styles.placeholderText}>
+          {selectedCategory || 'Select a category'}
         </Text>
+        {/* You can import an icon here if passed as prop or use a simple text/utf8 arrow */}
+        <Text style={{ color: '#9CA3AF' }}>▼</Text>
       </Pressable>
 
       <Modal visible={modalVisible} animationType="slide">
@@ -121,13 +123,21 @@ const styles = StyleSheet.create({
   },
   dropdown: {
     borderWidth: 1,
-    borderColor: '#ccc',
+    borderColor: '#E5E7EB',
     borderRadius: 8,
-    padding: 14,
-    backgroundColor: '#f9f9f9',
+    padding: 12,
+    backgroundColor: '#F9FAFB',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
   },
   dropdownText: {
-    color: '#333',
+    color: '#111827',
+    fontSize: 14,
+  },
+  placeholderText: {
+    color: '#9CA3AF',
+    fontSize: 14,
   },
   modalContainer: {
     flex: 1,

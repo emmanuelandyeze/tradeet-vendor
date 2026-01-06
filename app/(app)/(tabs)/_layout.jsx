@@ -1,11 +1,10 @@
 import { Tabs } from 'expo-router';
 import React, { useState } from 'react';
 
-import { TabBarIcon } from '@/components/navigation/TabBarIcon';
+import { AnimatedTabIcon } from '@/components/navigation/AnimatedTabIcon';
 import { Colors } from '@/constants/Colors';
 import { useColorScheme } from '@/hooks/useColorScheme';
 import LoadingScreen from '@/components/LoadingScreen';
-import { MaterialCommunityIcons } from '@expo/vector-icons';
 
 export default function TabLayout() {
 	const colorScheme = useColorScheme();
@@ -16,20 +15,29 @@ export default function TabLayout() {
 	return (
 		<Tabs
 			screenOptions={{
-				tabBarActiveTintColor:
-					Colors[colorScheme ?? 'light'].tint,
+				tabBarActiveTintColor: Colors[colorScheme ?? 'light'].tint,
 				headerShown: false,
 				tabBarShowLabel: true,
+				tabBarHideOnKeyboard: true,
 				tabBarStyle: {
-					paddingBottom: 20,
-					height: 74,
-					paddingTop: 10,
-					backgroundColor: '#fff',
+					backgroundColor: '#ffffff',
+					height: 84, // Taller for modern feel + home indicator
+					paddingBottom: 24, // Safe area spacing
+					paddingTop: 12,
+					borderTopWidth: 0,
+					elevation: 8, // Soft shadow for separation
+					shadowColor: '#000',
+					shadowOffset: {
+						width: 0,
+						height: -2, // Shadow moves UP for docked bar
+					},
+					shadowOpacity: 0.05,
+					shadowRadius: 10,
 				},
 				tabBarLabelStyle: {
-					fontSize: 12,
-					marginTop: 8,
-					fontWeight: 'bold',
+					fontSize: 10,
+					fontWeight: '600',
+					marginBottom: 0,
 				},
 			}}
 		>
@@ -38,10 +46,11 @@ export default function TabLayout() {
 				options={{
 					title: 'Home',
 					tabBarIcon: ({ color, focused }) => (
-						<TabBarIcon
+						<AnimatedTabIcon
 							name={focused ? 'home' : 'home-outline'}
 							color={color}
 							size={24}
+							focused={focused}
 						/>
 					),
 				}}
@@ -51,12 +60,13 @@ export default function TabLayout() {
 				options={{
 					title: 'Orders',
 					tabBarIcon: ({ color, focused }) => (
-						<TabBarIcon
+						<AnimatedTabIcon
 							name={
-								focused ? 'newspaper' : 'newspaper-outline'
+								focused ? 'file-tray-full' : 'file-tray-full-outline'
 							}
 							color={color}
 							size={24}
+							focused={focused}
 						/>
 					),
 				}}
@@ -66,12 +76,13 @@ export default function TabLayout() {
 				options={{
 					title: 'Customers',
 					tabBarIcon: ({ color, focused }) => (
-						<TabBarIcon
+						<AnimatedTabIcon
 							name={
-								focused ? 'people-sharp' : 'people-outline'
+								focused ? 'people' : 'people-outline'
 							}
 							color={color}
-							size={26}
+							size={22}
+                            focused={focused}
 						/>
 					),
 				}}
@@ -81,14 +92,15 @@ export default function TabLayout() {
 				options={{
 					title: 'Catalogue',
 					tabBarIcon: ({ color, focused }) => (
-						<TabBarIcon
+						<AnimatedTabIcon
 							name={
 								focused
-									? 'file-tray-stacked'
-									: 'file-tray-stacked-outline'
+									? 'cube'
+									: 'cube-outline'
 							}
 							color={color}
-							size={22}
+							size={24}
+							focused={focused}
 						/>
 					),
 				}}
@@ -99,17 +111,13 @@ export default function TabLayout() {
 				options={{
 					title: 'More',
 					tabBarIcon: ({ color, focused }) => (
-						// <TabBarIcon
-						// 	name={
-						// 		focused ? 'settings' : 'settings-outline'
-						// 	}
-						// 	color={color}
-						// 	size={24}
-						// />
-						<MaterialCommunityIcons
-							name={focused ? "dots-horizontal-circle" :"dots-horizontal"}
-							size={24}
+						<AnimatedTabIcon
+							name={
+								focused ? 'ellipsis-horizontal-circle' : 'ellipsis-horizontal-circle-outline'
+							}
 							color={color}
+							size={24}
+							focused={focused}
 						/>
 					),
 				}}

@@ -46,7 +46,8 @@ export default function DiscountsScreen() {
 	const [discounts, setDiscounts] = useState([]);
 	const [loading, setLoading] = useState(false);
 	const [refreshing, setRefreshing] = useState(false);
-	const {selectedStore} = useContext(AuthContext);
+	const { selectedStore, getPlanCapability } = useContext(AuthContext);
+	const hasDiscounts = getPlanCapability('hasDiscounts');
 
 	// Modal / Form state
 	const initialForm = useMemo(
@@ -369,9 +370,9 @@ export default function DiscountsScreen() {
 					style={styles.backButton}
 				>
 					<Ionicons
-						name="chevron-back"
+						name="arrow-back"
 						size={24}
-						color={THEME.text}
+						color="#111827"
 					/>
 				</TouchableOpacity>
 				<View style={styles.headerContent}>
@@ -379,7 +380,7 @@ export default function DiscountsScreen() {
 						Discount Management
 					</Text>
 					<Text style={styles.headerSubtitle}>
-						Overview and control of promotional discounts
+						Promotions & Coupons
 					</Text>
 				</View>
 				<TouchableOpacity
@@ -387,9 +388,9 @@ export default function DiscountsScreen() {
 					style={styles.headerAction}
 				>
 					<Ionicons
-						name="add-circle-outline"
-						size={24}
-						color={THEME.primary}
+						name="add-circle"
+						size={28}
+						color="#3B82F6"
 					/>
 				</TouchableOpacity>
 			</View>
@@ -411,13 +412,13 @@ export default function DiscountsScreen() {
 					<Text
 						style={[
 							styles.statValue,
-							{ color: THEME.success },
+							{ color: '#10B981' },
 						]}
 					>
 						{active}
 					</Text>
 					<Text style={styles.statLabel}>
-						Active Discounts
+						Active Now
 					</Text>
 				</View>
 			</View>
@@ -429,13 +430,14 @@ export default function DiscountsScreen() {
 			<View style={styles.filtersContainer}>
 				<View style={styles.searchContainer}>
 					<Ionicons
-						name="search-outline"
+						name="search"
 						size={20}
-						color={THEME.subtext}
+						color="#9CA3AF"
 						style={styles.searchIcon}
 					/>
 					<TextInput
 						placeholder="Search by code or name..."
+						placeholderTextColor="#9CA3AF"
 						value={search}
 						onChangeText={setSearch}
 						style={styles.searchInput}
@@ -450,10 +452,10 @@ export default function DiscountsScreen() {
 						value={showActiveOnly}
 						onValueChange={setShowActiveOnly}
 						trackColor={{
-							false: THEME.border,
-							true: THEME.primary,
+							false: '#E5E7EB',
+							true: '#3B82F6',
 						}}
-						thumbColor={THEME.card}
+						thumbColor="#fff"
 					/>
 				</View>
 			</View>
@@ -472,13 +474,13 @@ export default function DiscountsScreen() {
 							styles.statusIndicator,
 							{
 								backgroundColor: item.active
-									? THEME.success
-									: THEME.error,
+									? '#10B981'
+									: '#EF4444',
 							},
 						]}
 					>
 						<Text style={styles.statusText}>
-							{item.active ? 'Active' : 'Inactive'}
+							{item.active ? 'ACTIVE' : 'INACTIVE'}
 						</Text>
 					</View>
 				</View>
@@ -487,18 +489,13 @@ export default function DiscountsScreen() {
 				</Text>
 				<View style={styles.discountDetails}>
 					<Text style={styles.detailText}>
-						Type:{' '}
-						{item.type.charAt(0).toUpperCase() +
-							item.type.slice(1)}
-					</Text>
-					<Text style={styles.detailText}>
-						Value:{' '}
 						{item.type === 'percentage'
-							? `${item.percentage}%`
-							: formatMoney(item.amount)}
+							? `${item.percentage}% OFF`
+							: `${formatMoney(item.amount)} OFF`}
 					</Text>
+					<Text style={styles.detailText}>•</Text>
 					<Text style={styles.detailText}>
-						Min Order: {formatMoney(item.minOrderAmount)}
+						Min: {formatMoney(item.minOrderAmount)}
 					</Text>
 				</View>
 				<View style={styles.discountActions}>
@@ -507,22 +504,45 @@ export default function DiscountsScreen() {
 						style={styles.actionButton}
 					>
 						<Ionicons
-							name="pencil-outline"
-							size={20}
-							color={THEME.primary}
+							name="create-outline"
+							size={18}
+							color="#374151"
 						/>
 						<Text style={styles.actionText}>Edit</Text>
 					</TouchableOpacity>
 					<TouchableOpacity
 						onPress={() => remove(item._id)}
-						style={styles.actionButton}
+						style={[styles.actionButton, { backgroundColor: '#FEF2F2' }]}
 					>
 						<Ionicons
 							name="trash-outline"
-							size={20}
-							color={THEME.error}
+							size={18}
+							color="#EF4444"
 						/>
-						<Text style={styles.actionText}>Delete</Text>
+						<Text style={[styles.actionText, { color: '#EF4444' }]}>Delete</Text>
+					</TouchableOpacity>
+				</View>
+			</View>
+		);
+	}
+
+	if (!hasDiscounts) {
+		return (
+			<View style={styles.container}>
+				<Header />
+				<View style={[styles.content, styles.centered]}>
+					<View style={styles.lockIconContainer}>
+						<Ionicons name="lock-closed" size={64} color="#3B82F6" />
+					</View>
+					<Text style={styles.restrictedTitle}>Pro Feature</Text>
+					<Text style={styles.restrictedSub}>
+						Discount codes are available on Pro and Business plans. Upgrade now to start creating promotions and boost your sales!
+					</Text>
+					<TouchableOpacity
+						style={styles.upgradeButtonLarge}
+						onPress={() => router.push('/(app)/subscription')}
+					>
+						<Text style={styles.upgradeButtonTextLarge}>Upgrade to Pro</Text>
 					</TouchableOpacity>
 				</View>
 			</View>
@@ -530,15 +550,15 @@ export default function DiscountsScreen() {
 	}
 
 	return (
-		<SafeAreaView style={styles.container}>
+		<View style={styles.container}>
 			<Header />
-			<ScrollView style={styles.content}>
+			<View style={styles.content}>
 				<Stats />
 				<Filters />
 				{loading ? (
 					<ActivityIndicator
 						size="large"
-						color={THEME.primary}
+						color="#3B82F6"
 						style={styles.loader}
 					/>
 				) : (
@@ -551,19 +571,20 @@ export default function DiscountsScreen() {
 						ListEmptyComponent={
 							<View style={styles.emptyContainer}>
 								<Ionicons
-									name="alert-circle-outline"
+									name="pricetag-outline"
 									size={48}
-									color={THEME.subtext}
+									color="#9CA3AF"
 								/>
 								<Text style={styles.emptyText}>
-									No discounts available
+									No discounts found
 								</Text>
 								<Text style={styles.emptySubtext}>
-									Create a new discount to get started
+									Create a new campaign to get started
 								</Text>
 							</View>
 						}
 						style={styles.list}
+						contentContainerStyle={{ paddingBottom: 100 }}
 					/>
 				)}
 				<TouchableOpacity
@@ -571,23 +592,21 @@ export default function DiscountsScreen() {
 					style={styles.validateButton}
 				>
 					<Text style={styles.validateButtonText}>
-						Validate Discount Code
+						Validate Code
 					</Text>
 				</TouchableOpacity>
-			</ScrollView>
+			</View>
 
 			{/* Create/Edit Modal */}
 			<Modal
 				visible={modalVisible}
-				animationType="fade"
+				animationType="slide"
 				transparent={true}
 				onRequestClose={closeModal}
 			>
 				<View style={styles.modalOverlay}>
 					<KeyboardAvoidingView
-						behavior={
-							Platform.OS === 'ios' ? 'padding' : 'height'
-						}
+						behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
 						style={styles.modalContainer}
 					>
 						<View style={styles.modalHeader}>
@@ -596,9 +615,9 @@ export default function DiscountsScreen() {
 							</Text>
 							<TouchableOpacity onPress={closeModal}>
 								<Ionicons
-									name="close-outline"
+									name="close"
 									size={24}
-									color={THEME.text}
+									color="#374151"
 								/>
 							</TouchableOpacity>
 						</View>
@@ -612,6 +631,8 @@ export default function DiscountsScreen() {
 										setForm({ ...form, code: v })
 									}
 									autoCapitalize="characters"
+									placeholder="e.g. SUMMER2024"
+									placeholderTextColor="#9CA3AF"
 								/>
 							</View>
 							<View style={styles.formField}>
@@ -622,6 +643,8 @@ export default function DiscountsScreen() {
 									onChangeText={(v) =>
 										setForm({ ...form, name: v })
 									}
+									placeholder="Internal Name"
+									placeholderTextColor="#9CA3AF"
 								/>
 							</View>
 							<View style={styles.formField}>
@@ -638,6 +661,8 @@ export default function DiscountsScreen() {
 										setForm({ ...form, description: v })
 									}
 									multiline
+									placeholder="Optional description..."
+									placeholderTextColor="#9CA3AF"
 								/>
 							</View>
 							<View style={styles.formField}>
@@ -653,7 +678,7 @@ export default function DiscountsScreen() {
 											style={[
 												styles.typeButton,
 												form.type === t &&
-													styles.typeButtonActive,
+												styles.typeButtonActive,
 											]}
 											onPress={() =>
 												setForm({ ...form, type: t })
@@ -663,7 +688,7 @@ export default function DiscountsScreen() {
 												style={[
 													styles.typeButtonText,
 													form.type === t &&
-														styles.typeButtonTextActive,
+													styles.typeButtonTextActive,
 												]}
 											>
 												{t
@@ -682,7 +707,7 @@ export default function DiscountsScreen() {
 							{form.type === 'percentage' && (
 								<View style={styles.formField}>
 									<Text style={styles.formLabel}>
-										Percentage
+										Percentage (%)
 									</Text>
 									<TextInput
 										style={styles.formInput}
@@ -691,6 +716,8 @@ export default function DiscountsScreen() {
 											setForm({ ...form, percentage: v })
 										}
 										keyboardType="numeric"
+										placeholder="0"
+										placeholderTextColor="#9CA3AF"
 									/>
 								</View>
 							)}
@@ -706,12 +733,14 @@ export default function DiscountsScreen() {
 											setForm({ ...form, amount: v })
 										}
 										keyboardType="numeric"
+										placeholder="0"
+										placeholderTextColor="#9CA3AF"
 									/>
 								</View>
 							)}
 							<View style={styles.formField}>
 								<Text style={styles.formLabel}>
-									Minimum Order Amount (kobo)
+									Min Order Amount (kobo)
 								</Text>
 								<TextInput
 									style={styles.formInput}
@@ -720,6 +749,8 @@ export default function DiscountsScreen() {
 										setForm({ ...form, minOrderAmount: v })
 									}
 									keyboardType="numeric"
+									placeholder="0"
+									placeholderTextColor="#9CA3AF"
 								/>
 							</View>
 							<View style={styles.formField}>
@@ -733,10 +764,10 @@ export default function DiscountsScreen() {
 											setForm({ ...form, active: v })
 										}
 										trackColor={{
-											false: THEME.border,
-											true: THEME.primary,
+											false: '#E5E7EB',
+											true: '#3B82F6',
 										}}
-										thumbColor={THEME.card}
+										thumbColor="#fff"
 									/>
 								</View>
 							</View>
@@ -747,10 +778,10 @@ export default function DiscountsScreen() {
 							disabled={submitting}
 						>
 							{submitting ? (
-								<ActivityIndicator color={THEME.card} />
+								<ActivityIndicator color="#fff" />
 							) : (
 								<Text style={styles.submitButtonText}>
-									{editing ? 'Update' : 'Create'}
+									{editing ? 'Update Discount' : 'Create Discount'}
 								</Text>
 							)}
 						</TouchableOpacity>
@@ -761,7 +792,7 @@ export default function DiscountsScreen() {
 			{/* Validate Modal */}
 			<Modal
 				visible={validateModalVisible}
-				animationType="fade"
+				animationType="slide"
 				transparent={true}
 				onRequestClose={closeValidateModal}
 			>
@@ -775,204 +806,221 @@ export default function DiscountsScreen() {
 								onPress={closeValidateModal}
 							>
 								<Ionicons
-									name="close-outline"
+									name="close"
 									size={24}
-									color={THEME.text}
+									color="#374151"
 								/>
 							</TouchableOpacity>
 						</View>
-						<View style={styles.formField}>
-							<Text style={styles.formLabel}>
-								Discount Code
-							</Text>
-							<TextInput
-								style={styles.formInput}
-								value={validateCode}
-								onChangeText={setValidateCode}
-								autoCapitalize="characters"
-							/>
-						</View>
-						<View style={styles.formField}>
-							<Text style={styles.formLabel}>
-								Cart Amount (kobo)
-							</Text>
-							<TextInput
-								style={styles.formInput}
-								value={cartAmount}
-								onChangeText={setCartAmount}
-								keyboardType="numeric"
-							/>
-						</View>
-						<TouchableOpacity
-							style={styles.submitButton}
-							onPress={runValidate}
-							disabled={validating}
-						>
-							{validating ? (
-								<ActivityIndicator color={THEME.card} />
-							) : (
-								<Text style={styles.submitButtonText}>
-									Validate
+						<View style={styles.modalBody}>
+							<View style={styles.formField}>
+								<Text style={styles.formLabel}>
+									Discount Code
 								</Text>
-							)}
-						</TouchableOpacity>
-						{validateResult && (
-							<View
-								style={[
-									styles.validateResultContainer,
-									{
-										borderColor: validateResult.valid
-											? THEME.success
-											: THEME.error,
-									},
-								]}
+								<TextInput
+									style={styles.formInput}
+									value={validateCode}
+									onChangeText={setValidateCode}
+									autoCapitalize="characters"
+									placeholder="Code to check"
+									placeholderTextColor="#9CA3AF"
+								/>
+							</View>
+							<View style={styles.formField}>
+								<Text style={styles.formLabel}>
+									Cart Amount (kobo)
+								</Text>
+								<TextInput
+									style={styles.formInput}
+									value={cartAmount}
+									onChangeText={setCartAmount}
+									keyboardType="numeric"
+									placeholder="0"
+									placeholderTextColor="#9CA3AF"
+								/>
+							</View>
+							<TouchableOpacity
+								style={styles.submitButton}
+								onPress={runValidate}
+								disabled={validating}
 							>
-								<Text
+								{validating ? (
+									<ActivityIndicator color="#fff" />
+								) : (
+									<Text style={styles.submitButtonText}>
+										Check Validity
+									</Text>
+								)}
+							</TouchableOpacity>
+							{validateResult && (
+								<View
 									style={[
-										styles.validateStatus,
+										styles.validateResultContainer,
 										{
-											color: validateResult.valid
-												? THEME.success
-												: THEME.error,
+											backgroundColor: validateResult.valid
+												? '#ECFDF5'
+												: '#FEF2F2',
+											borderColor: validateResult.valid
+												? '#10B981'
+												: '#EF4444',
 										},
 									]}
 								>
-									{validateResult.valid
-										? 'Valid'
-										: 'Invalid'}
-								</Text>
-								{validateResult.message && (
-									<Text style={styles.validateMessage}>
-										{validateResult.message}
+									<Text
+										style={[
+											styles.validateStatus,
+											{
+												color: validateResult.valid
+													? '#059669'
+													: '#DC2626',
+											},
+										]}
+									>
+										{validateResult.valid
+											? 'Valid Discount'
+											: 'Invalid Discount'}
 									</Text>
-								)}
-							</View>
-						)}
+									{validateResult.message && (
+										<Text style={styles.validateMessage}>
+											{validateResult.message}
+										</Text>
+									)}
+								</View>
+							)}
+						</View>
 					</View>
 				</View>
 			</Modal>
-
-			{loading && (
-				<View style={styles.overlay}>
-					<ActivityIndicator
-						size="large"
-						color={THEME.primary}
-					/>
-				</View>
-			)}
-		</SafeAreaView>
+		</View>
 	);
 }
 
 const styles = StyleSheet.create({
 	container: {
 		flex: 1,
-		backgroundColor: THEME.background,
+		backgroundColor: '#F9FAFB',
 	},
 	content: {
-		flex: 1,
+		paddingHorizontal: 16,
+		paddingBottom: 40,
 	},
 	header: {
+		backgroundColor: '#fff',
 		flexDirection: 'row',
 		alignItems: 'center',
+		justifyContent: 'space-between',
 		paddingHorizontal: 16,
-		paddingTop: 40,
-		paddingBottom: 20,
-		backgroundColor: THEME.card,
+		paddingTop: Platform.OS === 'android' ? 40 : 50,
+		paddingBottom: 16,
 		borderBottomWidth: 1,
-		borderBottomColor: THEME.border,
-	},
-	backButton: {
-		marginRight: 16,
+		borderBottomColor: '#F3F4F6',
+		marginBottom: 16,
 	},
 	headerContent: {
 		flex: 1,
+		marginLeft: 12,
+	},
+	backButton: {
+		padding: 4,
+		marginLeft: -4,
 	},
 	headerTitle: {
-		fontSize: 20,
-		fontWeight: 'bold',
-		color: THEME.text,
+		fontSize: 18,
+		fontWeight: '700',
+		color: '#111827',
 	},
 	headerSubtitle: {
-		fontSize: 14,
-		color: THEME.subtext,
+		fontSize: 12,
+		color: '#6B7280',
+		marginTop: 2,
 	},
 	headerAction: {
-		marginLeft: 16,
+		padding: 4,
 	},
 	statsContainer: {
 		flexDirection: 'row',
-		padding: 16,
-		backgroundColor: THEME.card,
-		margin: 16,
-		borderRadius: 12,
-		shadowColor: '#000',
-		shadowOpacity: 0.05,
-		shadowRadius: 10,
-		shadowOffset: { width: 0, height: 5 },
-		elevation: 3,
+		gap: 12,
+		marginBottom: 20,
 	},
 	statItem: {
 		flex: 1,
+		backgroundColor: '#fff',
+		padding: 16,
+		borderRadius: 12,
+		borderWidth: 1,
+		borderColor: '#E5E7EB',
+		shadowColor: '#000',
+		shadowOffset: { width: 0, height: 1 },
+		shadowOpacity: 0.05,
+		shadowRadius: 2,
+		elevation: 1,
 		alignItems: 'center',
 	},
 	statValue: {
 		fontSize: 24,
-		fontWeight: 'bold',
-		color: THEME.text,
+		fontWeight: '700',
+		color: '#111827',
+		marginBottom: 4,
 	},
 	statLabel: {
-		fontSize: 14,
-		color: THEME.subtext,
-		marginTop: 4,
+		fontSize: 13,
+		color: '#6B7280',
+		fontWeight: '500',
 	},
 	filtersContainer: {
-		flexDirection: 'row',
-		alignItems: 'center',
-		paddingHorizontal: 16,
-		marginBottom: 8,
+		marginBottom: 20,
 	},
 	searchContainer: {
-		flex: 1,
 		flexDirection: 'row',
 		alignItems: 'center',
-		backgroundColor: THEME.card,
-		borderRadius: 8,
-		paddingHorizontal: 12,
+		backgroundColor: '#fff',
 		borderWidth: 1,
-		borderColor: THEME.border,
+		borderColor: '#D1D5DB',
+		borderRadius: 12,
+		paddingHorizontal: 12,
+		height: 48,
+		marginBottom: 12,
 	},
 	searchIcon: {
 		marginRight: 8,
 	},
 	searchInput: {
 		flex: 1,
-		fontSize: 16,
-		color: THEME.text,
+		height: '100%',
+		fontSize: 15,
+		color: '#111827',
 	},
 	switchContainer: {
 		flexDirection: 'row',
 		alignItems: 'center',
-		marginLeft: 16,
+		justifyContent: 'space-between',
+		backgroundColor: '#fff',
+		paddingVertical: 8,
+		paddingHorizontal: 12,
+		borderRadius: 12,
+		borderWidth: 1,
+		borderColor: '#E5E7EB',
 	},
 	switchLabel: {
 		fontSize: 14,
-		color: THEME.subtext,
-		marginRight: 8,
+		fontWeight: '500',
+		color: '#374151',
 	},
 	list: {
-		paddingHorizontal: 16,
+		// flex: 1,
 	},
 	discountItem: {
-		backgroundColor: THEME.card,
-		borderRadius: 12,
+		backgroundColor: '#fff',
+		borderRadius: 16,
 		padding: 16,
 		marginBottom: 12,
 		shadowColor: '#000',
+		shadowOffset: { width: 0, height: 1 },
 		shadowOpacity: 0.05,
-		shadowRadius: 10,
-		shadowOffset: { width: 0, height: 5 },
-		elevation: 3,
+		shadowRadius: 2,
+		elevation: 1,
+		borderWidth: 1,
+		borderColor: '#E5E7EB',
 	},
 	discountHeader: {
 		flexDirection: 'row',
@@ -981,95 +1029,122 @@ const styles = StyleSheet.create({
 		marginBottom: 8,
 	},
 	discountCode: {
-		fontSize: 18,
-		fontWeight: 'bold',
-		color: THEME.text,
+		fontSize: 16,
+		fontWeight: '700',
+		color: '#1F2937',
+		letterSpacing: 0.5,
 	},
 	statusIndicator: {
-		paddingHorizontal: 12,
+		paddingHorizontal: 8,
 		paddingVertical: 4,
-		borderRadius: 20,
+		borderRadius: 99,
 	},
 	statusText: {
-		fontSize: 12,
-		fontWeight: 'bold',
-		color: THEME.card,
+		fontSize: 11,
+		fontWeight: '600',
+		color: '#fff',
 	},
 	discountName: {
-		fontSize: 16,
-		color: THEME.subtext,
+		fontSize: 14,
+		color: '#4B5563',
 		marginBottom: 12,
+		fontWeight: '500',
 	},
 	discountDetails: {
 		flexDirection: 'row',
-		justifyContent: 'space-between',
+		flexWrap: 'wrap',
+		gap: 12,
 		marginBottom: 16,
+		backgroundColor: '#F9FAFB',
+		padding: 10,
+		borderRadius: 8,
 	},
 	detailText: {
-		fontSize: 14,
-		color: THEME.subtext,
+		fontSize: 13,
+		color: '#4B5563',
+		fontWeight: '500',
 	},
 	discountActions: {
 		flexDirection: 'row',
 		justifyContent: 'flex-end',
-		gap: 16,
+		gap: 8,
+		borderTopWidth: 1,
+		borderTopColor: '#F3F4F6',
+		paddingTop: 12,
 	},
 	actionButton: {
 		flexDirection: 'row',
 		alignItems: 'center',
-		gap: 4,
+		paddingVertical: 6,
+		paddingHorizontal: 10,
+		backgroundColor: '#F3F4F6',
+		borderRadius: 8,
 	},
 	actionText: {
-		fontSize: 14,
+		fontSize: 13,
 		fontWeight: '600',
+		marginLeft: 4,
+		color: '#374151',
 	},
 	validateButton: {
-		backgroundColor: THEME.primary,
+		flexDirection: 'row',
+		justifyContent: 'center',
+		backgroundColor: '#3B82F6',
 		padding: 16,
-		margin: 16,
+		marginTop: 20,
+		marginBottom: 40,
 		borderRadius: 12,
 		alignItems: 'center',
+		shadowColor: '#3B82F6',
+		shadowOffset: { width: 0, height: 4 },
+		shadowOpacity: 0.2,
+		shadowRadius: 8,
+		elevation: 4,
 	},
 	validateButtonText: {
 		fontSize: 16,
 		fontWeight: 'bold',
-		color: THEME.card,
+		color: '#fff',
 	},
-	loader: {
-		marginTop: 32,
+	centered: {
+		flex: 1,
+		justifyContent: 'center',
+		alignItems: 'center',
 	},
 	emptyContainer: {
 		alignItems: 'center',
-		padding: 32,
+		paddingVertical: 40,
 	},
 	emptyText: {
-		fontSize: 18,
-		fontWeight: 'bold',
-		color: THEME.text,
-		marginTop: 16,
+		fontSize: 16,
+		fontWeight: '600',
+		color: '#374151',
+		marginTop: 12,
 	},
 	emptySubtext: {
 		fontSize: 14,
-		color: THEME.subtext,
-		marginTop: 8,
+		color: '#9CA3AF',
+		marginTop: 4,
 	},
 	modalOverlay: {
 		flex: 1,
 		backgroundColor: 'rgba(0,0,0,0.5)',
-		justifyContent: 'center',
-		alignItems: 'center',
+		justifyContent: 'flex-end',
 	},
 	modalContainer: {
-		backgroundColor: THEME.background,
-		borderRadius: 16,
-		width: '90%',
-		maxHeight: '80%',
-		overflow: 'hidden',
+		backgroundColor: '#fff',
+		borderTopLeftRadius: 24,
+		borderTopRightRadius: 24,
+		paddingBottom: 20,
+		maxHeight: '90%',
 	},
 	validateModalContainer: {
-		backgroundColor: THEME.background,
+		backgroundColor: '#fff',
 		borderRadius: 16,
 		width: '90%',
+		alignSelf: 'center',
+		marginBottom: 'auto',
+		marginTop: 'auto',
 		paddingBottom: 16,
 		overflow: 'hidden',
 	},
@@ -1077,38 +1152,40 @@ const styles = StyleSheet.create({
 		flexDirection: 'row',
 		justifyContent: 'space-between',
 		alignItems: 'center',
-		padding: 16,
+		padding: 20,
 		borderBottomWidth: 1,
-		borderBottomColor: THEME.border,
+		borderBottomColor: '#F3F4F6',
 	},
 	modalTitle: {
-		fontSize: 20,
-		fontWeight: 'bold',
-		color: THEME.text,
+		fontSize: 18,
+		fontWeight: '700',
+		color: '#111827',
 	},
 	modalBody: {
-		padding: 16,
+		padding: 20,
 	},
 	formField: {
 		marginBottom: 16,
 	},
 	formLabel: {
 		fontSize: 14,
-		fontWeight: '600',
-		color: THEME.text,
-		marginBottom: 8,
+		fontWeight: '500',
+		color: '#374151',
+		marginBottom: 6,
 	},
 	formInput: {
-		backgroundColor: THEME.card,
-		borderRadius: 8,
-		padding: 12,
+		backgroundColor: '#fff',
+		borderRadius: 10,
+		paddingHorizontal: 12,
+		paddingVertical: 10,
 		borderWidth: 1,
-		borderColor: THEME.border,
-		fontSize: 16,
-		color: THEME.text,
+		borderColor: '#D1D5DB',
+		fontSize: 15,
+		color: '#1F2937',
 	},
 	textArea: {
-		height: 100,
+		height: 80,
+		textAlignVertical: 'top',
 	},
 	typeButtons: {
 		flexDirection: 'row',
@@ -1116,23 +1193,25 @@ const styles = StyleSheet.create({
 	},
 	typeButton: {
 		flex: 1,
-		padding: 12,
+		paddingVertical: 10,
 		borderRadius: 8,
 		borderWidth: 1,
-		borderColor: THEME.border,
+		borderColor: '#E5E7EB',
 		alignItems: 'center',
+		backgroundColor: '#F9FAFB',
 	},
 	typeButtonActive: {
-		borderColor: THEME.primary,
-		backgroundColor: THEME.primary + '1A', // semi-transparent
+		borderColor: '#3B82F6',
+		backgroundColor: '#EFF6FF',
 	},
 	typeButtonText: {
-		fontSize: 14,
-		fontWeight: '600',
-		color: THEME.text,
+		fontSize: 13,
+		fontWeight: '500',
+		color: '#6B7280',
 	},
 	typeButtonTextActive: {
-		color: THEME.primary,
+		color: '#3B82F6',
+		fontWeight: '600',
 	},
 	switchRow: {
 		flexDirection: 'row',
@@ -1140,40 +1219,75 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 	},
 	submitButton: {
-		backgroundColor: THEME.primary,
+		backgroundColor: '#10B981',
 		padding: 16,
 		alignItems: 'center',
-		borderBottomLeftRadius: 16,
-		borderBottomRightRadius: 16,
+		marginHorizontal: 20,
+		borderRadius: 12,
+		marginBottom: 10,
 	},
 	submitButtonText: {
 		fontSize: 16,
 		fontWeight: 'bold',
-		color: THEME.card,
+		color: '#fff',
 	},
 	validateResultContainer: {
-		margin: 16,
-		padding: 16,
-		borderRadius: 12,
-		borderWidth: 1,
+		marginTop: 16,
+		padding: 12,
+		backgroundColor: '#F3F4F6',
+		borderRadius: 8,
 	},
 	validateStatus: {
-		fontSize: 18,
-		fontWeight: 'bold',
+		fontWeight: '700',
+		fontSize: 16,
+		marginBottom: 4,
 	},
 	validateMessage: {
 		fontSize: 14,
-		color: THEME.subtext,
-		marginTop: 8,
+		color: '#4B5563',
 	},
-	overlay: {
-		position: 'absolute',
-		top: 0,
-		left: 0,
-		right: 0,
-		bottom: 0,
-		backgroundColor: 'rgba(255,255,255,0.8)',
+	centered: {
+		flex: 1,
 		justifyContent: 'center',
 		alignItems: 'center',
+	},
+	lockIconContainer: {
+		width: 120,
+		height: 120,
+		borderRadius: 60,
+		backgroundColor: '#EFF6FF',
+		justifyContent: 'center',
+		alignItems: 'center',
+		marginBottom: 24,
+	},
+	restrictedTitle: {
+		fontSize: 24,
+		fontWeight: '800',
+		color: '#111827',
+		marginBottom: 12,
+	},
+	restrictedSub: {
+		fontSize: 16,
+		color: '#6B7280',
+		textAlign: 'center',
+		paddingHorizontal: 32,
+		lineHeight: 24,
+		marginBottom: 32,
+	},
+	upgradeButtonLarge: {
+		backgroundColor: '#3B82F6',
+		paddingVertical: 16,
+		paddingHorizontal: 48,
+		borderRadius: 12,
+		shadowColor: '#3B82F6',
+		shadowOffset: { width: 0, height: 4 },
+		shadowOpacity: 0.2,
+		shadowRadius: 8,
+		elevation: 4,
+	},
+	upgradeButtonTextLarge: {
+		color: '#fff',
+		fontSize: 18,
+		fontWeight: '700',
 	},
 });

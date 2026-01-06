@@ -63,6 +63,9 @@ const InvoicesScreen = () => {
 	const [taxAmount, setTaxAmount] = useState(0);
 	const [totalPrice, setTotalPrice] = useState(0);
 
+	const [searchQuery, setSearchQuery] = useState('');
+	const [statusFilter, setStatusFilter] = useState('all');
+
 	const [note, setNote] = useState('');
 
 	const storeId = selectedStore?._id;
@@ -102,12 +105,12 @@ const InvoicesScreen = () => {
 		const updated = lines.map((ln, i) =>
 			i === index
 				? {
-						...ln,
-						[field]:
-							field === 'unitPrice' || field === 'quantity'
-								? Number(value) || 0
-								: value,
-				  }
+					...ln,
+					[field]:
+						field === 'unitPrice' || field === 'quantity'
+							? Number(value) || 0
+							: value,
+				}
 				: ln,
 		);
 		setLines(updated);
@@ -201,8 +204,34 @@ const InvoicesScreen = () => {
 			);
 			return false;
 		}
+		// ...
+		if (!selectedStore?.tin) {
+			ToastAndroid.show(
+				'Missing TIN. Please update Store Settings.',
+				ToastAndroid.LONG,
+			);
+			// strict enforcement? The user said "every invoice should bear the TIN".
+			// Choosing to BLOCK creation to enforce compliance.
+			return false;
+		}
+
 		return true;
 	};
+
+	const filteredInvoices = invoices.filter((inv) => {
+		const matchSearch =
+			(inv.customerInfo?.name || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+			(inv.invoiceNumber || String(inv._id)).toLowerCase().includes(searchQuery.toLowerCase());
+
+		const matchStatus =
+			statusFilter === 'all'
+				? true
+				: statusFilter === 'overdue' // mapping 'overdue' checks if active/partial? or just use available statuses
+					? inv.status === 'overdue'
+					: inv.status === statusFilter;
+
+		return matchSearch && matchStatus;
+	});
 
 	const createInvoice = async () => {
 		if (!validateBeforeCreate()) return;
@@ -311,37 +340,70 @@ const InvoicesScreen = () => {
 				</View>
 			</View>
 
-			{loadingInvoices ? (
-				<View
-					style={{ marginTop: 40, alignItems: 'center' }}
-				>
-					<ActivityIndicator size="large" />
-					<Text style={{ marginTop: 10 }}>
-						Loading invoices...
-					</Text>
+			<View style={styles.filterSection}>
+				<View style={styles.searchContainer}>
+					<Ionicons name="search" size={20} color="#9CA3AF" style={{ marginRight: 8 }} />
+					<TextInput
+						style={styles.searchInput}
+						placeholder="Search customer or invoice #"
+						value={searchQuery}
+						onChangeText={setSearchQuery}
+						placeholderTextColor="#9CA3AF"
+					/>
+					{searchQuery.length > 0 && (
+						<TouchableOpacity onPress={() => setSearchQuery('')}>
+							<Ionicons name="close-circle" size={18} color="#9CA3AF" />
+						</TouchableOpacity>
+					)}
 				</View>
-			) : invoices.length === 0 ? (
-				<View style={styles.noInvoicesContainer}>
-					<Text style={styles.noInvoicesText}>
-						No invoices available
-					</Text>
-					<TouchableOpacity
-						style={styles.createButton}
-						onPress={() => setModalVisible(true)}
+				<ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.filterScroll}>
+					{['all', 'paid', 'pending', 'partial'].map((status) => (
+						<TouchableOpacity
+							key={status}
+							style={[styles.filterChip, statusFilter === status && styles.filterChipActive]}
+							onPress={() => setStatusFilter(status)}
+						>
+							<Text style={[styles.filterText, statusFilter === status && styles.filterTextActive]}>
+								{status.charAt(0).toUpperCase() + status.slice(1)}
+							</Text>
+						</TouchableOpacity>
+					))}
+				</ScrollView>
+			</View>
+
+			{
+				loadingInvoices ? (
+					<View
+						style={{ marginTop: 40, alignItems: 'center' }}
 					>
-						<Text style={styles.createButtonText}>
-							Create Invoice
+						<ActivityIndicator size="large" />
+						<Text style={{ marginTop: 10 }}>
+							Loading invoices...
 						</Text>
-					</TouchableOpacity>
-				</View>
-			) : (
-				<InvoiceTable
-					invoices={invoices}
-					userInfo={userInfo}
-					selectedStore={selectedStore}
-					fetchOrders={fetchInvoices}
-				/>
-			)}
+					</View>
+				) : invoices.length === 0 ? (
+					<View style={styles.noInvoicesContainer}>
+						<Text style={styles.noInvoicesText}>
+							No invoices available
+						</Text>
+						<TouchableOpacity
+							style={styles.createButton}
+							onPress={() => setModalVisible(true)}
+						>
+							<Text style={styles.createButtonText}>
+								Create Invoice
+							</Text>
+						</TouchableOpacity>
+					</View>
+				) : (
+					<InvoiceTable
+						invoices={filteredInvoices}
+						userInfo={userInfo}
+						selectedStore={selectedStore}
+						fetchOrders={fetchInvoices}
+					/>
+				)
+			}
 
 			<Modal
 				visible={modalVisible}
@@ -589,14 +651,14 @@ const InvoicesScreen = () => {
 					</View>
 				</KeyboardAvoidingView>
 			</Modal>
-		</View>
+		</View >
 	);
 };
 
 const styles = StyleSheet.create({
 	container: {
 		flex: 1,
-		paddingTop: Platform.OS === 'android' ? 30 : 0,
+		paddingTop: Platform.OS === 'android' ? 30 : 40,
 		backgroundColor: '#F9FAFB',
 	},
 	headerContainer: {
@@ -630,6 +692,54 @@ const styles = StyleSheet.create({
 	createButtonText: {
 		color: '#fff',
 		fontSize: 13,
+		fontWeight: '600',
+	},
+	filterSection: {
+		backgroundColor: '#fff',
+		paddingBottom: 12,
+		borderBottomWidth: 1,
+		borderBottomColor: '#E5E7EB',
+	},
+	searchContainer: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		backgroundColor: '#F3F4F6',
+		marginHorizontal: 16,
+		marginTop: 12,
+		paddingHorizontal: 12,
+		borderRadius: 8,
+		height: 40,
+	},
+	searchInput: {
+		flex: 1,
+		fontSize: 14,
+		color: '#111827',
+		height: '100%',
+	},
+	filterScroll: {
+		paddingHorizontal: 16,
+		paddingTop: 12,
+		gap: 8,
+	},
+	filterChip: {
+		paddingHorizontal: 14,
+		paddingVertical: 6,
+		borderRadius: 20,
+		backgroundColor: '#F3F4F6',
+		borderWidth: 1,
+		borderColor: '#E5E7EB',
+	},
+	filterChipActive: {
+		backgroundColor: '#ECFDF5',
+		borderColor: '#10B981',
+	},
+	filterText: {
+		fontSize: 13,
+		color: '#4B5563',
+		fontWeight: '500',
+	},
+	filterTextActive: {
+		color: '#059669',
 		fontWeight: '600',
 	},
 	noInvoicesContainer: {

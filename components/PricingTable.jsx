@@ -14,295 +14,244 @@ import {
 	TouchableOpacity,
 	Modal,
 	ToastAndroid,
+	Platform,
+	Alert,
+	Dimensions,
 } from 'react-native';
 import { Paystack } from 'react-native-paystack-webview';
+import { LinearGradient } from 'expo-linear-gradient';
+import { Ionicons } from '@expo/vector-icons';
 
-const PricingTable = ({getBusinessInfo, setPayModalVisible}) => {
+const { width } = Dimensions.get('window');
+
+const PricingTable = ({ getBusinessInfo, setPayModalVisible }) => {
 	const [selectedPlan, setSelectedPlan] = useState(null);
-	const [modalVisible, setModalVisible] = useState(false);
 	const [calculatedPrice, setCalculatedPrice] = useState(0);
 	const router = useRouter();
-	const { userInfo, sendPushNotification } =
-		useContext(AuthContext);
+	const { userInfo } = useContext(AuthContext);
+	const [isYearly, setIsYearly] = useState(false);
+	const [isProcessing, setIsProcessing] = useState(false);
 	const [pay, setPay] = useState(false);
-    const [businessData, setBusinessData] = useState(null);
-    const [planDuration, setPlanDuration] = useState(null);
 
-	// Function to get user information
-	const getStoreInfo = async () => {
-		try {
-			const response = await axiosInstance.get(
-				`/businesses/b/${userInfo?._id}`,
-			);
-			// console.log('User info response:', response.data);
-			setBusinessData(response.data.business); // Update the user state with fetched data
-		} catch (error) {
-			console.error(
-				'Failed to fetch business info:',
-				error.response?.data || error,
-			);
-			throw error; // Propagate error for handling in the UI
+	const showToast = (message) => {
+		if (Platform.OS === 'android') {
+			ToastAndroid.show(message, ToastAndroid.LONG);
+		} else {
+			Alert.alert('Status', message);
 		}
 	};
 
-	useEffect(() => {
-		getStoreInfo();
-	}, []);
+
 
 	const plans = [
 		{
-			name: 'Economy',
-			monthlyPrice: 3500,
-			annualPrice: 35000,
+			name: 'Starter',
+			monthlyPrice: 0,
+			annualPrice: 0,
+			planCode: null,
 			features: [
 				'Access to Tradeet Campus',
-				'Product listings (up to 20)',
-				'Analytics (Basic insights on views, orders, and popular products).',
-				'Store customization options',
-				'Priority listing on Tradeet Campus',
-				'Order Tracking with Real-Time Updates',
-				'Ability to create and manage discount codes.',
+				'Product listings (up to 5)',
+				'Basic Analytics',
+				'Order Tracking',
 			],
 		},
 		{
 			name: 'Pro',
-			monthlyPrice: 7500,
-			annualPrice: 75000,
+			monthlyPrice: 5500,
+			annualPrice: 55000,
+			planCode: 'PLN_bffghpr454a1hh9',
+			features: [
+				'Product listings (up to 50)',
+				'Create and manage discount codes',
+				'Store customization options',
+				'Priority listing on Tradeet Campus',
+				'Standard Support',
+			],
+		},
+		{
+			name: 'Business',
+			monthlyPrice: 12500,
+			annualPrice: 125000,
+			planCode: 'PLN_khbd9a4329iqmqc',
 			features: [
 				'Unlimited product listings',
 				'Custom domains & premium themes',
+				'Advanced Analytics & Insights',
 				'Automated marketing tools',
-				'Advanced order management',
-				'24/7 customer support',
-				'Runner delivery discounts',
+				'24/7 Priority customer support',
 				'API access for integrations',
-				'Detailed insights, including customer demographics, retention rates, and peak order times.',
 				'Subscription-Based Sales',
+				'Multi-store & Branch management',
 			],
 		},
 	];
 
-	const durations = [
-		{ label: '1 Month', multiplier: 1 },
-		// { label: '3 Months', multiplier: 3 },
-		// { label: '6 Months', multiplier: 6 },
-		{ label: '1 Year', multiplier: 12 },
-	];
-
 	const handlePayNow = (plan) => {
 		setSelectedPlan(plan);
-		setModalVisible(true);
-	};
+		const price = isYearly ? plan.annualPrice : plan.monthlyPrice;
+		setCalculatedPrice(price);
 
-	const handleDurationSelect = (multiplier) => {
-        if (selectedPlan) {
-            setPlanDuration(multiplier);
-			const price =
-				multiplier === 12
-					? selectedPlan.annualPrice
-					: selectedPlan.monthlyPrice * multiplier;
-			setCalculatedPrice(price);
+		const isTrialEligible = userInfo?.plan?.name === 'Starter' && (plan.name === 'Pro' || plan.name === 'Business');
+
+		if (price === 0 || isTrialEligible) {
+			handleOrderNow(plan, isYearly ? 12 : 1, null, isTrialEligible);
+		} else {
+			setPay(true);
 		}
 	};
 
-	const handlePayment = () => {
-		// setModalVisible(false);
-        if (planDuration) {
-            setPay(true);
-        } else {
-            alert('Please choose a plan duration.')
-        }
-	};
-
-	const handleOrderNow = async () => {
+	const handleOrderNow = async (plan = selectedPlan, duration = (isYearly ? 12 : 1), reference = null, isTrial = false) => {
 		try {
-			const response = await axiosInstance.put(
-				`/businesses/${userInfo._id}/subscription`,
-                {
-                    planName: selectedPlan.name,
-                    planType: planDuration,
-                    startDate: Date.now(),
-                },
-            );
-            // console.log('Purchase response:', response.data);
-            getBusinessInfo()
-            setPayModalVisible(false);
+			setIsProcessing(true);
+			const payload = {
+				planName: plan.name,
+				planType: duration,
+				isTrial,
+			};
+			if (reference) {
+				payload.reference = reference;
+			}
+
+			console.log('[SUBSCRIPTION UPDATE] Sending payload:', payload);
+			const response = await axiosInstance.put(`/auth/subscription`, payload);
+			console.log('[SUBSCRIPTION UPDATE] Server response:', response.data);
+
+			if (getBusinessInfo) {
+				console.log('[SUBSCRIPTION UPDATE] Refreshing user info...');
+				await getBusinessInfo();
+				console.log('[SUBSCRIPTION UPDATE] User info refreshed');
+			}
+
+			if (setPayModalVisible) setPayModalVisible(false);
+			showToast(`Welcome to the ${plan.name} plan!`);
 		} catch (error) {
-			console.log(error);
+			const errorMsg = error.response?.data?.message || 'Failed to update subscription.';
+			console.log('[SUBSCRIPTION ERROR]:', error.response?.data || error.message);
+			showToast(errorMsg);
+		} finally {
+			setIsProcessing(false);
 		}
-    };
-    
-    console.log(selectedPlan, planDuration)
+	};
 
 	return (
 		<View style={styles.container}>
-			<Text style={styles.title}>
-				Tradeet Pricing Plans
-			</Text>
-			<ScrollView showsVerticalScrollIndicator={false}>
-				{plans.map((plan, index) => (
-					<View key={index} style={styles.planCard}>
-						<Text style={styles.planTitle}>
-							{plan.name}
+			<View style={styles.headerSection}>
+				<Text style={styles.mainTitle}>Upgrade Your Business</Text>
+				<Text style={styles.subtitle}>Choose the plan that's right for you</Text>
+
+				{userInfo?.plan?.isTrial && (
+					<View style={styles.trialNotice}>
+						<Ionicons name="gift" size={18} color="#6366f1" />
+						<Text style={styles.trialNoticeText}>
+							You are exploring the <Text style={{ fontWeight: 'bold' }}>Business Plan</Text> for free!
+							{userInfo.plan.expiryDate && ` Ends ${new Date(userInfo.plan.expiryDate).toLocaleDateString()}`}
 						</Text>
-						<Text style={styles.planPrice}>
-							₦{plan.monthlyPrice.toLocaleString()}/month
-						</Text>
-						<Text style={styles.planPriceAnnual}>
-							₦{plan.annualPrice.toLocaleString()}/year
-							(Save!)
-						</Text>
-						<View style={styles.features}>
-							{plan.features.map((feature, idx) => (
-								<Text key={idx} style={styles.feature}>
-									• {feature}
-								</Text>
-							))}
-						</View>
-						<TouchableOpacity
-							style={styles.payButton}
-							onPress={() => handlePayNow(plan)}
-						>
-							<Text style={styles.payButtonText}>
-								Pay Now
-							</Text>
-						</TouchableOpacity>
 					</View>
-				))}
+				)}
+
+				<View style={styles.toggleContainer}>
+					<TouchableOpacity
+						style={[styles.toggleOption, !isYearly && styles.activeToggleOption]}
+						onPress={() => setIsYearly(false)}
+					>
+						<Text style={[styles.toggleText, !isYearly && styles.activeToggleText]}>Monthly</Text>
+					</TouchableOpacity>
+					<TouchableOpacity
+						style={[styles.toggleOption, isYearly && styles.activeToggleOption]}
+						onPress={() => setIsYearly(true)}
+					>
+						<Text style={[styles.toggleText, isYearly && styles.activeToggleText]}>
+							Yearly <Text style={styles.saveBadge}>-15%</Text>
+						</Text>
+					</TouchableOpacity>
+				</View>
+			</View>
+
+			<ScrollView
+				showsVerticalScrollIndicator={false}
+				contentContainerStyle={styles.scrollContent}
+			>
+				{plans.map((plan, index) => {
+					const isBusiness = plan.name === 'Business';
+					const price = isYearly ? plan.annualPrice : plan.monthlyPrice;
+
+					return (
+						<View key={index} style={[styles.planCard, isBusiness && styles.featuredCard]}>
+							{isBusiness && (
+								<LinearGradient
+									colors={['#6366f1', '#4338ca']}
+									start={{ x: 0, y: 0 }}
+									end={{ x: 1, y: 0 }}
+									style={styles.popularBadge}
+								>
+									<Text style={styles.popularText}>POPULAR</Text>
+								</LinearGradient>
+							)}
+
+							<Text style={styles.planName}>{plan.name}</Text>
+
+							<View style={styles.priceContainer}>
+								<Text style={styles.currencySymbol}>₦</Text>
+								<Text style={styles.priceText}>{price.toLocaleString()}</Text>
+								<Text style={styles.billingCycle}>/{isYearly ? 'year' : 'mo'}</Text>
+							</View>
+
+							<View style={styles.featureList}>
+								{plan.features.map((feature, idx) => (
+									<View key={idx} style={styles.featureRow}>
+										<Ionicons name="checkmark-circle" size={18} color="#6366f1" />
+										<Text style={styles.featureText}>{feature}</Text>
+									</View>
+								))}
+							</View>
+
+							<TouchableOpacity
+								activeOpacity={0.8}
+								style={[styles.selectButton, isBusiness && styles.selectButtonPrimary]}
+								onPress={() => handlePayNow(plan)}
+								disabled={isProcessing}
+							>
+								{isProcessing ? (
+									<Text style={styles.selectButtonText}>Processing...</Text>
+								) : (
+									<Text style={[styles.selectButtonText, isBusiness && styles.selectButtonTextPrimary]}>
+										{price === 0 ? 'Get Started' : (userInfo?.plan?.name === 'Starter' && (plan.name === 'Pro' || plan.name === 'Business') ? 'Start 14-Day Free Trial' : 'Upgrade Plan')}
+									</Text>
+								)}
+							</TouchableOpacity>
+						</View>
+					);
+				})}
+				<View style={{ height: 40 }} />
 			</ScrollView>
 
-			{/* Modal for Duration Selection */}
-			<Modal
-				transparent
-				animationType="slide"
-				visible={modalVisible}
-				onRequestClose={() => setModalVisible(false)}
-			>
-				<View style={styles.modalContainer}>
-					<View style={styles.modalContent}>
-						<Text style={styles.modalTitle}>
-							Choose Duration for {selectedPlan?.name}
-						</Text>
-						<View style={styles.optionContainer}>
-							{durations.map((duration, idx) => (
-								<TouchableOpacity
-									key={idx}
-									style={[
-										styles.durationButton,
-										calculatedPrice ===
-											(duration.multiplier === 12
-												? selectedPlan?.annualPrice
-												: selectedPlan?.monthlyPrice *
-												  duration.multiplier) &&
-											styles.selectedButton,
-									]}
-									onPress={() =>
-										handleDurationSelect(
-											duration.multiplier,
-										)
-									}
-								>
-									<Text
-										style={[
-											styles.durationText,
-											calculatedPrice ===
-												(duration.multiplier === 12
-													? selectedPlan?.annualPrice
-													: selectedPlan?.monthlyPrice *
-													  duration.multiplier) &&
-												styles.selectedText,
-										]}
-									>
-										{duration.label} - ₦
-										{duration.multiplier === 12
-											? selectedPlan?.annualPrice
-											: selectedPlan?.monthlyPrice *
-											  duration.multiplier}
-									</Text>
-								</TouchableOpacity>
-							))}
-						</View>
-						<TouchableOpacity
-							style={styles.confirmButton}
-							onPress={handlePayment}
-						>
-							<Text style={styles.confirmButtonText}>
-								Pay ₦{calculatedPrice}
-							</Text>
-						</TouchableOpacity>
-						<TouchableOpacity
-							style={styles.cancelButton}
-							onPress={() => setModalVisible(false)}
-						>
-							<Text style={styles.cancelButtonText}>
-								Cancel
-							</Text>
-						</TouchableOpacity>
-					</View>
-				</View>
-			</Modal>
 			{pay && (
-				<View>
-					<Paystack
-						paystackKey="pk_live_9ed31e08b1843a6818e392764c8dd6ac8457ea23"
-						amount={calculatedPrice}
-						billingEmail={businessData?.email}
-						billingMobile={businessData?.phone}
-						channels={
-							['card', 'bank_transfer', 'ussd']
+				<Paystack
+					paystackKey={process.env.EXPO_PUBLIC_PAYSTACK_PUBLIC_KEY || "pk_live_9ed31e08b1843a6818e392764c8dd6ac8457ea23"}
+					amount={calculatedPrice * 100}
+					billingEmail={userInfo?.email}
+					billingMobile={userInfo?.phone}
+					plan={selectedPlan?.planCode}
+					channels={['card']}
+					autoStart={true}
+					onCancel={() => {
+						showToast('Transaction Cancelled!');
+						setPay(false);
+					}}
+					onSuccess={async (response) => {
+						if (response?.status === 'success') {
+							showToast('Payment Successful!');
+							await handleOrderNow(selectedPlan, isYearly ? 12 : 1, response.transactionRef?.reference || response.reference);
 						}
-						autoStart={pay}
-						onCancel={() => {
-							ToastAndroid.show(
-								'Transaction Cancelled!',
-								ToastAndroid.LONG,
-							);
-							setPay(false);
-						}}
-						onSuccess={async (response) => {
-							if (response?.status === 'success') {
-								ToastAndroid.show(
-									'Transaction Approved!',
-									ToastAndroid.LONG,
-								);
-								handleOrderNow();
-								setModalVisible(false);
-							}
-							setPay(false);
-						}}
-						onError={(error) => {
-							ToastAndroid.show(
-								'An error occurred. Please try again!',
-								ToastAndroid.LONG,
-							);
-							console.error('Payment Error:', error);
-							setPay(false);
-						}}
-						headers={{
-							'Content-Type': 'application/json',
-							Accept: 'application/json',
-						}}
-					/>
-					<View>
-						<TouchableOpacity
-							style={{
-								backgroundColor: '#18a54a',
-								paddingVertical: 15,
-								borderRadius: 10,
-								width: '100%',
-								justifyContent: 'center',
-								alignItems: 'center',
-							}}
-							onPress={() => {
-								setPay(false);
-							}}
-						>
-							<Text style={{ color: '#fff', fontSize: 18 }}>
-								Retry payment
-							</Text>
-						</TouchableOpacity>
-					</View>
-				</View>
+						setPay(false);
+					}}
+					onError={(error) => {
+						showToast('Payment failed. Please try again.');
+						console.error('Paystack Error:', error);
+						setPay(false);
+					}}
+				/>
 			)}
 		</View>
 	);
@@ -310,118 +259,163 @@ const PricingTable = ({getBusinessInfo, setPayModalVisible}) => {
 
 const styles = StyleSheet.create({
 	container: {
-		// flex: 1,
-		backgroundColor: '#fff',
-		paddingTop: 40,
-		paddingHorizontal: 20,
-		width: '95%',
-		height: '98%',
+		flex: 1,
+		backgroundColor: '#F8FAFC',
 	},
-	title: {
+	headerSection: {
+		paddingTop: 10,
+		paddingBottom: 20,
+		paddingHorizontal: 20,
+		alignItems: 'center',
+	},
+	mainTitle: {
 		fontSize: 24,
-		fontWeight: 'bold',
-		textAlign: 'center',
+		fontWeight: '800',
+		color: '#1E293B',
+		marginBottom: 4,
+	},
+	subtitle: {
+		fontSize: 14,
+		color: '#64748B',
 		marginBottom: 20,
-		color: '#333',
+	},
+	toggleContainer: {
+		flexDirection: 'row',
+		backgroundColor: '#F1F5F9',
+		padding: 4,
+		borderRadius: 12,
+		width: '100%',
+	},
+	toggleOption: {
+		flex: 1,
+		paddingVertical: 10,
+		alignItems: 'center',
+		borderRadius: 8,
+	},
+	activeToggleOption: {
+		backgroundColor: '#fff',
+		shadowColor: '#000',
+		shadowOffset: { width: 0, height: 2 },
+		shadowOpacity: 0.1,
+		shadowRadius: 4,
+		elevation: 2,
+	},
+	toggleText: {
+		fontSize: 14,
+		fontWeight: '600',
+		color: '#64748B',
+	},
+	activeToggleText: {
+		color: '#6366f1',
+	},
+	saveBadge: {
+		color: '#10B981',
+		fontSize: 12,
+	},
+	scrollContent: {
+		paddingHorizontal: 20,
+		paddingBottom: 40,
 	},
 	planCard: {
 		backgroundColor: '#fff',
-		borderRadius: 10,
-		padding: 20,
-		marginBottom: 16,
-		borderWidth: 1,
-		borderColor: '#ccc',
-	},
-	planTitle: {
-		fontSize: 20,
-		fontWeight: 'bold',
-		textAlign: 'center',
-		marginBottom: 10,
-		color: 'green',
-	},
-	planPrice: {
-		fontSize: 18,
-		fontWeight: '600',
-		textAlign: 'center',
-		color: '#333',
-		marginBottom: 5,
-	},
-	planPriceAnnual: {
-		fontSize: 16,
-		fontWeight: '400',
-		textAlign: 'center',
-		color: '#28a745',
-		marginBottom: 15,
-	},
-	features: {
-		marginBottom: 15,
-	},
-	feature: {
-		fontSize: 14,
-		color: '#555',
-		marginBottom: 5,
-	},
-	payButton: {
-		backgroundColor: 'green',
-		paddingVertical: 12,
-		borderRadius: 5,
-		alignItems: 'center',
-	},
-	payButtonText: {
-		color: '#fff',
-		fontSize: 16,
-		fontWeight: '600',
-	},
-	modalContainer: {
-		flex: 1,
-		backgroundColor: 'rgba(0, 0, 0, 0.5)',
-		justifyContent: 'center',
-		alignItems: 'center',
-	},
-	modalContent: {
-		backgroundColor: '#fff',
-		borderRadius: 10,
-		padding: 20,
-		width: '80%',
-	},
-	modalTitle: {
-		fontSize: 18,
-		fontWeight: 'bold',
+		borderRadius: 24,
+		padding: 24,
 		marginBottom: 20,
-		textAlign: 'center',
+		borderWidth: 1,
+		borderColor: '#E2E8F0',
 	},
-	durationButton: {
-		backgroundColor: '#f0f0f0',
-		paddingVertical: 12,
-		paddingHorizontal: 10,
-		borderRadius: 5,
-		marginBottom: 10,
+	featuredCard: {
+		borderColor: '#6366f1',
+		borderWidth: 2,
 	},
-	durationText: {
-		textAlign: 'center',
-		fontSize: 16,
-		color: '#333',
+	popularBadge: {
+		position: 'absolute',
+		top: -12,
+		right: 24,
+		paddingHorizontal: 12,
+		paddingVertical: 4,
+		borderRadius: 20,
 	},
-	confirmButton: {
-		backgroundColor: 'green',
-		paddingVertical: 12,
-		borderRadius: 5,
-		marginTop: 10,
-	},
-	confirmButtonText: {
+	popularText: {
 		color: '#fff',
-		textAlign: 'center',
-		fontSize: 16,
-		fontWeight: '600',
+		fontSize: 10,
+		fontWeight: '800',
 	},
-	cancelButton: {
-		marginTop: 10,
-		paddingVertical: 10,
-	},
-	cancelButtonText: {
-		color: 'red',
-		textAlign: 'center',
+	planName: {
 		fontSize: 16,
+		fontWeight: '700',
+		color: '#64748B',
+		textTransform: 'uppercase',
+		letterSpacing: 1,
+		marginBottom: 8,
+	},
+	priceContainer: {
+		flexDirection: 'row',
+		alignItems: 'baseline',
+		marginBottom: 20,
+	},
+	currencySymbol: {
+		fontSize: 20,
+		fontWeight: '700',
+		color: '#1E293B',
+	},
+	priceText: {
+		fontSize: 32,
+		fontWeight: '800',
+		color: '#1E293B',
+	},
+	billingCycle: {
+		fontSize: 14,
+		color: '#64748B',
+		marginLeft: 4,
+	},
+	featureList: {
+		marginBottom: 28,
+		gap: 12,
+	},
+	featureRow: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 10,
+	},
+	featureText: {
+		fontSize: 15,
+		color: '#475569',
+		flex: 1,
+	},
+	selectButton: {
+		backgroundColor: '#F1F5F9',
+		paddingVertical: 14,
+		borderRadius: 12,
+		alignItems: 'center',
+	},
+	selectButtonPrimary: {
+		backgroundColor: '#6366f1',
+	},
+	selectButtonText: {
+		fontSize: 16,
+		fontWeight: '700',
+		color: '#475569',
+	},
+	selectButtonTextPrimary: {
+		color: '#fff',
+	},
+	trialNotice: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		backgroundColor: '#EEF2FF',
+		paddingHorizontal: 16,
+		paddingVertical: 12,
+		borderRadius: 16,
+		marginVertical: 10,
+		gap: 10,
+		borderWidth: 1,
+		borderColor: '#C7D2FE',
+	},
+	trialNoticeText: {
+		fontSize: 13,
+		color: '#4338ca',
+		flex: 1,
 	},
 });
 

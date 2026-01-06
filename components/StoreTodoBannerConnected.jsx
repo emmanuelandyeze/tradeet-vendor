@@ -104,6 +104,19 @@ const StoreTodoBannerConnected = ({
 			});
 		}
 
+		// 1.5. TIN
+		if (!s.tin) {
+			tasks.push({
+				id: 'tin',
+				title: 'Add Tax Identification Number (TIN)',
+				subtitle: 'Required for invoice compliance',
+				urgent: true,
+				progress: 0.0,
+				actionLabel: 'Add TIN',
+				onPress: () => router.push(`/(app)/setupstore`),
+			});
+		}
+
 		// 2. Banner
 		// if (!isUrl(s.bannerUrl)) {
 		// 	tasks.push({
