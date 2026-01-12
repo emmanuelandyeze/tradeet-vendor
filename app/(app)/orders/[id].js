@@ -80,6 +80,11 @@ const SingleOrderPage = () => {
 		summary: true,
 		customer: true,
 	});
+	// Record Payment State
+	const [showRecordPaymentModal, setShowRecordPaymentModal] = useState(false);
+	const [paymentAmount, setPaymentAmount] = useState('');
+	const [paymentMethod, setPaymentMethod] = useState('cash');
+	const [paymentNote, setPaymentNote] = useState('');
 
 	const orderId = id;
 
@@ -230,6 +235,32 @@ const SingleOrderPage = () => {
 	};
 
 	// --- Logic ---
+	const handleRecordPayment = async () => {
+		if (!paymentAmount || isNaN(Number(paymentAmount)) || Number(paymentAmount) <= 0) {
+			return Alert.alert('Invalid Amount', 'Please enter a valid positive amount.');
+		}
+
+		setIsSubmitting(true);
+		try {
+			await axiosInstance.post(`/orders/${orderId}/payments`, {
+				amount: Number(paymentAmount),
+				method: paymentMethod,
+				note: paymentNote,
+			});
+			await fetchOrderDetails();
+			showToast('Payment recorded successfully!');
+			setShowRecordPaymentModal(false);
+
+			// Trigger standard payment received notification to store owner (optional, as they recorded it themselves, but keeps log consistent)
+			// But critically, backend now handles the Customer Digital Delivery notification automatically.
+
+		} catch (error) {
+			Alert.alert('Error', error.response?.data?.message || 'Failed to record payment.');
+		} finally {
+			setIsSubmitting(false);
+		}
+	};
+
 	const assignRunner = async (runner) => {
 		if (!runner) return;
 		setIsSubmitting(true);
@@ -479,30 +510,46 @@ const SingleOrderPage = () => {
 							₦{((order.totalAmount || 0) - (order.serviceFee || 0)).toLocaleString()}
 						</Text>
 					</View>
+
+					{/* Record Payment Button */}
+					{order.payment?.status !== 'paid' && (
+						<TouchableOpacity
+							style={styles.recordPaymentBtn}
+							onPress={() => {
+								setPaymentAmount(String(order.outstandingAmount ?? order.totalAmount));
+								setShowRecordPaymentModal(true);
+							}}
+						>
+							<Ionicons name="cash-outline" size={18} color={COLORS.primary} />
+							<Text style={styles.recordPaymentText}>Record Payment</Text>
+						</TouchableOpacity>
+					)}
 				</Card>
 
 				<View style={{ height: 100 }} />
 			</ScrollView>
 
 			{/* Bottom Actions */}
-			{isStatusUpdatable && (
-				<View style={styles.actionBar}>
-					{order.status === 'pending' ? (
-						<View style={styles.pendingActions}>
-							<TouchableOpacity style={[styles.actionBtn, styles.rejectBtn]} onPress={() => handleUpdateOrderStatus('rejected')}>
-								<Text style={[styles.actionBtnText, { color: COLORS.danger }]}>Reject</Text>
+			{
+				isStatusUpdatable && (
+					<View style={styles.actionBar}>
+						{order.status === 'pending' ? (
+							<View style={styles.pendingActions}>
+								<TouchableOpacity style={[styles.actionBtn, styles.rejectBtn]} onPress={() => handleUpdateOrderStatus('rejected')}>
+									<Text style={[styles.actionBtnText, { color: COLORS.danger }]}>Reject</Text>
+								</TouchableOpacity>
+								<TouchableOpacity style={[styles.actionBtn, styles.acceptBtn]} onPress={() => handleUpdateOrderStatus('accepted')}>
+									<Text style={[styles.actionBtnText, { color: COLORS.white }]}>Accept Order</Text>
+								</TouchableOpacity>
+							</View>
+						) : (
+							<TouchableOpacity style={[styles.actionBtn, styles.updateBtn]} onPress={() => setShowStatusModal(true)}>
+								<Text style={styles.actionBtnText}>Update Status</Text>
 							</TouchableOpacity>
-							<TouchableOpacity style={[styles.actionBtn, styles.acceptBtn]} onPress={() => handleUpdateOrderStatus('accepted')}>
-								<Text style={[styles.actionBtnText, { color: COLORS.white }]}>Accept Order</Text>
-							</TouchableOpacity>
-						</View>
-					) : (
-						<TouchableOpacity style={[styles.actionBtn, styles.updateBtn]} onPress={() => setShowStatusModal(true)}>
-							<Text style={styles.actionBtnText}>Update Status</Text>
-						</TouchableOpacity>
-					)}
-				</View>
-			)}
+						)}
+					</View>
+				)
+			}
 
 			{/* Status Modal */}
 			<Modal visible={showStatusModal} transparent animationType="fade" onRequestClose={() => setShowStatusModal(false)}>
@@ -584,7 +631,56 @@ const SingleOrderPage = () => {
 				</View>
 			</Modal>
 
-		</SafeAreaView>
+			{/* Record Payment Modal */}
+			<Modal visible={showRecordPaymentModal} transparent animationType="slide" onRequestClose={() => setShowRecordPaymentModal(false)}>
+				<TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowRecordPaymentModal(false)}>
+					<View style={styles.modalContent}>
+						<Text style={styles.modalTitle}>Record Payment</Text>
+
+						<Text style={styles.inputLabel}>Amount (₦)</Text>
+						<TextInput
+							style={styles.modalInput}
+							value={paymentAmount}
+							onChangeText={setPaymentAmount}
+							keyboardType="numeric"
+							placeholder="0.00"
+						/>
+
+						<Text style={styles.inputLabel}>Payment Method</Text>
+						<View style={styles.methodSelector}>
+							{['cash', 'pos', 'transfer', 'other'].map(m => (
+								<TouchableOpacity
+									key={m}
+									style={[styles.methodOption, paymentMethod === m && styles.methodOptionActive]}
+									onPress={() => setPaymentMethod(m)}
+								>
+									<Text style={[styles.methodText, paymentMethod === m && styles.methodTextActive]}>
+										{m.toUpperCase()}
+									</Text>
+								</TouchableOpacity>
+							))}
+						</View>
+
+						<Text style={styles.inputLabel}>Note (Optional)</Text>
+						<TextInput
+							style={styles.modalInput}
+							value={paymentNote}
+							onChangeText={setPaymentNote}
+							placeholder="e.g. Paid at pickup"
+						/>
+
+						<TouchableOpacity
+							style={[styles.mdlBtnPrimary, { marginTop: 16, flex: 0, minHeight: 48, width: '100%' }]}
+							onPress={handleRecordPayment}
+							disabled={isSubmitting}
+						>
+							{isSubmitting ? <ActivityIndicator color="#fff" /> : <Text style={{ color: COLORS.white, fontWeight: '600', fontSize: 16 }}>Confirm Payment</Text>}
+						</TouchableOpacity>
+					</View>
+				</TouchableOpacity>
+			</Modal>
+
+		</SafeAreaView >
 	);
 };
 
@@ -691,6 +787,17 @@ const styles = StyleSheet.create({
 	modalActions: { flexDirection: 'row', gap: 12 },
 	mdlBtnOutline: { flex: 1, padding: 14, borderRadius: 12, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: COLORS.border },
 	mdlBtnPrimary: { flex: 1, padding: 14, borderRadius: 12, alignItems: 'center', justifyContent: 'center', backgroundColor: COLORS.primary },
+
+	// Record Payment Styles
+	recordPaymentBtn: { marginTop: 16, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', padding: 12, backgroundColor: COLORS.primaryLight, borderRadius: 8, gap: 8 },
+	recordPaymentText: { color: COLORS.primary, fontWeight: '600', fontSize: 14 },
+	inputLabel: { fontSize: 13, fontWeight: '500', color: COLORS.text, marginBottom: 6 },
+	modalInput: { borderWidth: 1, borderColor: COLORS.border, borderRadius: 8, padding: 12, fontSize: 16, marginBottom: 16, color: COLORS.text },
+	methodSelector: { flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 16 },
+	methodOption: { paddingVertical: 8, paddingHorizontal: 16, borderRadius: 20, borderWidth: 1, borderColor: COLORS.border, backgroundColor: '#F9FAFB' },
+	methodOptionActive: { backgroundColor: COLORS.primary, borderColor: COLORS.primary },
+	methodText: { fontSize: 12, fontWeight: '500', color: COLORS.textLight },
+	methodTextActive: { color: COLORS.white },
 });
 
 export default SingleOrderPage;

@@ -108,6 +108,12 @@ const ProfileScreen = () => {
 					icon: 'card-outline',
 					onPress: () => router.push('/(app)/payment-info'),
 				},
+				{
+					id: '9',
+					title: 'Team Management',
+					icon: 'people-outline',
+					onPress: () => router.push('/(app)/team-management'),
+				},
 			],
 		},
 		{

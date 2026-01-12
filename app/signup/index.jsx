@@ -12,11 +12,6 @@ import { StatusBar } from 'expo-status-bar';
 
 const { width, height } = Dimensions.get('window');
 
-const assets = {
-	coin: require('@/assets/images/floating_coin.png'),
-	arrow: require('@/assets/images/floating_arrow.png'),
-	shield: require('@/assets/images/floating_shield.png'),
-};
 
 export default function SignupLanding() {
 	const handleOpenPrivacy = () => {
@@ -30,48 +25,6 @@ export default function SignupLanding() {
 			<Stack.Screen options={{ headerShown: false }} />
 			<StatusBar style="dark" />
 
-			{/* Floating Elements (Background/Decoration) */}
-			{/* Top Right - Arrow */}
-			<Image
-				source={assets.arrow}
-				className="absolute opacity-90"
-				style={{
-					width: 140,
-					height: 140,
-					top: height * 0.1,
-					right: -10,
-					transform: [{ rotate: '15deg' }],
-				}}
-				resizeMode="contain"
-			/>
-
-			{/* Middle Left - Shield */}
-			<Image
-				source={assets.shield}
-				className="absolute opacity-80"
-				style={{
-					width: 110,
-					height: 110,
-					top: height * 0.54,
-					left: -10,
-					transform: [{ rotate: '-15deg' }],
-				}}
-				resizeMode="contain"
-			/>
-
-			{/* Bottom Right (above buttons) - Coin */}
-			<Image
-				source={assets.coin}
-				className="absolute opacity-90"
-				style={{
-					width: 90,
-					height: 90,
-					bottom: height * 0.24,
-					right: 20,
-					transform: [{ rotate: '25deg' }],
-				}}
-				resizeMode="contain"
-			/>
 
 			{/* Main Content */}
 			<View className="flex-1 justify-center px-8 z-10 pt-10">

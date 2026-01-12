@@ -10,7 +10,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
 import SkeletonLoader from './SkeletonLoader';
-import OrderFilterDropdown from './OrderFilterDropdown';
+
 
 const formatOrderDate = (dateString) => {
 	if (!dateString) return '';
@@ -31,6 +31,7 @@ const RecentOrders = ({
 	loading,
 	filter,
 	onFilterSelect,
+	counts = {},
 }) => {
 	const router = useRouter();
 
@@ -47,91 +48,118 @@ const RecentOrders = ({
 		);
 	}
 
-	if (!orders || orders.length === 0) {
-		return (
-			<View style={styles.container}>
-				<View style={styles.header}>
-					<Text style={styles.title}>Recent Orders</Text>
-					<OrderFilterDropdown
-						selectedOption={filter}
-						onSelect={onFilterSelect}
-					/>
-				</View>
-				<View style={styles.emptyState}>
-					<View style={styles.emptyIconCircle}>
-						<Ionicons name="cart-outline" size={32} color="#9CA3AF" />
-					</View>
-					<Text style={styles.emptyText}>No orders found</Text>
-				</View>
-			</View>
-		);
-	}
+
+
+	// Tabs definition
+	const tabs = [
+		{ id: 'new', label: `New (${counts.new || 0})` },
+		{ id: 'not_paid', label: `Not Paid (${counts.not_paid || 0})` },
+		{ id: 'active', label: `Active (${counts.active || 0})` },
+		{ id: 'all', label: `All (${counts.all || 0})` },
+	];
 
 	return (
 		<View style={styles.container}>
 			<View style={styles.header}>
 				<Text style={styles.title}>Recent Orders</Text>
-				<OrderFilterDropdown
-					selectedOption={filter}
-					onSelect={onFilterSelect}
+			</View>
+
+			{/* Tabs */}
+			<View style={{ marginBottom: 16 }}>
+				<FlatList
+					horizontal
+					data={tabs}
+					showsHorizontalScrollIndicator={false}
+					keyExtractor={(item) => item.id}
+					contentContainerStyle={{ gap: 8 }}
+					renderItem={({ item }) => {
+						const isActive = filter === item.id;
+						return (
+							<TouchableOpacity
+								onPress={() => onFilterSelect(item.id)}
+								style={[
+									styles.tabItem,
+									isActive && styles.tabItemActive,
+								]}
+							>
+								<Text
+									style={[
+										styles.tabText,
+										isActive && styles.tabTextActive,
+									]}
+								>
+									{item.label}
+								</Text>
+							</TouchableOpacity>
+						);
+					}}
 				/>
 			</View>
 
 			<View>
-				{orders.slice(0, 5).map((item) => {
-					// Status Badge Logic
-					const isDelivered = item.status === 'delivered';
-					const isCancelled = item.status === 'cancelled';
-					const badgeBg = isDelivered ? '#ECFDF5' : isCancelled ? '#FEF2F2' : '#EFF6FF';
-					const badgeColor = isDelivered ? '#059669' : isCancelled ? '#DC2626' : '#2563EB';
+				{(!orders || orders.length === 0) ? (
+					<View style={styles.emptyState}>
+						<View style={styles.emptyIconCircle}>
+							<Ionicons name="cart-outline" size={32} color="#9CA3AF" />
+						</View>
+						<Text style={styles.emptyText}>No orders found</Text>
+					</View>
+				) : (
+					orders.slice(0, 5).map((item) => {
+						// Status Badge Logic
+						const isDelivered = item.status === 'delivered';
+						const isCancelled = item.status === 'cancelled';
+						const badgeBg = isDelivered ? '#ECFDF5' : isCancelled ? '#FEF2F2' : '#EFF6FF';
+						const badgeColor = isDelivered ? '#059669' : isCancelled ? '#DC2626' : '#2563EB';
 
-					return (
-						<TouchableOpacity
-							key={item._id}
-							style={styles.orderItem}
-							onPress={() =>
-								router.push({
-									pathname: '/(app)/orders/[id]',
-									params: { id: item._id },
-								})
-							}
-							activeOpacity={0.7}
-						>
-							<View style={styles.row}>
-								{/* Left: Info */}
-								<View style={{ flex: 1 }}>
-									<View style={styles.topRow}>
-										<Text style={styles.customerName}>
-											{item.customerName || 'Guest'}
-										</Text>
-										<View style={[styles.statusBadge, { backgroundColor: badgeBg }]}>
-											<Text style={[styles.statusText, { color: badgeColor }]}>
-												{item.status}
+						return (
+							<TouchableOpacity
+								key={item._id}
+								style={styles.orderItem}
+								onPress={() =>
+									router.push({
+										pathname: '/(app)/orders/[id]',
+										params: { id: item._id },
+									})
+								}
+								activeOpacity={0.7}
+							>
+								<View style={styles.row}>
+									{/* Left: Info */}
+									<View style={{ flex: 1 }}>
+										<View style={styles.topRow}>
+											<Text style={styles.customerName}>
+												{item.customerInfo?.name || item.customerName || 'Guest'}
 											</Text>
+											<View style={[styles.statusBadge, { backgroundColor: badgeBg }]}>
+												<Text style={[styles.statusText, { color: badgeColor }]}>
+													{item.status}
+												</Text>
+											</View>
 										</View>
+										<Text style={styles.orderId}>#{item.orderNumber || item._id.slice(-6)} • {formatOrderDate(item.createdAt)}</Text>
 									</View>
-									<Text style={styles.orderId}>#{item._id.slice(-6)} • {formatOrderDate(item.createdAt)}</Text>
-								</View>
 
-								{/* Right: Amount */}
-								<View style={{ alignItems: 'flex-end', justifyContent:'center' }}>
-									<Text style={styles.amount}>₦{((item.totalAmount || 0) - (item.serviceFee || 0)).toLocaleString()}</Text>
-									<Text 
-										style={[
-											styles.paymentStatus, 
-											{ color: item.payment.status === 'paid' ? '#059669' : '#D97706' }
-										]}
-									>
-										{item.payment.status}
-									</Text>
+									{/* Right: Amount */}
+									<View style={{ alignItems: 'flex-end', justifyContent: 'center' }}>
+										<Text style={styles.amount}>₦{((item.totalAmount || 0) - (item.serviceFee || 0)).toLocaleString()}</Text>
+										<Text
+											style={[
+												styles.paymentStatus,
+												{ color: item.payment?.status === 'paid' ? '#059669' : '#D97706' }
+											]}
+										>
+											{item.payment?.status || 'pending'}
+										</Text>
+									</View>
 								</View>
-							</View>
-						</TouchableOpacity>
-					);
-				})}
+							</TouchableOpacity>
+						);
+					})
+				)}
 			</View>
 
-			{orders.length > 5 && (
+			{orders && orders.length > 5 && (
 				<TouchableOpacity
 					style={styles.viewMoreBtn}
 					onPress={() => router.push('/(app)/(tabs)/orders')}
@@ -243,5 +271,28 @@ const styles = StyleSheet.create({
 		fontSize: 13,
 		fontWeight: '600',
 		color: '#065637',
+	},
+	// Tab Styles
+	tabItem: {
+		paddingVertical: 6,
+		paddingHorizontal: 14,
+		borderRadius: 20,
+		backgroundColor: '#F3F4F6',
+		borderWidth: 1,
+		borderColor: '#E5E7EB',
+	},
+	tabItemActive: {
+		backgroundColor: '#065637',
+		borderColor: '#065637',
+	},
+	tabText: {
+		fontSize: 12,
+		fontWeight: '600',
+		color: '#4B5563',
+	},
+	tabTextActive: {
+		color: '#FFFFFF',
+		fontSize: 12,
+		fontWeight: '600',
 	},
 });

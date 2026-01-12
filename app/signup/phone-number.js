@@ -114,7 +114,7 @@ export default function PhoneNumberScreen() {
 								}
 							}}
 							onChangeFormattedText={(text) => setFormattedValue(text)}
-							containerStyle={{ width: '100%', backgroundColor: 'transparent' }}
+							containerStyle={{ width: '100%', backgroundColor: 'transparent', paddingHorizontal: 20 }}
 							textContainerStyle={{ backgroundColor: 'transparent', paddingVertical: 0 }}
 							textInputStyle={{ fontSize: 16, color: '#1f2937', height: 50 }}
 							codeTextStyle={{ fontSize: 16, color: '#1f2937' }}

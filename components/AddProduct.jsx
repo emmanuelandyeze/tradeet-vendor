@@ -48,7 +48,7 @@ const weekdays = [
 	'Sunday',
 ];
 
-const AddProduct = ({ 
+const AddProduct = ({
 	onAddProduct,
 	initialProduct,
 	storeId,
@@ -218,7 +218,11 @@ const AddProduct = ({
 				quality: 0.9,
 			});
 			if (!res.canceled && res.assets?.[0]?.uri) {
-				setImages((prev) => [...prev, res.assets[0].uri]);
+				const asset = res.assets[0];
+				if (asset.fileSize && asset.fileSize > 10 * 1024 * 1024) {
+					return Alert.alert('File Too Large', 'Please upload an image smaller than 10MB.');
+				}
+				setImages((prev) => [...prev, asset.uri]);
 			}
 		} finally {
 			setImagePickerVisible(false);
@@ -229,7 +233,11 @@ const AddProduct = ({
 		try {
 			const res = await ImagePicker.launchCameraAsync({ allowsEditing: true, quality: 0.9 });
 			if (!res.canceled && res.assets?.[0]?.uri) {
-				setImages((prev) => [...prev, res.assets[0].uri]);
+				const asset = res.assets[0];
+				if (asset.fileSize && asset.fileSize > 10 * 1024 * 1024) {
+					return Alert.alert('File Too Large', 'Please take a photo smaller than 10MB.');
+				}
+				setImages((prev) => [...prev, asset.uri]);
 			}
 		} finally {
 			setImagePickerVisible(false);
@@ -243,6 +251,11 @@ const AddProduct = ({
 			const res = await DocumentPicker.getDocumentAsync({ type: '*/*', copyToCacheDirectory: true });
 			if (res.canceled === false || (res.assets && res.assets.length > 0)) {
 				const asset = res.assets ? res.assets[0] : res;
+
+				if (asset.size && asset.size > 10 * 1024 * 1024) {
+					return Alert.alert('File Too Large', 'Please upload a file smaller than 10MB.');
+				}
+
 				setDownloadUrl(asset.uri);
 				Alert.alert('File Selected', `Selected: ${asset.name}`);
 			}
@@ -295,7 +308,9 @@ const AddProduct = ({
 	};
 
 	const createCategory = async () => {
+		if (!storeId) return Alert.alert('Error', 'Store information missing. Please restart or select a store.');
 		if (!newCategoryName.trim()) return Alert.alert('Validation', 'Category name is required');
+
 		setCreatingCategory(true);
 		try {
 			const resp = await axiosInstance.post(`/category/${storeId}`, { name: newCategoryName, branchId });
@@ -312,7 +327,9 @@ const AddProduct = ({
 			setNewCategoryName('');
 			setIsAddCategoryModalVisible(false);
 		} catch (err) {
-			Alert.alert('Error', 'Failed to create category');
+			console.error('Category create error', err);
+			const msg = err.response?.data?.message || err.message || 'Failed to create category';
+			Alert.alert('Error', msg);
 		} finally {
 			setCreatingCategory(false);
 		}
@@ -404,43 +421,6 @@ const AddProduct = ({
 		}
 	};
 
-	// UI Components
-	const Section = ({ title, children, style }) => (
-		<View style={[styles.card, style]}>
-			{title && <Text style={styles.cardTitle}>{title}</Text>}
-			{children}
-		</View>
-	);
-
-	const Label = ({ text }) => <Text style={styles.label}>{text}</Text>;
-
-	const Input = ({ style, multiline, ...props }) => (
-		<TextInput
-			style={[styles.input, multiline && styles.textArea, style]}
-			placeholderTextColor="#9CA3AF"
-			multiline={multiline}
-			{...props}
-		/>
-	);
-
-	const TypeSelector = () => (
-		<View style={styles.segmentContainer}>
-			{['physical', 'digital', 'service'].map((t) => (
-				<TouchableOpacity
-					key={t}
-					style={[styles.segmentBtn, type === t && styles.segmentBtnActive]}
-					onPress={() => setType(t)}
-				>
-					<Text style={[styles.segmentText, type === t && styles.segmentTextActive]}>
-						{t.charAt(0).toUpperCase() + t.slice(1)}
-					</Text>
-				</TouchableOpacity>
-			))}
-		</View>
-	);
-
-	const getCategoryName = (id) => categoryList.find(c => c._id === id)?.name || 'Select Category';
-
 	return (
 		<KeyboardAvoidingView
 			behavior={Platform.OS === "ios" ? "padding" : "height"}
@@ -469,7 +449,7 @@ const AddProduct = ({
 				{/* Basic Details */}
 				<Section title="Basic Info">
 					<Label text="Product Type" />
-					<TypeSelector />
+					<TypeSelector type={type} setType={setType} />
 
 					<Label text="Product Title" />
 					<Input value={title} onChangeText={setTitle} placeholder="e.g. Cotton T-Shirt" />
@@ -479,17 +459,17 @@ const AddProduct = ({
 
 					<Label text="Category" />
 					<TouchableOpacity style={styles.selectBtn} onPress={() => setIsCategoryPickerVisible(true)}>
-						<Text style={styles.selectBtnText}>{getCategoryName(selectedCategory)}</Text>
+						<Text style={styles.selectBtnText}>{categoryList.find(c => c._id === selectedCategory)?.name || 'Select Category'}</Text>
 						<Ionicons name="chevron-down" size={20} color={COLORS.textLight} />
 					</TouchableOpacity>
 
 					<View style={styles.switchRow}>
 						<Text style={styles.switchLabel}>Feature on Homepage</Text>
-						<Switch 
+						<Switch
 							trackColor={{ false: "#E5E7EB", true: COLORS.primaryLight }}
 							thumbColor={isFeatured ? COLORS.primary : "#f4f3f4"}
 							value={isFeatured}
-							onValueChange={setIsFeatured} 
+							onValueChange={setIsFeatured}
 						/>
 					</View>
 				</Section>
@@ -501,9 +481,9 @@ const AddProduct = ({
 							<Label text="Price" />
 							<View style={styles.priceInputWrap}>
 								<Text style={styles.currencyPrefix}>{currency}</Text>
-								<TextInput 
+								<TextInput
 									style={styles.priceInput}
-									value={price} 
+									value={price}
 									onChangeText={t => setPrice(t.replace(/[^0-9.]/g, ''))}
 									keyboardType="numeric"
 									placeholder="0.00"
@@ -514,7 +494,7 @@ const AddProduct = ({
 							<Label text="Compare At (Optional)" />
 							<View style={styles.priceInputWrap}>
 								<Text style={styles.currencyPrefix}>{currency}</Text>
-								<TextInput 
+								<TextInput
 									style={styles.priceInput}
 									value={compareAtPrice}
 									onChangeText={t => setCompareAtPrice(t.replace(/[^0-9.]/g, ''))}
@@ -601,12 +581,12 @@ const AddProduct = ({
 												<TextInput style={styles.tinyInput} value={availability[d].close} onChangeText={t => setDayCloseTime(d, t)} placeholder="17:00" />
 											</View>
 										)}
-										<Switch 
+										<Switch
 											style={{ marginLeft: 8, transform: [{ scale: 0.8 }] }}
 											trackColor={{ false: "#E5E7EB", true: COLORS.primaryLight }}
 											thumbColor={!availability[d].closed ? COLORS.primary : "#f4f3f4"}
 											value={!availability[d].closed}
-											onValueChange={v => setDayClosed(d, !v)} 
+											onValueChange={v => setDayClosed(d, !v)}
 										/>
 									</View>
 								</View>
@@ -656,7 +636,7 @@ const AddProduct = ({
 										value={a.compulsory}
 										onValueChange={v => {
 											const n = [...addOns]; n[i].compulsory = v; setAddOns(n);
-										}} 
+										}}
 									/>
 								</View>
 							</View>
@@ -686,7 +666,10 @@ const AddProduct = ({
 					<View style={styles.modalContent}>
 						<View style={styles.modalHeader}>
 							<Text style={styles.modalTitle}>Select Category</Text>
-							<TouchableOpacity onPress={() => setIsAddCategoryModalVisible(true)}>
+							<TouchableOpacity onPress={() => {
+								setIsCategoryPickerVisible(false);
+								setTimeout(() => setIsAddCategoryModalVisible(true), 500);
+							}}>
 								<Text style={{ color: COLORS.primary, fontWeight: '600' }}>+ Create New</Text>
 							</TouchableOpacity>
 						</View>
@@ -715,11 +698,11 @@ const AddProduct = ({
 				<View style={styles.centeredModal}>
 					<View style={styles.dialogCard}>
 						<Text style={styles.dialogTitle}>New Category</Text>
-						<TextInput 
+						<TextInput
 							style={styles.dialogInput}
 							placeholder="Category Name"
 							value={newCategoryName}
-							onChangeText={setNewCategoryName} 
+							onChangeText={setNewCategoryName}
 							autoFocus
 						/>
 						<View style={styles.dialogActions}>
@@ -756,6 +739,41 @@ const AddProduct = ({
 		</KeyboardAvoidingView>
 	);
 };
+
+// Helper Components
+const Section = ({ title, children, style }) => (
+	<View style={[styles.card, style]}>
+		{title && <Text style={styles.cardTitle}>{title}</Text>}
+		{children}
+	</View>
+);
+
+const Label = ({ text }) => <Text style={styles.label}>{text}</Text>;
+
+const Input = ({ style, multiline, ...props }) => (
+	<TextInput
+		style={[styles.input, multiline && styles.textArea, style]}
+		placeholderTextColor="#9CA3AF"
+		multiline={multiline}
+		{...props}
+	/>
+);
+
+const TypeSelector = ({ type, setType }) => (
+	<View style={styles.segmentContainer}>
+		{['physical', 'digital', 'service'].map((t) => (
+			<TouchableOpacity
+				key={t}
+				style={[styles.segmentBtn, type === t && styles.segmentBtnActive]}
+				onPress={() => setType(t)}
+			>
+				<Text style={[styles.segmentText, type === t && styles.segmentTextActive]}>
+					{t.charAt(0).toUpperCase() + t.slice(1)}
+				</Text>
+			</TouchableOpacity>
+		))}
+	</View>
+);
 
 const styles = StyleSheet.create({
 	container: { flex: 1, backgroundColor: '#F3F4F6' },

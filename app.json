@@ -14,7 +14,7 @@
     },
     "ios": {
       "supportsTablet": true,
-      "bundleIdentifier": "com.tradeet.vendor"
+      "bundleIdentifier": "app.tradeet.vendor"
     },
     "runtimeVersion": "1.0.0",
     "android": {
@@ -22,7 +22,7 @@
         "foregroundImage": "./assets/images/adaptive-icon.png",
         "backgroundColor": "#fcdbb8"
       },
-      "package": "com.tradeet.vendor",
+      "package": "app.tradeet.vendor",
       "versionCode": 13,
       "googleServicesFile": "./google-services.json",
       "blockedPermissions": [

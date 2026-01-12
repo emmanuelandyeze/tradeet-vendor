@@ -20,8 +20,8 @@ import {
 	ToastAndroid,
 	StyleSheet,
 	ActivityIndicator,
-	SafeAreaView
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Clipboard from '@react-native-clipboard/clipboard';
 import * as Sharing from 'expo-sharing';
 import axiosInstance from '@/utils/axiosInstance';
@@ -65,6 +65,7 @@ const SetupStoreScreen = () => {
 		{ id: 'service', name: 'Service Business', description: 'Best for bookings/requests' },
 	]);
 	const [selectedTheme, setSelectedTheme] = useState('product');
+	const [themeColor, setThemeColor] = useState(storeInfo?.themeColor || '#000000');
 	const [isCampusAppEnabled, setIsCampusAppEnabled] = useState(storeInfo?.isVendor || false);
 	const [reviewsEnabled, setReviewsEnabled] = useState(storeInfo?.reviewsEnabled ?? true);
 	const [currency, setCurrency] = useState(storeInfo?.currency || 'NGN');
@@ -72,6 +73,18 @@ const SetupStoreScreen = () => {
 
 	// Category
 	const [category, setCategory] = useState(storeInfo?.category || '');
+
+	// Predefined Color Palette
+	const colorPalette = [
+		'#000000', // Black
+		'#2563EB', // Blue
+		'#DC2626', // Red
+		'#16A34A', // Green
+		'#D97706', // Amber
+		'#7C3AED', // Violet
+		'#DB2777', // Pink
+		'#4B5563', // Gray
+	];
 
 	// UI States
 	const [loading, setLoading] = useState(false);
@@ -103,6 +116,7 @@ const SetupStoreScreen = () => {
 			setOpeningHours(fetchedBusinessData.openingHours || '');
 			setIsCampusAppEnabled(fetchedBusinessData.isVendor || false);
 			setSelectedTheme(fetchedBusinessData.theme || 'product');
+			setThemeColor(fetchedBusinessData.themeColor || '#000000');
 			setPicture(fetchedBusinessData.logoUrl || '');
 			setBanner(fetchedBusinessData.bannerUrl || '');
 			setReviewsEnabled(typeof fetchedBusinessData.reviewsEnabled === 'boolean' ? fetchedBusinessData.reviewsEnabled : true);
@@ -161,6 +175,7 @@ const SetupStoreScreen = () => {
 			if (openingHours) formData.append('openingHours', JSON.stringify(openingHours));
 			formData.append('category', category);
 			formData.append('theme', selectedTheme);
+			formData.append('themeColor', themeColor);
 			formData.append('isVendor', String(isCampusAppEnabled));
 			formData.append('reviewsEnabled', String(reviewsEnabled));
 			formData.append('currency', currency);
@@ -513,6 +528,26 @@ const SetupStoreScreen = () => {
 								</TouchableOpacity>
 							))}
 						</View>
+
+						<View style={styles.separator} />
+
+						<Text style={styles.cardTitle}>Brand Color</Text>
+						<Text style={styles.cardSubtitle}>Select a primary color for your store.</Text>
+
+						<View style={styles.colorGrid}>
+							{colorPalette.map((color) => (
+								<TouchableOpacity
+									key={color}
+									style={[styles.colorCircle, themeColor === color && styles.colorCircleSelected]}
+									onPress={() => setThemeColor(color)}
+									activeOpacity={0.8}
+								>
+									<View style={[styles.colorInner, { backgroundColor: color }]}>
+										{themeColor === color && <Ionicons name="checkmark" size={16} color="#fff" />}
+									</View>
+								</TouchableOpacity>
+							))}
+						</View>
 					</View>
 				</ScrollView>
 			),
@@ -800,6 +835,300 @@ const styles = StyleSheet.create({
 		flexDirection: 'row',
 		alignItems: 'center',
 		justifyContent: 'space-between',
+		backgroundColor: '#ECFDF5',
+		borderWidth: 1,
+		borderColor: '#10B981',
+		paddingVertical: 10,
+		paddingHorizontal: 12,
+		borderRadius: 8,
+		marginBottom: 16,
+	},
+	activeDomainText: {
+		fontSize: 14,
+		fontWeight: '600',
+		color: '#047857',
+	},
+	noDomainBox: {
+		backgroundColor: '#F3F4F6',
+		padding: 12,
+		borderRadius: 8,
+		marginBottom: 16,
+	},
+	noDomainText: {
+		fontSize: 14,
+		fontWeight: '600',
+		color: '#374151',
+		marginBottom: 4,
+	},
+	noDomainSubText: {
+		fontSize: 12,
+		color: '#6B7280',
+	},
+	divider: {
+		height: 1,
+		backgroundColor: '#E5E7EB',
+		marginVertical: 16,
+	},
+	subdomainInputContainer: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		marginBottom: 4,
+	},
+	subdomainInput: {
+		flex: 1,
+		backgroundColor: '#F9FAFB',
+		borderWidth: 1,
+		borderColor: '#E5E7EB',
+		borderTopLeftRadius: 8,
+		borderBottomLeftRadius: 8,
+		paddingHorizontal: 12,
+		paddingVertical: 10,
+		fontSize: 14,
+		color: '#111827',
+		borderRightWidth: 0,
+	},
+	subdomainSuffix: {
+		backgroundColor: '#F3F4F6',
+		borderWidth: 1,
+		borderColor: '#E5E7EB',
+		borderTopRightRadius: 8,
+		borderBottomRightRadius: 8,
+		paddingHorizontal: 12,
+		paddingVertical: 10,
+		fontSize: 14,
+		color: '#6B7280',
+	},
+
+	// Features
+	switchRow: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'space-between',
+		paddingVertical: 12,
+		borderBottomWidth: 1,
+		borderBottomColor: '#F3F4F6',
+	},
+	switchTitle: {
+		fontSize: 14,
+		fontWeight: '600',
+		color: '#374151',
+	},
+	switchDesc: {
+		fontSize: 12,
+		color: '#9CA3AF',
+		marginTop: 2,
+	},
+
+	// Theme
+	themeGrid: {
+		gap: 12,
+	},
+	themeCard: {
+		flexDirection: 'row',
+		alignItems: 'flex-start',
+		padding: 12,
+		borderWidth: 1,
+		borderColor: '#E5E7EB',
+		borderRadius: 12,
+		gap: 12,
+	},
+	themeCardSelected: {
+		borderColor: '#2563EB',
+		backgroundColor: '#EFF6FF',
+	},
+	radioCircle: {
+		width: 20,
+		height: 20,
+		borderRadius: 10,
+		borderWidth: 2,
+		borderColor: '#D1D5DB',
+		alignItems: 'center',
+		justifyContent: 'center',
+		marginTop: 2,
+	},
+	radioCircleSelected: {
+		borderColor: '#2563EB',
+	},
+	radioInner: {
+		width: 10,
+		height: 10,
+		borderRadius: 5,
+		backgroundColor: '#2563EB',
+	},
+	themeName: {
+		fontSize: 15,
+		fontWeight: '600',
+		color: '#374151',
+	},
+	themeNameSelected: {
+		color: '#2563EB',
+	},
+	themeDesc: {
+		fontSize: 12,
+		color: '#6B7280',
+		marginTop: 2,
+	},
+
+	// Color Picker
+	colorGrid: {
+		flexDirection: 'row',
+		flexWrap: 'wrap',
+		gap: 12,
+		marginTop: 8,
+	},
+	colorOption: {
+		width: 48,
+		height: 48,
+		borderRadius: 24,
+		alignItems: 'center',
+		justifyContent: 'center',
+		borderWidth: 2,
+		borderColor: 'transparent',
+	},
+	colorOptionSelected: {
+		borderColor: '#fff',
+		shadowColor: '#000',
+		shadowOffset: { width: 0, height: 2 },
+		shadowOpacity: 0.2,
+		shadowRadius: 3,
+		elevation: 3,
+		transform: [{ scale: 1.1 }],
+	},
+	selectedColorPreview: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		padding: 10,
+		borderWidth: 1,
+		borderRadius: 8,
+		backgroundColor: '#F9FAFB',
+	},
+	colorDot: {
+		width: 24,
+		height: 24,
+		borderRadius: 12,
+		marginRight: 10,
+	},
+	colorHexText: {
+		fontSize: 14,
+		fontWeight: '600',
+		color: '#374151',
+		fontFamily: Platform.OS === 'ios' ? 'Courier New' : 'monospace',
+	},
+
+	// Payment
+	addBankBtn: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 4,
+	},
+	addBankText: {
+		fontSize: 13,
+		fontWeight: '600',
+		color: '#2563EB',
+	},
+	bankCard: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		padding: 12,
+		backgroundColor: '#F9FAFB',
+		borderRadius: 8,
+		borderWidth: 1,
+		borderColor: '#F3F4F6',
+		marginBottom: 8,
+		gap: 12,
+	},
+	bankIconBg: {
+		width: 36,
+		height: 36,
+		borderRadius: 6,
+		backgroundColor: '#E5E7EB',
+		alignItems: 'center',
+		justifyContent: 'center',
+	},
+	bankName: {
+		fontSize: 14,
+		fontWeight: '600',
+		color: '#374151',
+	},
+	accountNumber: {
+		fontSize: 12,
+		color: '#6B7280',
+		marginTop: 1,
+	},
+	primaryBadge: {
+		backgroundColor: '#DBEAFE',
+		paddingHorizontal: 8,
+		paddingVertical: 2,
+		borderRadius: 12,
+	},
+	primaryText: {
+		fontSize: 10,
+		fontWeight: '700',
+		color: '#2563EB',
+		textTransform: 'uppercase',
+	},
+	emptyBankState: {
+		alignItems: 'center',
+		padding: 24,
+		borderWidth: 1,
+		borderColor: '#E5E7EB',
+		borderStyle: 'dashed',
+		borderRadius: 8,
+		backgroundColor: '#F9FAFB',
+	},
+	emptyBankText: {
+		marginTop: 8,
+		fontSize: 14,
+		fontWeight: '600',
+		color: '#6B7280',
+	},
+	emptyBankSubText: {
+		fontSize: 12,
+		color: '#9CA3AF',
+		marginTop: 2,
+	},
+
+	// Footer
+	footer: {
+		padding: 16,
+		backgroundColor: '#fff',
+		borderTopWidth: 1,
+		borderTopColor: '#E5E7EB',
+	},
+	saveButton: {
+		backgroundColor: '#2563EB',
+		borderRadius: 8,
+		paddingVertical: 14,
+		alignItems: 'center',
+	},
+	saveButtonDisabled: {
+		opacity: 0.7,
+	},
+	saveButtonText: {
+		color: '#fff',
+		fontSize: 16,
+		fontWeight: '600',
+	},
+
+	// Modal
+	modalOverlay: {
+		flex: 1,
+		backgroundColor: 'rgba(0,0,0,0.7)',
+		justifyContent: 'center',
+		padding: 24,
+	},
+	modalContent: {
+		position: 'relative',
+	},
+	closeModalBtn: {
+		position: 'absolute',
+		top: -48,
+		right: 0,
+		padding: 8,
+	},
+	activeDomainBox: {
+		alignItems: 'center',
+		justifyContent: 'space-between',
 		padding: 12,
 		backgroundColor: '#ECFDF5',
 		borderRadius: 8,
@@ -995,6 +1324,44 @@ const styles = StyleSheet.create({
 	themeDesc: {
 		fontSize: 12,
 		color: '#6B7280',
+	},
+
+	// Color Picker
+	separator: {
+		height: 1,
+		backgroundColor: '#E5E7EB',
+		marginVertical: 24,
+	},
+	colorGrid: {
+		flexDirection: 'row',
+		flexWrap: 'wrap',
+		gap: 16,
+		marginTop: 12,
+	},
+	colorCircle: {
+		width: 44,
+		height: 44,
+		borderRadius: 22,
+		borderWidth: 3,
+		borderColor: 'transparent',
+		alignItems: 'center',
+		justifyContent: 'center',
+		padding: 3,
+	},
+	colorCircleSelected: {
+		borderColor: '#10B981',
+	},
+	colorInner: {
+		width: '100%',
+		height: '100%',
+		borderRadius: 20,
+		alignItems: 'center',
+		justifyContent: 'center',
+	},
+	customColorCircle: {
+		borderWidth: 1,
+		borderColor: '#D1D5DB',
+		backgroundColor: '#F3F4F6',
 	},
 
 	// Footer

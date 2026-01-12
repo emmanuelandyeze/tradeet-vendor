@@ -293,16 +293,6 @@ export default function Header({
 			? parentStoreObj?.logoUrl
 			: null);
 
-	const sections = Array.isArray(userInfo?.stores)
-		? userInfo.stores.map((store) => ({
-			title: store.name || 'Unnamed Store',
-			data: Array.isArray(store.branches)
-				? store.branches
-				: [],
-			store,
-		}))
-		: [];
-
 	// Render ---------------------------------------------------
 
 	if (loading) {
@@ -366,8 +356,8 @@ export default function Header({
 
 					<View style={styles.metaRow}>
 						{userInfo?.plan?.name && (
-							<View style={[styles.planBadge, userInfo.plan.isTrial && { backgroundColor: '#EEF2FF', borderColor: '#C7D2FE' }]}>
-								<Text style={[styles.planText, userInfo.plan.isTrial && { color: '#4338ca' }]}>
+							<View style={[styles.planBadge, userInfo.plan.isTrial && { backgroundColor: '#EEF2FF', borderColor: '#C7D2FE' }, { flexShrink: 1 }]}>
+								<Text style={[styles.planText, userInfo.plan.isTrial && { color: '#4338ca' }]} numberOfLines={1} ellipsizeMode="tail">
 									{userInfo.plan.name}{userInfo.plan.isTrial ? ' (TRIAL)' : ''}
 								</Text>
 							</View>
@@ -485,45 +475,25 @@ export default function Header({
 								ListEmptyComponent={<Text style={styles.emptyText}>No branches found.</Text>}
 							/>
 						) : (
-							<SectionList
-								sections={sections}
+							<FlatList
+								data={userInfo?.stores || []}
 								keyExtractor={(item) => item._id}
 								style={{ maxHeight: 500 }}
-								renderSectionHeader={({ section }) => (
+								renderItem={({ item }) => (
 									<TouchableOpacity
 										style={styles.sectionHeader}
 										onPress={() => {
-											switchSelectedStore(section.store);
+											switchSelectedStore(item);
 											setModalVisible(false);
 										}}
 									>
-										<Text style={styles.sectionTitle}>{section.title}</Text>
-										{selectedStore?._id === section.store._id && !selectedStore?._isBranch && (
+										<Text style={styles.sectionTitle}>{item.name || 'Unnamed Store'}</Text>
+										{selectedStore?._id === item._id && !selectedStore?._isBranch && (
 											<Feather name="check-circle" size={16} color="#065637" />
 										)}
 									</TouchableOpacity>
 								)}
-								renderItem={({ item, section }) => {
-									const isSelected = selectedStore?._id === item._id && selectedStore?._isBranch;
-									return (
-										<TouchableOpacity
-											style={[styles.listItem, { paddingLeft: 24 }, isSelected && styles.listItemSelected]}
-											onPress={() => {
-												switchSelectedStore({
-													...item,
-													_isBranch: true,
-													_storeId: section.store._id,
-												});
-												setModalVisible(false);
-											}}
-										>
-											<Text style={[styles.listItemTitle, isSelected && { color: '#065637' }]}>
-												{item.name || item.branchKey}
-											</Text>
-											{isSelected && <Feather name="check" size={16} color="#065637" />}
-										</TouchableOpacity>
-									);
-								}}
+								ListEmptyComponent={<Text style={styles.emptyText}>No stores found.</Text>}
 							/>
 						)}
 					</View>

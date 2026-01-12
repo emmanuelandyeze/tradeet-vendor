@@ -16,10 +16,10 @@ import {
 	Alert,
 	ActivityIndicator,
 	Platform,
-	SafeAreaView,
 	ScrollView,
 	KeyboardAvoidingView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Picker } from '@react-native-picker/picker'; // Kept for currency if needed, though mostly NGN
 import axiosInstance from '@/utils/axiosInstance';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -359,7 +359,7 @@ const StorePaymentsScreen = () => {
 	);
 
 	return (
-		<SafeAreaView style={styles.container}>
+		<View style={styles.container}>
 			<StatusBar style="dark" backgroundColor="#fff" />
 			<View style={styles.header}>
 				<TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
@@ -399,84 +399,86 @@ const StorePaymentsScreen = () => {
 			{/* Form Modal */}
 			<Modal visible={modalVisible} animationType="slide" transparent>
 				<View style={styles.modalOverlay}>
-					<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={styles.modalContainer}>
-						<View style={styles.modalContent}>
-							<View style={styles.modalHeader}>
-								<Text style={styles.modalTitle}>{editingIndex >= 0 ? 'Edit Account' : 'Add New Account'}</Text>
-								<TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeModalBtn}>
-									<Feather name="x" size={24} color="#6B7280" />
-								</TouchableOpacity>
-							</View>
-
-							<ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.formScroller}>
-								<View style={[styles.inputGroup, { zIndex: 5000 }]}>
-									<Text style={styles.label}>Bank Name</Text>
-									<TextInput
-										value={bankName}
-										onChangeText={handleBankSearch}
-										placeholder="Search bank..."
-										style={styles.textInput}
-										placeholderTextColor="#9CA3AF"
-									/>
-									{showBankSuggestions && (
-										<View style={styles.suggestionsContainer}>
-											<ScrollView nestedScrollEnabled style={{ maxHeight: 200 }}>
-												{filteredBanks.map((item) => (
-													<TouchableOpacity key={item.code} style={styles.suggestionItem} onPress={() => handleSelectBank(item)}>
-														<Text style={styles.suggestionText}>{item.name}</Text>
-													</TouchableOpacity>
-												))}
-											</ScrollView>
-										</View>
-									)}
+					<View style={styles.modalContainer}>
+						<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+							<View style={styles.modalContent}>
+								<View style={styles.modalHeader}>
+									<Text style={styles.modalTitle}>{editingIndex >= 0 ? 'Edit Account' : 'Add New Account'}</Text>
+									<TouchableOpacity onPress={() => setModalVisible(false)} style={styles.closeModalBtn}>
+										<Feather name="x" size={24} color="#6B7280" />
+									</TouchableOpacity>
 								</View>
 
-								<View style={styles.inputGroup}>
-									<Text style={styles.label}>Account Number</Text>
-									<TextInput
-										value={accountNumber}
-										onChangeText={setAccountNumber}
-										placeholder="0123456789"
-										style={styles.textInput}
-										keyboardType="numeric"
-										placeholderTextColor="#9CA3AF"
-										maxLength={10}
-									/>
-								</View>
+								<ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.formScroller}>
+									<View style={[styles.inputGroup, { zIndex: 5000 }]}>
+										<Text style={styles.label}>Bank Name</Text>
+										<TextInput
+											value={bankName}
+											onChangeText={handleBankSearch}
+											placeholder="Search bank..."
+											style={styles.textInput}
+											placeholderTextColor="#9CA3AF"
+										/>
+										{showBankSuggestions && (
+											<View style={styles.suggestionsContainer}>
+												<ScrollView nestedScrollEnabled style={{ maxHeight: 200 }}>
+													{filteredBanks.map((item) => (
+														<TouchableOpacity key={item.code} style={styles.suggestionItem} onPress={() => handleSelectBank(item)}>
+															<Text style={styles.suggestionText}>{item.name}</Text>
+														</TouchableOpacity>
+													))}
+												</ScrollView>
+											</View>
+										)}
+									</View>
 
-								{/* Optional: Account Name field if verification is strictly manual for some reason, 
+									<View style={styles.inputGroup}>
+										<Text style={styles.label}>Account Number</Text>
+										<TextInput
+											value={accountNumber}
+											onChangeText={setAccountNumber}
+											placeholder="0123456789"
+											style={styles.textInput}
+											keyboardType="numeric"
+											placeholderTextColor="#9CA3AF"
+											maxLength={10}
+										/>
+									</View>
+
+									{/* Optional: Account Name field if verification is strictly manual for some reason, 
                                      but typically read-only or hidden until verified */}
-								<View style={styles.inputGroup}>
-									<Text style={styles.label}>Account Name</Text>
-									<TextInput
-										value={accountName}
-										onChangeText={setAccountName}
-										placeholder="Auto-verified payment name"
-										style={[styles.textInput, { backgroundColor: '#F3F4F6' }]}
-										editable={true} // Allow edit if verification fails often? Or keep readOnly
-									/>
-									<Text style={styles.helperText}>Name will be verified automatically.</Text>
-								</View>
+									<View style={styles.inputGroup}>
+										<Text style={styles.label}>Account Name</Text>
+										<TextInput
+											value={accountName}
+											onChangeText={setAccountName}
+											placeholder="Auto-verified payment name"
+											style={[styles.textInput, { backgroundColor: '#F3F4F6' }]}
+											editable={true} // Allow edit if verification fails often? Or keep readOnly
+										/>
+										<Text style={styles.helperText}>Name will be verified automatically.</Text>
+									</View>
 
-								<View style={styles.switchRow}>
-									<Text style={styles.switchLabel}>Set as Primary Account</Text>
-									<Switch value={isPrimary} onValueChange={setIsPrimary} trackColor={{ false: '#E5E7EB', true: '#10B981' }} />
-								</View>
-							</ScrollView>
+									<View style={styles.switchRow}>
+										<Text style={styles.switchLabel}>Set as Primary Account</Text>
+										<Switch value={isPrimary} onValueChange={setIsPrimary} trackColor={{ false: '#E5E7EB', true: '#10B981' }} />
+									</View>
+								</ScrollView>
 
-							<View style={styles.modalFooter}>
-								<TouchableOpacity style={styles.cancelButton} onPress={() => setModalVisible(false)}>
-									<Text style={styles.cancelButtonText}>Cancel</Text>
-								</TouchableOpacity>
-								<TouchableOpacity style={styles.saveButton} onPress={handleModalSave} disabled={saving}>
-									{saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveButtonText}>Save Details</Text>}
-								</TouchableOpacity>
+								<View style={styles.modalFooter}>
+									<TouchableOpacity style={styles.cancelButton} onPress={() => setModalVisible(false)}>
+										<Text style={styles.cancelButtonText}>Cancel</Text>
+									</TouchableOpacity>
+									<TouchableOpacity style={styles.saveButton} onPress={handleModalSave} disabled={saving}>
+										{saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveButtonText}>Save Details</Text>}
+									</TouchableOpacity>
+								</View>
 							</View>
-						</View>
-					</KeyboardAvoidingView>
+						</KeyboardAvoidingView>
+					</View>
 				</View>
 			</Modal>
-		</SafeAreaView>
+		</View>
 	);
 };
 
@@ -484,6 +486,7 @@ const styles = StyleSheet.create({
 	container: {
 		flex: 1,
 		backgroundColor: '#F9FAFB',
+		paddingTop: Platform.OS === 'ios' ? 30 : 40,
 	},
 	center: {
 		flex: 1,
@@ -499,6 +502,7 @@ const styles = StyleSheet.create({
 		backgroundColor: '#fff',
 		borderBottomWidth: 1,
 		borderBottomColor: '#E5E7EB',
+
 	},
 	headerTitle: {
 		fontSize: 17,

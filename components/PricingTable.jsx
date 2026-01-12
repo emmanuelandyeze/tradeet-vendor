@@ -49,6 +49,7 @@ const PricingTable = ({ getBusinessInfo, setPayModalVisible }) => {
 			monthlyPrice: 0,
 			annualPrice: 0,
 			planCode: null,
+			yearlyPlanCode: null,
 			features: [
 				'Access to Tradeet Campus',
 				'Product listings (up to 5)',
@@ -58,9 +59,10 @@ const PricingTable = ({ getBusinessInfo, setPayModalVisible }) => {
 		},
 		{
 			name: 'Pro',
-			monthlyPrice: 5500,
-			annualPrice: 55000,
+			monthlyPrice: 2500,
+			annualPrice: 25000,
 			planCode: 'PLN_bffghpr454a1hh9',
+			yearlyPlanCode: 'PLN_ghi98m40dpy84iz',
 			features: [
 				'Product listings (up to 50)',
 				'Create and manage discount codes',
@@ -71,9 +73,10 @@ const PricingTable = ({ getBusinessInfo, setPayModalVisible }) => {
 		},
 		{
 			name: 'Business',
-			monthlyPrice: 12500,
-			annualPrice: 125000,
+			monthlyPrice: 8000,
+			annualPrice: 80000,
 			planCode: 'PLN_khbd9a4329iqmqc',
+			yearlyPlanCode: 'PLN_2r67bk66ddafdeg',
 			features: [
 				'Unlimited product listings',
 				'Custom domains & premium themes',
@@ -232,7 +235,7 @@ const PricingTable = ({ getBusinessInfo, setPayModalVisible }) => {
 					amount={calculatedPrice * 100}
 					billingEmail={userInfo?.email}
 					billingMobile={userInfo?.phone}
-					plan={selectedPlan?.planCode}
+					plan={isYearly ? selectedPlan?.yearlyPlanCode : selectedPlan?.planCode}
 					channels={['card']}
 					autoStart={true}
 					onCancel={() => {

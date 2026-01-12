@@ -205,7 +205,19 @@ const InvoicesScreen = () => {
 			return false;
 		}
 		// ...
-		if (!selectedStore?.tin) {
+
+		// Resolving TIN:
+		// If branch, try to find parent store in userInfo.stores using _storeId
+		// Else use selectedStore.tin directly
+		let effectiveTin = selectedStore?.tin;
+		if (selectedStore?._isBranch && userInfo?.stores) {
+			const parent = userInfo.stores.find(s => String(s._id) === String(selectedStore._storeId));
+			if (parent && parent.tin) {
+				effectiveTin = parent.tin;
+			}
+		}
+
+		if (!effectiveTin) {
 			ToastAndroid.show(
 				'Missing TIN. Please update Store Settings.',
 				ToastAndroid.LONG,

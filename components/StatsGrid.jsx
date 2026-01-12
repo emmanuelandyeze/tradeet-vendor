@@ -41,13 +41,13 @@ const StatsGrid = ({
 					{loading ? (
 						<View style={styles.skeletonBox} />
 					) : (
-						<Text
-							style={
-								viewValues ? styles.statValue : styles.blurredText
-							}
-						>
-							₦{totalIncomeAmount?.toLocaleString() || '0'}
-						</Text>
+						viewValues ? (
+							<Text style={styles.statValue}>
+								₦{totalIncomeAmount?.toLocaleString() || '0'}
+							</Text>
+						) : (
+							<View style={styles.hiddenValue} />
+						)
 					)}
 				</View>
 			</TouchableWithoutFeedback>
@@ -57,7 +57,7 @@ const StatsGrid = ({
 				<View style={[styles.statCard, styles.invoiceCard]}>
 					<View style={styles.statHeader}>
 						<View style={[styles.iconCircle, { backgroundColor: '#E3F2FD' }]}>
-							<AntDesign name="filetext1" size={14} color="#1565C0" />
+							<AntDesign name="file-text" size={14} color="#1565C0" />
 						</View>
 						<Text style={styles.statLabel}>Invoices</Text>
 					</View>
@@ -65,13 +65,13 @@ const StatsGrid = ({
 						<View style={styles.skeletonBox} />
 					) : (
 						<View>
-							<Text
-								style={
-									viewValues ? styles.statValue : styles.blurredText
-								}
-							>
-								₦{totalInvoiceAmount?.toLocaleString() || '0'}
-							</Text>
+							{viewValues ? (
+								<Text style={styles.statValue}>
+									₦{totalInvoiceAmount?.toLocaleString() || '0'}
+								</Text>
+							) : (
+								<View style={styles.hiddenValue} />
+							)}
 							<View style={styles.subTextContainer}>
 								<Text style={styles.subText}>
 									{unpaidInvoicesCount} unpaid
@@ -88,20 +88,20 @@ const StatsGrid = ({
 				<View style={[styles.statCard, styles.outstandingCard]}>
 					<View style={styles.statHeader}>
 						<View style={[styles.iconCircle, { backgroundColor: '#F3F4F6' }]}>
-							<AntDesign name="minuscircleo" size={14} color="#4B5563" />
+							<AntDesign name="minus-circle" size={14} color="#4B5563" />
 						</View>
 						<Text style={styles.statLabel}>Outstanding</Text>
 					</View>
 					{loading ? (
 						<View style={styles.skeletonBox} />
 					) : (
-						<Text
-							style={
-								viewValues ? styles.statValue : styles.blurredText
-							}
-						>
-							₦{totalPendingAmount?.toLocaleString() || '0'}
-						</Text>
+						viewValues ? (
+							<Text style={styles.statValue}>
+								₦{totalPendingAmount?.toLocaleString() || '0'}
+							</Text>
+						) : (
+							<View style={styles.hiddenValue} />
+						)
 					)}
 				</View>
 			</TouchableWithoutFeedback>
@@ -118,13 +118,13 @@ const StatsGrid = ({
 					{loading ? (
 						<View style={styles.skeletonBox} />
 					) : (
-						<Text
-							style={
-								viewValues ? styles.statValue : styles.blurredText
-							}
-						>
-							₦{totalExpensesAmount?.toLocaleString() || '0'}
-						</Text>
+						viewValues ? (
+							<Text style={styles.statValue}>
+								₦{totalExpensesAmount?.toLocaleString() || '0'}
+							</Text>
+						) : (
+							<View style={styles.hiddenValue} />
+						)
 					)}
 				</View>
 			</TouchableWithoutFeedback>
@@ -186,13 +186,9 @@ const styles = StyleSheet.create({
 		color: '#111827',
 		letterSpacing: -0.5,
 	},
-	blurredText: {
-		fontSize: 18,
-		fontWeight: '700',
-		color: 'transparent',
+	hiddenValue: {
 		backgroundColor: '#E5E7EB',
 		borderRadius: 4,
-		overflow: 'hidden',
 		width: '70%',
 		height: 24,
 	},

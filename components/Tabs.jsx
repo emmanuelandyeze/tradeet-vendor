@@ -86,6 +86,15 @@ const Tabs = ({ scenes }) => {
         windowSize={2}
         bounces={false}
         scrollEventThrottle={16}
+        getItemLayout={(data, index) => (
+          { length: width, offset: width * index, index }
+        )}
+        onScrollToIndexFailed={(info) => {
+          const wait = new Promise(resolve => setTimeout(resolve, 500));
+          wait.then(() => {
+            flatListRef.current?.scrollToIndex({ index: info.index, animated: true });
+          });
+        }}
         // Sync scrollX if we want animated indicators later
         onScroll={Animated.event(
           [{ nativeEvent: { contentOffset: { x: scrollX } } }],

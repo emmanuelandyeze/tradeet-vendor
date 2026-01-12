@@ -21,11 +21,11 @@ import '../global.css';
 // Import the specific font hook from expo-google-fonts
 import { useFonts } from 'expo-font'; // useFonts is from expo-font, SplashScreen is also often imported from there
 import {
-	Inter_400Regular,
-	Inter_500Medium,
-	Inter_700Bold,
-	Inter_800ExtraBold,
-} from '@expo-google-fonts/inter'; // Import specific weights
+	HankenGrotesk_400Regular,
+	HankenGrotesk_500Medium,
+	HankenGrotesk_700Bold,
+	HankenGrotesk_800ExtraBold,
+} from '@expo-google-fonts/hanken-grotesk'; // Import specific weights
 
 import { useEffect, useCallback, useContext } from 'react';
 import * as SplashScreen from 'expo-splash-screen';
@@ -37,10 +37,10 @@ export default function Layout() {
 	// Use the Inter font hook
 	// You list the specific font styles (weights) you want to load
 	const [fontsLoaded, fontError] = useFonts({
-		Inter_400Regular,
-		Inter_500Medium, // Corresponds to 'Medium' weight
-		Inter_700Bold, // Corresponds to 'Bold' weight
-		Inter_800ExtraBold, // Corresponds to 'Extra Bold' weight
+		HankenGrotesk_400Regular,
+		HankenGrotesk_500Medium, // Corresponds to 'Medium' weight
+		HankenGrotesk_700Bold, // Corresponds to 'Bold' weight
+		HankenGrotesk_800ExtraBold, // Corresponds to 'Extra Bold' weight
 		// Add other weights if needed, e.g., Inter_300Light, Inter_600SemiBold
 	});
 

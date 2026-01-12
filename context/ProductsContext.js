@@ -77,8 +77,8 @@ const ProductsProvider = ({ children }) => {
 		} catch (err) {
 			setError(
 				err.response?.data?.message ||
-					err.message ||
-					'Failed to fetch product',
+				err.message ||
+				'Failed to fetch product',
 			);
 			setLoading(false);
 			throw err;
@@ -164,11 +164,20 @@ const ProductsProvider = ({ children }) => {
 
 			setProducts((prev) => {
 				if (!Array.isArray(prev)) return [updatedItem];
-				return prev.map((product) =>
-					String(product._id) === String(id)
-						? updatedItem
-						: product,
-				);
+				return prev.map((product) => {
+					if (String(product._id) === String(id)) {
+						// Preserve populated category if ID matches
+						if (
+							typeof updatedItem.category === 'string' &&
+							product.category &&
+							product.category._id === updatedItem.category
+						) {
+							updatedItem.category = product.category;
+						}
+						return updatedItem;
+					}
+					return product;
+				});
 			});
 
 			setLoading(false);

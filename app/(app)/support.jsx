@@ -8,8 +8,8 @@ import {
 	StyleSheet,
 	KeyboardAvoidingView,
 	Platform,
-	SafeAreaView,
 } from 'react-native';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 
 const SupportChatScreen = () => {
@@ -107,7 +107,8 @@ const styles = StyleSheet.create({
 	container: {
 		flex: 1,
 		backgroundColor: '#f1f1f1',
-		paddingTop: 20,
+		flex: 1,
+		backgroundColor: '#f1f1f1',
 	},
 	inner: {
 		flex: 1,

@@ -36,7 +36,14 @@ const Products = () => {
 	const { selectedStore, userInfo, switchSelectedBranch, switchSelectedStore, getPlanCapability } = useContext(AuthContext);
 
 	// selectedStore may be a branch or a top-level store object
-	const storeId = selectedStore?._id ?? userInfo?.stores?.[0]?._id ?? null;
+	const selectedOrFallback = selectedStore || userInfo?.stores?.[0];
+
+	// Determine Brand ID (parent) and Branch ID
+	const effectiveBrandId = selectedOrFallback?.parent || selectedOrFallback?._id || null;
+	const effectiveBranchId = selectedOrFallback?.parent ? selectedOrFallback?._id : null;
+
+	// For loadProducts effect dependency
+	const storeId = effectiveBrandId;
 
 	const {
 		products,
@@ -93,8 +100,7 @@ const Products = () => {
 	// Load Products
 	const loadProducts = useCallback(
 		async (opts = { reset: false }) => {
-			const activeStoreId = selectedStore?.parent || selectedStore?._id;
-			if (!activeStoreId) return;
+			if (!effectiveBrandId) return;
 
 			try {
 				if (opts.reset) {
@@ -103,12 +109,9 @@ const Products = () => {
 				}
 				const p = opts.reset ? 1 : page;
 
-				const sId = selectedStore?.parent || selectedStore?._id;
-				const bId = selectedStore?.parent ? selectedStore._id : null;
-
 				const resp = await fetchProductsByStore(
-					sId,
-					bId,
+					effectiveBrandId,
+					effectiveBranchId,
 					{
 						page: p,
 						q: searchQ || undefined,
@@ -188,7 +191,7 @@ const Products = () => {
 				await updateProduct(newProduct._id, newProduct);
 			} else {
 				// Add to current store context
-				const sId = selectedStore?.parent || selectedStore?._id;
+				const sId = effectiveBrandId;
 				await addProduct(newProduct, sId);
 			}
 			await loadProducts({ reset: true });
@@ -444,8 +447,8 @@ const Products = () => {
 						updateProduct={updateProduct}
 						onAddProduct={onAddProduct}
 						initialProduct={selectedProduct}
-						storeId={selectedStore?.parent || selectedStore?._id}
-						branchId={selectedStore?.parent ? selectedStore?._id : null}
+						storeId={effectiveBrandId}
+						branchId={effectiveBranchId}
 						loading={loading}
 					/>
 				</View>
@@ -458,7 +461,7 @@ const Products = () => {
 				animationType="fade"
 				onRequestClose={closeMenu}
 			>
-				<TouchableOpacity style={styles.menuOverlay} onPress={closeMenu} activeOpacity={1}>
+				<TouchableOpacity style={styles.modalOverlay} onPress={closeMenu} activeOpacity={1}>
 					<View style={styles.menuContent}>
 						<View style={styles.menuHeader}>
 							<Text style={styles.menuTitle} numberOfLines={1}>

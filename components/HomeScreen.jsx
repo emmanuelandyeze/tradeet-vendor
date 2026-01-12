@@ -55,7 +55,7 @@ const HomeScreen = ({ userInfo }) => {
 	const [wallet, setWallet] = useState(0);
 
 	// Filters
-	const [orderFilter, setOrderFilter] = useState('inprogress');
+	const [orderFilter, setOrderFilter] = useState('new');
 	const [financialFilter, setFinancialFilter] = useState('allTime');
 	const [selectedFinancialMonth, setSelectedFinancialMonth] = useState(new Date());
 	const [selectedFinancialWeek, setSelectedFinancialWeek] = useState(null);
@@ -166,17 +166,20 @@ const HomeScreen = ({ userInfo }) => {
 
 	useEffect(() => {
 		let res = [];
-		if (orderFilter === 'inprogress') {
-			res = orders.filter(
-				(o) =>
-					o?.status !== 'cancelled' &&
-					o?.payment?.status === 'paid' &&
-					['pending', 'accepted', 'processing'].includes(o?.status)
-			);
-		} else if (orderFilter === 'notpaid') {
-			res = orders.filter((o) => o?.status !== 'cancelled' && o?.payment?.status !== 'paid');
+		const validOrders = orders.filter(o => o.status !== 'cancelled');
+
+		if (orderFilter === 'new') {
+			// New: Usually just 'pending' status, maybe 'paid' or not.
+			res = validOrders.filter((o) => o?.status === 'pending');
+		} else if (orderFilter === 'not_paid') {
+			// Not Paid
+			res = validOrders.filter((o) => o?.payment?.status !== 'paid');
+		} else if (orderFilter === 'active') {
+			// Active: processing, accepted, out-for-delivery
+			res = validOrders.filter((o) => ['processing', 'accepted', 'out-for-delivery'].includes(o?.status));
 		} else {
-			res = orders.filter((o) => o.status === orderFilter && o.status !== 'cancelled');
+			// All (except cancelled)
+			res = validOrders;
 		}
 		setFilteredOrders(res);
 	}, [orders, orderFilter]);
@@ -225,8 +228,14 @@ const HomeScreen = ({ userInfo }) => {
 	const financialInvoices = filterFinancials(invoices, 'invoice');
 
 	// Income (Orders + Invoices Paid)
+	// Income (Orders + Invoices Paid)
 	const ordersIncome = financialOrders?.reduce((acc, o) => {
-		const paid = o.payment?.providerData?.amountPaid || 0;
+		// Sum payments from array or fallback to providerData
+		let paid = (o.payments || []).reduce((s, p) => s + (p.status === 'completed' ? (p.amount || 0) : 0), 0);
+		if (paid === 0 && o.payment?.providerData?.amountPaid) {
+			paid = o.payment.providerData.amountPaid;
+		}
+
 		// Deduct platform service fee from vendor income view
 		const fee = o.serviceFee || 0;
 		return acc + Math.max(0, paid - fee);
@@ -242,14 +251,14 @@ const HomeScreen = ({ userInfo }) => {
 	// Outstanding (Orders + Invoices Unpaid)
 	const ordersOutstanding = (financialOrders || []).reduce((acc, o) => {
 		const fee = o.serviceFee || 0;
-		const total = (o.itemsAmount || 0) + (o.deliveryFee || 0) - (o.discountAmount || 0);
-		// Note: total usually includes serviceFee in backend totalAmount, but here we construct it from components?
-		// Let's check how totalAmount is stored. In Order model, totalAmount includes serviceFee.
-		// If using o.totalAmount directly:
+		// Note: total usually includes serviceFee in backend totalAmount
 		const grossTotal = o.totalAmount || 0;
-		const netTotal = Math.max(0, grossTotal - fee);
 
-		const paid = o.payment?.providerData?.amountPaid || 0;
+		// Calculate paid
+		let paid = (o.payments || []).reduce((s, p) => s + (p.status === 'completed' ? (p.amount || 0) : 0), 0);
+		if (paid === 0 && o.payment?.providerData?.amountPaid) {
+			paid = o.payment.providerData.amountPaid;
+		}
 		// If paid includes fee, we subtract fee from paid too for "net paid".
 		// Actually outstanding = NetTotal - NetPaid. 
 		// If paid >= grossTotal, outstanding is 0.
@@ -437,6 +446,12 @@ const HomeScreen = ({ userInfo }) => {
 						loading={loading}
 						filter={orderFilter}
 						onFilterSelect={setOrderFilter}
+						counts={{
+							new: orders.filter(o => o.status === 'pending').length,
+							not_paid: orders.filter(o => o.status !== 'cancelled' && o.payment?.status !== 'paid').length,
+							active: orders.filter(o => ['processing', 'accepted', 'out-for-delivery'].includes(o.status)).length,
+							all: orders.filter(o => o.status !== 'cancelled').length
+						}}
 					/>
 				</View>
 
