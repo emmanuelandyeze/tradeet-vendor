@@ -2,6 +2,7 @@
   "extends": "expo/tsconfig.base",
   "compilerOptions": {
     "strict": true,
+    "skipLibCheck": true,
     "paths": {
       "@/*": [
         "./*"
@@ -13,6 +14,12 @@
     "**/*.tsx",
     ".expo/types/**/*.ts",
     "expo-env.d.ts",
-    "nativewind-env.d.ts"
-, "app/(app)/(tabs)/_layout.jsx", "app/(app)/(tabs)/explore.jsx", "app/(app)/(tabs)/index.jsx"  ]
+    "nativewind-env.d.ts",
+    "app/(app)/(tabs)/_layout.jsx",
+    "app/(app)/(tabs)/explore.jsx",
+    "app/(app)/(tabs)/index.jsx"
+  ],
+  "exclude": [
+    "node_modules"
+  ]
 }

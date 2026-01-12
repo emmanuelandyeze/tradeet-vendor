@@ -1,5 +1,6 @@
 {
   "cli": {
+    "version": ">= 14.5.0",
     "appVersionSource": "remote"
   },
   "build": {
@@ -16,14 +17,11 @@
       "channel": "preview"
     },
     "production": {
+      "autoIncrement": true,
       "channel": "production"
     }
   },
   "submit": {
-    "production": {
-      "android": {
-        "serviceAccountKeyPath": "./tradeet-97384-4e914b6c55b3.json"
-      }
-    }
+    "production": {}
   }
 }

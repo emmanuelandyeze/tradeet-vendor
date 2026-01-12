@@ -7,7 +7,6 @@ import {
 	Linking,
 	ActivityIndicator,
 } from 'react-native';
-import ImageColors from 'react-native-image-colors';
 import { LinearGradient } from 'expo-linear-gradient';
 
 const StoreCard = ({
@@ -19,34 +18,9 @@ const StoreCard = ({
 	campus,
 }) => {
 	const [dominantColor, setDominantColor] =
-		useState('green');
+		useState('#FFFFFF');
 	const [secondaryColor, setSecondaryColor] =
-		useState('orange');
-
-	useEffect(() => {
-		const fetchColors = async () => {
-			const result = await ImageColors.getColors(
-				userInfo?.sport,
-				{
-					fallback: '#FFFFFF',
-					cache: true,
-				},
-			);
-
-			if (
-				result.platform === 'android' ||
-				result.platform === 'ios'
-			) {
-				setDominantColor(result.dominant || '#FFFFFF');
-				setSecondaryColor(result.lightMuted || '#EAEAEA');
-			} else if (result.platform === 'web') {
-				setDominantColor(result.lightVibrant || '#FFFFFF');
-				setSecondaryColor(result.muted || '#EAEAEA');
-			}
-		};
-
-		fetchColors();
-	}, [userInfo?.logoUrl]);
+		useState('#EAEAEA');
 
 	const handleGetAppPress = () => {
 		Linking.openURL(

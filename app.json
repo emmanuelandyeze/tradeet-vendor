@@ -1,8 +1,8 @@
 {
   "expo": {
-    "name": "Tradeet Business",
-    "slug": "tradeet-vendor",
-    "version": "1.2.1",
+    "name": "Tradeet",
+    "slug": "tradeet-business",
+    "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/images/icon.png",
     "scheme": "myapp",
@@ -23,7 +23,7 @@
         "backgroundColor": "#fcdbb8"
       },
       "package": "app.tradeet.vendor",
-      "versionCode": 13,
+      "versionCode": 1,
       "googleServicesFile": "./google-services.json",
       "blockedPermissions": [
         "android.permission.READ_MEDIA_IMAGES",
@@ -33,7 +33,12 @@
         "googleMaps": {
           "apiKey": "AIzaSyDB9u0LKWhMKSBImf97RJjD8KzNq8rfPMY"
         }
-      }
+      },
+      "permissions": [
+        "android.permission.ACCESS_COARSE_LOCATION",
+        "android.permission.ACCESS_FINE_LOCATION",
+        "android.permission.RECORD_AUDIO"
+      ]
     },
     "web": {
       "bundler": "metro",
@@ -48,11 +53,8 @@
         "origin": false
       },
       "eas": {
-        "projectId": "cb3ec68d-4082-410c-aa02-6a6811456186"
+        "projectId": "5d037687-fd62-4566-bb2b-a1c86440608c"
       }
-    },
-    "updates": {
-      "url": "https://u.expo.dev/cb3ec68d-4082-410c-aa02-6a6811456186"
     },
     "plugins": [
       "expo-router",
