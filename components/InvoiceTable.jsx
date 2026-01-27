@@ -143,6 +143,10 @@ const InvoiceTable = ({
 	function buildInvoiceHtml(invoice) {
 		const displayStore = getDisplayStore();
 
+		// Check subscription plan
+		const planName = (userInfo?.plan?.name || '').toLowerCase();
+		const isPremium = planName === 'pro' || planName === 'business';
+
 		const logoUrl = displayStore.logoUrl || '';
 		const storeName = (displayStore.name || '').replace(/&/g, '&amp;');
 		const storeAddress = displayStore.address || '';
@@ -383,7 +387,7 @@ const InvoiceTable = ({
       </style>
     </head>
     <body>
-      <div class="watermark">TRADEET BUSINESS</div>
+      ${!isPremium ? '<div class="watermark">TRADEET BUSINESS</div>' : ''}
       
       <div class="container">
         
@@ -512,6 +516,10 @@ const InvoiceTable = ({
 	}) {
 		const displayStore = getDisplayStore();
 
+		// Check subscription plan
+		const planName = (userInfo?.plan?.name || '').toLowerCase();
+		const isPremium = planName === 'pro' || planName === 'business';
+
 		const logoUrl = displayStore.logoUrl || '';
 		const storeName = (displayStore.name || '').replace(/&/g, '&amp;');
 		const storeAddress = displayStore.address || '';
@@ -613,7 +621,7 @@ const InvoiceTable = ({
       </style>
     </head>
     <body>
-      <div class="watermark">TRADEET BUSINESS</div>
+      ${!isPremium ? '<div class="watermark">TRADEET BUSINESS</div>' : ''}
       <div class="container">
         <div class="header">
           <div class="success-icon">✓</div>

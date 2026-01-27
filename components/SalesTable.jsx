@@ -167,6 +167,10 @@ const SalesTable = ({
 	 * Build a receipt HTML for the selected invoice
 	 */
 	const buildReceiptHtml = (invoice) => {
+		// Check subscription plan
+		const planName = (userInfo?.plan?.name || '').toLowerCase();
+		const isPremium = planName === 'pro' || planName === 'business';
+
 		const storeName = (userInfo?.name || '').replace(/&/g, '&amp;');
 		const storeAddress = userInfo?.address || '';
 		const storePhone = userInfo?.phone || '';
@@ -256,7 +260,7 @@ const SalesTable = ({
       </style>
     </head>
     <body>
-      <div class="watermark">TRADEET BUSINESS</div>
+      ${!isPremium ? '<div class="watermark">TRADEET BUSINESS</div>' : ''}
       <div class="container">
         <div class="header">
           <div class="success-icon">✓</div>
@@ -420,9 +424,11 @@ const SalesTable = ({
 				>
 					<View style={styles.modalContainer}>
 						<View style={styles.modalContent}>
-							<Text style={styles.watermarkText}>
-								TRADEET BUSINESS
-							</Text>
+							{!['pro', 'business'].includes((userInfo?.plan?.name || '').toLowerCase()) && (
+								<Text style={styles.watermarkText}>
+									TRADEET BUSINESS
+								</Text>
+							)}
 
 							<ScrollView // Allow content to scroll if it overflows
 								style={styles.invoiceDetailScroll}
@@ -873,7 +879,7 @@ const styles = StyleSheet.create({
 		width: '100%',
 		maxHeight: '100%',
 		backgroundColor: '#fff',
-		padding: 0,
+		paddingTop: 40,
 		elevation: 10,
 		shadowColor: '#000',
 		shadowOffset: { width: 0, height: 4 },

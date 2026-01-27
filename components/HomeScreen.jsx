@@ -299,10 +299,14 @@ const HomeScreen = ({ userInfo }) => {
 		// We will treat "Income" as "Net Paid to Vendor" (Paid - Fee).
 		// And "Outstanding" as "Net Receivable" (TotalNet - NetPaid).
 
+		const discount = o.discountAmount || 0;
 		const paidNet = Math.max(0, paid - fee);
-		const totalNet = Math.max(0, (o.totalAmount || 0) - fee);
-		return acc + Math.max(0, totalNet - paidNet);
+		// Vendor Revenue = Total - Fee - Discount
+		const totalNet = Math.max(0, (o.totalAmount || 0) - fee - discount);
+		const finalOutstanding = Math.max(0, totalNet - paidNet);
+		return acc + finalOutstanding;
 	}, 0);
+
 
 	const invoicesOutstanding = (financialInvoices || []).reduce((acc, inv) => {
 		let outstanding = inv.outstandingAmount;
@@ -425,6 +429,7 @@ const HomeScreen = ({ userInfo }) => {
 						unpaidInvoicesCount={unpaidInvoicesCount}
 						totalPendingAmount={totalPendingAmount}
 						totalExpensesAmount={totalExpensesAmount}
+
 						onInvoicePress={() => router.push('/(app)/invoices')}
 					/>
 				</View>

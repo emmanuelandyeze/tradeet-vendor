@@ -683,13 +683,13 @@ const styles = StyleSheet.create({
 	cardTitle: { fontSize: 14, fontWeight: '600', color: '#111827', marginRight: 16 },
 	cardCategory: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
 
-	moreBtnAbsolute: { position: 'absolute', top: 12, right: 8, padding: 4 },
+	moreBtnAbsolute: { position: 'absolute', top: 12, right: 0, padding: 4 },
 
 	cardFooter: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginTop: 6 },
 	cardPrice: { fontSize: 15, fontWeight: '700', color: '#111827' },
 	stockLabel: { fontSize: 11, color: '#6B7280' },
 
-	statusPill: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, borderWidth: 1 },
+	statusPill: { paddingHorizontal: 6, paddingVertical: 2, borderRadius: 6, borderWidth: 1, marginRight: 10 },
 	statusActive: { backgroundColor: '#F0FDF4', borderColor: '#BBF7D0' },
 	statusInactive: { backgroundColor: '#FEF2F2', borderColor: '#FECACA' },
 	statusText: { fontSize: 10, fontWeight: '700' },

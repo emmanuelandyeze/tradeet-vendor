@@ -422,7 +422,13 @@ const SingleOrderPage = () => {
 							<View style={styles.itemInfo}>
 								<Text style={styles.itemName}>{item.name}</Text>
 								{item.variants?.map((v, i) => (
-									<Text key={i} style={styles.variantText}>+ {v.name}</Text>
+									<Text key={`variant-${i}`} style={styles.variantText}>+ {v.name}</Text>
+								))}
+								{item.addOns?.map((addOn, i) => (
+									<Text key={`addon-${i}`} style={styles.variantText}>
+										+ {addOn.name} {addOn.quantity > 1 ? `(x${addOn.quantity})` : ''}
+										{addOn.price > 0 ? ` - ₦${(addOn.price * addOn.quantity).toLocaleString()}` : ''}
+									</Text>
 								))}
 							</View>
 							<Text style={styles.itemPrice}>₦{(item.totalPrice || item.price * item.quantity).toLocaleString()}</Text>
@@ -498,7 +504,7 @@ const SingleOrderPage = () => {
 						<View style={styles.summaryRow}><Text style={styles.summaryLabel}>Delivery Fee</Text><Text style={styles.summaryValue}>₦{order.deliveryFee?.toLocaleString()}</Text></View>
 					)}
 					{order.serviceFee > 0 && (
-						<View style={styles.summaryRow}><Text style={styles.summaryLabel}>Service Fee</Text><Text style={styles.summaryValue}>-₦{order.serviceFee?.toLocaleString()}</Text></View>
+						null
 					)}
 
 					{order.discountAmount > 0 && (
@@ -507,7 +513,7 @@ const SingleOrderPage = () => {
 					<View style={styles.totalRow}>
 						<Text style={styles.totalLabel}>Total Payout</Text>
 						<Text style={styles.totalValue}>
-							₦{((order.totalAmount || 0) - (order.serviceFee || 0)).toLocaleString()}
+							₦{((order.itemsAmount || 0) + (order.deliveryFee || 0) - (order.discountAmount || 0)).toLocaleString()}
 						</Text>
 					</View>
 

@@ -44,6 +44,7 @@ const THEME = {
 
 export default function DiscountsScreen() {
 	const [discounts, setDiscounts] = useState([]);
+	const [totalDiscountAmount, setTotalDiscountAmount] = useState(0);
 	const [loading, setLoading] = useState(false);
 	const [refreshing, setRefreshing] = useState(false);
 	const { selectedStore, getPlanCapability } = useContext(AuthContext);
@@ -133,9 +134,31 @@ export default function DiscountsScreen() {
 		}
 	}, [apiCall]);
 
+	const fetchOrders = useCallback(async () => {
+		if (!selectedStore?._id) return;
+		try {
+			const targetStoreId = selectedStore.parent || selectedStore._id;
+			const branchQuery = selectedStore.parent ? `?branchId=${selectedStore._id}` : '';
+
+			const res = await axiosInstance.get(
+				`/orders/store/${targetStoreId}${branchQuery}`
+			);
+			const ordersData = Array.isArray(res.data)
+				? res.data
+				: res.data.orders ?? res.data;
+
+			const validOrders = (ordersData || []).filter(o => o.status !== 'cancelled');
+			const total = validOrders.reduce((acc, o) => acc + (o.discountAmount || 0), 0);
+			setTotalDiscountAmount(total);
+		} catch (err) {
+			console.warn('Error fetching orders for discounts:', err);
+		}
+	}, [selectedStore]);
+
 	useEffect(() => {
 		fetchDiscounts();
-	}, [fetchDiscounts]);
+		fetchOrders();
+	}, [fetchDiscounts, fetchOrders]);
 
 	useEffect(() => {
 		const t = setTimeout(
@@ -147,9 +170,9 @@ export default function DiscountsScreen() {
 
 	const onRefresh = useCallback(async () => {
 		setRefreshing(true);
-		await fetchDiscounts();
+		await Promise.all([fetchDiscounts(), fetchOrders()]);
 		setRefreshing(false);
-	}, [fetchDiscounts]);
+	}, [fetchDiscounts, fetchOrders]);
 
 	const filtered = useMemo(() => {
 		return discounts
@@ -406,6 +429,14 @@ export default function DiscountsScreen() {
 					<Text style={styles.statValue}>{total}</Text>
 					<Text style={styles.statLabel}>
 						Total Discounts
+					</Text>
+				</View>
+				<View style={styles.statItem}>
+					<Text style={[styles.statValue, { color: '#C2410C' }]}>
+						{formatMoney(totalDiscountAmount * 100)}
+					</Text>
+					<Text style={styles.statLabel}>
+						Total Discounted
 					</Text>
 				</View>
 				<View style={styles.statItem}>

@@ -128,7 +128,9 @@ const StatsGrid = ({
 					)}
 				</View>
 			</TouchableWithoutFeedback>
-		</View>
+
+
+		</View >
 	);
 };
 
@@ -160,6 +162,7 @@ const styles = StyleSheet.create({
 	invoiceCard: { borderLeftWidth: 3, borderLeftColor: '#1565C0' },
 	outstandingCard: { borderLeftWidth: 3, borderLeftColor: '#4B5563' },
 	expensesCard: { borderLeftWidth: 3, borderLeftColor: '#DC2626' },
+	discountsCard: { borderLeftWidth: 3, borderLeftColor: '#C2410C' },
 
 	statHeader: {
 		flexDirection: 'row',

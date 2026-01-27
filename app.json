@@ -23,7 +23,7 @@
         "backgroundColor": "#fcdbb8"
       },
       "package": "app.tradeet.vendor",
-      "versionCode": 1,
+      "versionCode": 7,
       "googleServicesFile": "./google-services.json",
       "blockedPermissions": [
         "android.permission.READ_MEDIA_IMAGES",

@@ -424,6 +424,7 @@ const AddProduct = ({
 	return (
 		<KeyboardAvoidingView
 			behavior={Platform.OS === "ios" ? "padding" : "height"}
+			enabled={false}
 			style={{ flex: 1 }}
 			keyboardVerticalOffset={Platform.OS === 'ios' ? 100 : 0}
 		>
