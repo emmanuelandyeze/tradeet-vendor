@@ -23,7 +23,7 @@ import { Ionicons } from '@expo/vector-icons';
 
 export default function Login() {
 	const router = useRouter();
-	const { login } = useContext(AuthContext);
+	const { login, isBiometricEnabled, loginWithBiometrics } = useContext(AuthContext);
 
 	const [phone, setPhone] = useState('');
 	const [password, setPassword] = useState('');
@@ -92,6 +92,16 @@ export default function Login() {
 			showToast('error', error.response?.data?.message || 'Something went wrong.');
 		} finally {
 			setLoading(false);
+		}
+	};
+
+	const handleBiometricLogin = async () => {
+		const result = await loginWithBiometrics();
+		if (result && result.success) {
+			showToast('success', 'Welcome back!');
+			router.push('(tabs)');
+		} else if (result && result.message) {
+			showToast('error', result.message);
 		}
 	};
 
@@ -178,6 +188,20 @@ export default function Login() {
 						<Text className="text-white text-lg font-bold">Sign In</Text>
 					)}
 				</TouchableOpacity>
+
+				{/* Biometric Login Button */}
+				{isBiometricEnabled && (
+					<TouchableOpacity
+						onPress={handleBiometricLogin}
+						disabled={loading}
+						className="mt-4 flex-row justify-center items-center h-[50px] border border-[#065637] rounded-xl"
+					>
+						<Ionicons name={Platform.OS === 'ios' ? "scan-outline" : "finger-print"} size={24} color="#065637" style={{ marginRight: 8 }} />
+						<Text className="text-[#065637] text-lg font-semibold">
+							Login with {Platform.OS === 'ios' ? 'Face ID' : 'Biometrics'}
+						</Text>
+					</TouchableOpacity>
+				)}
 
 				{/* Sign Up Link */}
 				<View className="flex-row justify-center mt-8">

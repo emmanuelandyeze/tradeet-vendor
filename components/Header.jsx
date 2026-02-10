@@ -111,11 +111,9 @@ export default function Header({
 		userInfo.stores.length > 1;
 
 	// Insets for safe area
-	// Note: If you don't have SafeAreaProvider in root, this might default to 0. 
-	// We'll add fallback padding just in case.
-	// const insets = useSafeAreaInsets(); 
-	// Using manual padding for compatibility if safe-area-context isn't set up
-	const topPadding = Platform.OS === 'android' ? 60 : 50;
+	const insets = useSafeAreaInsets();
+	// Using insets.top + extra spacing instead of hardcoded 50/60
+	const topPadding = Math.max(insets.top, 20) + 12;
 
 	// Logic ----------------------------------------------------
 
@@ -601,7 +599,7 @@ const styles = StyleSheet.create({
 		backgroundColor: '#FFFFFF',
 		paddingHorizontal: 20,
 		paddingBottom: 16,
-		paddingTop: 50,
+		// paddingTop: handled inline
 		borderBottomWidth: 1,
 		borderBottomColor: '#F3F4F6',
 		// Shadow

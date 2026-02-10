@@ -17,12 +17,17 @@ import Clipboard from '@react-native-clipboard/clipboard';
 import { Feather } from '@expo/vector-icons';
 import { FontAwesome } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+
 import { Colors } from '@/constants/Colors';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const MarketingScreen = () => {
     const { selectedStore, userInfo } = useContext(AuthContext);
     const [whatsappMessage, setWhatsappMessage] = useState('');
     const [whatsappLink, setWhatsappLink] = useState('');
+
+    const insets = useSafeAreaInsets();
+    const headerTopPadding = Math.max(insets.top, 20) + 10;
 
     // Tradeet's Official Number
     const phoneNumber = '2348141898230';
@@ -76,7 +81,9 @@ const MarketingScreen = () => {
         <SafeAreaView style={styles.container}>
             <StatusBar style="dark" />
 
-            <View style={styles.header}>
+
+
+            <View style={[styles.header, { paddingTop: headerTopPadding }]}>
                 <Text style={styles.headerTitle}>Marketing</Text>
             </View>
 
@@ -171,8 +178,9 @@ const styles = StyleSheet.create({
         paddingHorizontal: 20,
         paddingVertical: 16,
         borderBottomWidth: 1,
+
         borderBottomColor: '#E5E7EB',
-        paddingTop: 50, // Adjust for safe area if needed or rely on SafeAreaView
+        // paddingTop: handled inline
     },
     headerTitle: {
         fontSize: 20,

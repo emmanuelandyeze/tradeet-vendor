@@ -14,7 +14,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Device from 'expo-device';
 import * as Notifications from 'expo-notifications';
 import Constants from 'expo-constants';
-import { Platform } from 'react-native';
+import { Platform, Alert } from 'react-native';
+import * as LocalAuthentication from 'expo-local-authentication';
+import * as SecureStore from 'expo-secure-store';
 
 const AuthContext = createContext();
 
@@ -162,6 +164,7 @@ async function registerForPushNotificationsAsync() {
 /* ---------------------- Storage keys ---------------------- */
 const STORAGE_KEY = 'userToken';
 const SELECTED_STORE_KEY = 'selectedStore'; // saved as { _id, _isBranch?, _storeId? }
+const BIOMETRIC_ENABLED_KEY = 'biometricEnabled';
 
 /* ---------------------- AuthProvider ---------------------- */
 
@@ -176,6 +179,10 @@ const AuthProvider = ({ children }) => {
 	//  - store object: { _id, name, branches: [...], ... , _isBranch: false }
 	//  - branch object: { _id, name, ... , _isBranch: true, _storeId: <parent store id> }
 	const [selectedStore, setSelectedStore] = useState(null);
+
+	// Biometric State
+	const [isBiometricSupported, setIsBiometricSupported] = useState(false);
+	const [isBiometricEnabled, setIsBiometricEnabled] = useState(false);
 
 	const notificationListener = useRef();
 	const responseListener = useRef();
@@ -444,6 +451,111 @@ const AuthProvider = ({ children }) => {
 		}
 	};
 
+	/* ---------------------- Biometric Logic ---------------------- */
+
+	const checkBiometricSupport = async () => {
+		try {
+			const compatible = await LocalAuthentication.hasHardwareAsync();
+			const enrolled = await LocalAuthentication.isEnrolledAsync();
+			setIsBiometricSupported(compatible && enrolled);
+			return compatible && enrolled;
+		} catch (error) {
+			console.error('Biometric support check failed:', error);
+			setIsBiometricSupported(false);
+			return false;
+		}
+	};
+
+	const enableBiometrics = async () => {
+		try {
+			const hasSupport = await checkBiometricSupport();
+			if (!hasSupport) {
+				Alert.alert('Not Supported', 'Biometrics are not available or not enrolled on this device.');
+				return false;
+			}
+
+			// Prompt user to authenticate to confirm enabling
+			const result = await LocalAuthentication.authenticateAsync({
+				promptMessage: 'Authenticate to enable biometric login',
+			});
+
+			if (result.success) {
+				if (user?.token) {
+					await SecureStore.setItemAsync(STORAGE_KEY, user.token);
+					await AsyncStorage.setItem(BIOMETRIC_ENABLED_KEY, 'true');
+					setIsBiometricEnabled(true);
+					Alert.alert('Success', 'Biometric login enabled.');
+					return true;
+				} else {
+					Alert.alert('Error', 'No active session found. Please login again.');
+					return false;
+				}
+			} else {
+				Alert.alert('Authentication Failed', 'Could not verify identity.');
+				return false;
+			}
+		} catch (error) {
+			console.error('Enable biometrics error:', error);
+			Alert.alert('Error', 'Failed to enable biometrics.');
+			return false;
+		}
+	};
+
+	const disableBiometrics = async () => {
+		try {
+			await SecureStore.deleteItemAsync(STORAGE_KEY);
+			await AsyncStorage.setItem(BIOMETRIC_ENABLED_KEY, 'false');
+			setIsBiometricEnabled(false);
+			Alert.alert('Success', 'Biometric login disabled.');
+			return true;
+		} catch (error) {
+			console.error('Disable biometrics error:', error);
+			Alert.alert('Error', 'Failed to disable biometrics.');
+			return false;
+		}
+	};
+
+	const loginWithBiometrics = async () => {
+		try {
+			const hasSupport = await checkBiometricSupport();
+			if (!hasSupport) {
+				Alert.alert('Not Supported', 'Biometrics not available.');
+				return;
+			}
+
+			const result = await LocalAuthentication.authenticateAsync({
+				promptMessage: 'Login with Biometrics',
+			});
+
+			if (result.success) {
+				const token = await SecureStore.getItemAsync(STORAGE_KEY);
+				if (token) {
+					setIsLoading(true);
+					// Mimic checkLoginStatus logic for setting user
+					setUser({ token });
+					setAuthToken(token);
+					await getUserInfo(token);
+					// We don't restore store selection here as checkLoginStatus runs on mount and might have done it, 
+					// but if this is manual login, we rely on getUserInfo populating stuff.
+					// Ideally we should sync with store restoration logic if needed, 
+					// but standard login flow usually redirects after setUser.
+					return { success: true };
+				} else {
+					Alert.alert('Error', 'No credentials found. Please login with password first.');
+					await disableBiometrics(); // cleanup invalid state
+					return { success: false, message: 'No credentials found' };
+				}
+			} else {
+				return { success: false, message: 'Authentication failed' };
+			}
+		} catch (error) {
+			console.error('Biometric login error:', error);
+			return { success: false, message: error.message };
+		} finally {
+			setIsLoading(false);
+		}
+	};
+
 	/* ---------------------- Restore / check login status (branch-aware using store objects) ---------------------- */
 
 	const checkLoginStatus = async () => {
@@ -611,6 +723,11 @@ const AuthProvider = ({ children }) => {
 					await updateExpoPushToken(token, u);
 				}
 			}
+
+			// Check if biometrics was enabled
+			const bioEnabled = await AsyncStorage.getItem(BIOMETRIC_ENABLED_KEY);
+			setIsBiometricEnabled(bioEnabled === 'true');
+			checkBiometricSupport(); // Just to update supported state
 		} catch (err) {
 			console.error('checkLoginStatus error:', err);
 		} finally {
@@ -673,7 +790,16 @@ const AuthProvider = ({ children }) => {
 			setUserInfo(null);
 			setExpoPushToken('');
 			setSelectedStore(null);
+			setUserInfo(null);
+			setExpoPushToken('');
+			setSelectedStore(null);
 			setAuthToken(null);
+
+			// Optional: Decide if logout should disable biometrics. 
+			// Usually yes for security, or keep it enabled for quick re-login.
+			// Currently keeping it enabled in SecureStore, but clearing Context user.
+			// To strictly require password on next login, uncomment below:
+			// await disableBiometrics(); 
 
 			console.log('Logged out locally.');
 		} catch (err) {
@@ -1514,6 +1640,11 @@ const AuthProvider = ({ children }) => {
 				registerDeviceTokenForStore:
 					saveDeviceTokenForStore,
 				removeDeviceTokenForStore,
+				// Biometrics
+				isBiometricSupported,
+				isBiometricEnabled,
+				enableBiometrics,
+				disableBiometrics
 			}}
 		>
 			{children}

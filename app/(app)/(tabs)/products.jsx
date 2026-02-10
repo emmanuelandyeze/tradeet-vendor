@@ -27,6 +27,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { ProductsContext } from '@/context/ProductsContext';
 import { AuthContext } from '@/context/AuthContext';
 import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const DEFAULT_THUMB =
 	'https://res.cloudinary.com/demo/image/upload/v1690000000/placeholder.png';
@@ -34,6 +35,9 @@ const { width } = Dimensions.get('window');
 
 const Products = () => {
 	const { selectedStore, userInfo, switchSelectedBranch, switchSelectedStore, getPlanCapability } = useContext(AuthContext);
+
+	const insets = useSafeAreaInsets();
+	const headerTopPadding = Math.max(insets.top, 20) + 10;
 
 	// selectedStore may be a branch or a top-level store object
 	const selectedOrFallback = selectedStore || userInfo?.stores?.[0];
@@ -341,7 +345,7 @@ const Products = () => {
 			<StatusBar style="dark" backgroundColor="#FFFFFF" />
 
 			{/* Header */}
-			<View style={styles.header}>
+			<View style={[styles.header, { paddingTop: headerTopPadding }]}>
 				<View style={{ flex: 1 }}>
 					<Text style={styles.headerTitle}>Products</Text>
 					<TouchableOpacity
@@ -596,7 +600,7 @@ const styles = StyleSheet.create({
 	// Header
 	header: {
 		backgroundColor: '#FFFFFF',
-		paddingTop: Platform.OS === 'android' ? 50 : 60,
+		// paddingTop: handled inline
 		paddingBottom: 16,
 		paddingHorizontal: 20,
 		flexDirection: 'row',

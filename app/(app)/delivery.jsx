@@ -210,7 +210,7 @@ const DeliverySettingsScreen = () => {
 					zoneData,
 				);
 				// console.log(response)
-				if (response.status !== 200) {
+				if (response.status !== 200 && response.status !== 201) {
 					throw new Error('Failed to update zone');
 				}
 				setDeliverySettings((prev) => ({
@@ -228,7 +228,7 @@ const DeliverySettingsScreen = () => {
 					`delivery/stores/${selectedStore?.parent}/zones`,
 					zoneData,
 				);
-				if (response.status !== 200) {
+				if (response.status !== 200 && response.status !== 201) {
 					throw new Error(
 						response.data.message ||
 						'Failed to create zone',
@@ -265,7 +265,7 @@ const DeliverySettingsScreen = () => {
 									zone.key,
 								)}`,
 							);
-							if (response.status !== 200) {
+							if (response.status !== 200 && response.status !== 204) {
 								throw new Error('Failed to delete zone');
 							}
 							setDeliverySettings((prev) => ({
@@ -309,7 +309,7 @@ const DeliverySettingsScreen = () => {
 					`delivery/stores/${storeId}/personnel/${editingPerson._id}`,
 					personData,
 				);
-				if (response.status !== 200) {
+				if (response.status !== 200 && response.status !== 201) {
 					throw new Error('Failed to update personnel');
 				}
 				setDeliverySettings((prev) => ({
@@ -329,7 +329,7 @@ const DeliverySettingsScreen = () => {
 					`delivery/stores/${storeId}/personnel`,
 					personData,
 				);
-				if (response.status !== 200) {
+				if (response.status !== 200 && response.status !== 201) {
 					throw new Error(
 						response.data.message ||
 						'Failed to create personnel',
@@ -367,7 +367,7 @@ const DeliverySettingsScreen = () => {
 							const response = await axiosInstance.delete(
 								`delivery/stores/${storeId}/personnel/${person._id}`,
 							);
-							if (response.status !== 200) {
+							if (response.status !== 200 && response.status !== 204) {
 								throw new Error(
 									'Failed to delete personnel',
 								);

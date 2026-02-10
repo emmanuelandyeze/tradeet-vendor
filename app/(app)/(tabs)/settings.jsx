@@ -16,11 +16,15 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { AuthContext } from '@/context/AuthContext';
 import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 const ProfileScreen = () => {
 	const router = useRouter();
-	const { logout, userInfo, selectedStore, switchSelectedStore, getPlanCapability } = useContext(AuthContext);
+	const { logout, userInfo, selectedStore, switchSelectedStore, getPlanCapability, isBiometricSupported, isBiometricEnabled, enableBiometrics, disableBiometrics } = useContext(AuthContext);
 	const [darkMode, setDarkMode] = useState(false);
+
+	const insets = useSafeAreaInsets();
+	const headerTopPadding = Math.max(insets.top, 20) + 10;
 
 	// Open website
 	const handleOpenWebsite = () => {
@@ -134,6 +138,22 @@ const ProfileScreen = () => {
 					icon: 'notifications-outline',
 					disabled: true
 				},
+				// Biometric Toggle
+				...(!isBiometricSupported ? [{
+					id: 'bio-auth',
+					title: 'Biometric Login',
+					icon: Platform.OS === 'ios' ? 'face-id' : 'finger-print', // Ionicons might not have face-id, checking below
+					toggle: true,
+					value: isBiometricEnabled,
+					onToggle: async () => {
+						if (isBiometricEnabled) {
+							await disableBiometrics();
+						} else {
+							await enableBiometrics();
+						}
+					},
+					disabled: false
+				}] : []),
 			],
 		},
 		{
@@ -154,7 +174,7 @@ const ProfileScreen = () => {
 			<StatusBar style="dark" backgroundColor="#FFFFFF" />
 
 			{/* Header */}
-			<View style={styles.header}>
+			<View style={[styles.header, { paddingTop: headerTopPadding }]}>
 				<Text style={styles.headerTitle}>More</Text>
 			</View>
 
@@ -238,7 +258,7 @@ const ProfileScreen = () => {
 								>
 									<View style={styles.settingIconBox}>
 										<Ionicons
-											name={item.icon}
+											name={item.id === 'bio-auth' && Platform.OS === 'ios' ? 'scan-outline' : item.icon} // 'scan-outline' as proxy for FaceID if needed, or 'finger-print'
 											size={20}
 											color="#4B5563"
 										/>
@@ -301,7 +321,7 @@ const styles = StyleSheet.create({
 	},
 	header: {
 		backgroundColor: '#FFFFFF',
-		paddingTop: Platform.OS === 'android' ? 50 : 60,
+		// paddingTop: handled inline
 		paddingBottom: 16,
 		paddingHorizontal: 20,
 		borderBottomWidth: 1,

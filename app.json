@@ -70,7 +70,8 @@
           "photosPermission": "The Tradeet Business app accesses your photos to let you upload product images."
         }
       ],
-      "expo-font"
+      "expo-font",
+      "expo-secure-store"
     ]
   }
 }

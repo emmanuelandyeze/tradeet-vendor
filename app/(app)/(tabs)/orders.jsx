@@ -22,6 +22,7 @@ import { AuthContext } from '@/context/AuthContext';
 import axiosInstance from '@/utils/axiosInstance';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 // Helper for "Time Ago"
 const formatTimeAgo = (dateString) => {
@@ -50,6 +51,9 @@ const Orders = () => {
 		switchSelectedBranch,
 		switchSelectedStore,
 	} = useContext(AuthContext);
+
+	const insets = useSafeAreaInsets();
+	const headerTopPadding = Math.max(insets.top, 20) + 10;
 
 	// Build stores list
 	const storesList = Array.isArray(userInfo?.stores) ? userInfo.stores : [];
@@ -203,7 +207,7 @@ const Orders = () => {
 			<StatusBar style="dark" backgroundColor="#FFFFFF" />
 
 			{/* Header */}
-			<View style={styles.header}>
+			<View style={[styles.header, { paddingTop: headerTopPadding }]}>
 				<View>
 					<Text style={styles.headerTitle}>Orders</Text>
 					<TouchableOpacity
@@ -417,7 +421,7 @@ const styles = StyleSheet.create({
 	container: { flex: 1, backgroundColor: '#FFFFFF' },
 	header: {
 		backgroundColor: '#FFFFFF',
-		paddingTop: Platform.OS === 'android' ? 45 : 60,
+		// paddingTop: handled inline
 		paddingBottom: 16,
 		paddingHorizontal: 20,
 		flexDirection: 'row',

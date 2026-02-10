@@ -82,23 +82,29 @@ const AddProduct = ({
 		false,
 	);
 
-	// Variants & AddOns
-	const [variants, setVariants] = useState(() => {
-		const v = initialProduct?.variants;
-		if (!Array.isArray(v)) return [];
-		return v.map((x) => ({
-			name: x?.name || '',
-			price: x?.price !== undefined ? String(x.price) : '',
-		}));
-	});
-	const [addOns, setAddOns] = useState(() => {
-		const a = initialProduct?.addOns;
-		if (!Array.isArray(a)) return [];
-		return a.map((x) => ({
-			name: x?.name || '',
-			price: x?.price !== undefined ? String(x.price) : '',
-			compulsory: x?.compulsory === true || x?.compulsory === 'true' || false,
-		}));
+	// Option Groups (Replaces Variants & AddOns)
+	const [optionGroups, setOptionGroups] = useState(() => {
+		const g = initialProduct?.optionGroups;
+		if (Array.isArray(g)) return g;
+		// Backward compatibility migration (optional, purely visual)
+		const mig = [];
+		if (initialProduct?.variants?.length) {
+			mig.push({
+				name: 'Variants',
+				minSelection: 1,
+				maxSelection: 1,
+				options: initialProduct.variants.map(v => ({ name: v.name, price: v.price }))
+			});
+		}
+		if (initialProduct?.addOns?.length) {
+			mig.push({
+				name: 'Add-ons',
+				minSelection: 0,
+				maxSelection: null, // unlimited
+				options: initialProduct.addOns.map(a => ({ name: a.name, price: a.price }))
+			});
+		}
+		return mig;
 	});
 
 	// Category Modal
@@ -126,6 +132,14 @@ const AddProduct = ({
 	const [currency, setCurrency] = useState(initialProduct?.currency || 'NGN');
 	const [compareAtPrice, setCompareAtPrice] = useState(
 		initialProduct?.compareAtPrice !== undefined ? String(initialProduct.compareAtPrice) : '',
+	);
+
+	// Order Constraints
+	const [minOrderQuantity, setMinOrderQuantity] = useState(
+		initialProduct?.minOrderQuantity !== undefined ? String(initialProduct.minOrderQuantity) : '1',
+	);
+	const [minOrderValue, setMinOrderValue] = useState(
+		initialProduct?.minOrderValue !== undefined ? String(initialProduct.minOrderValue) : '',
 	);
 
 	// Type Specific
@@ -365,15 +379,26 @@ const AddProduct = ({
 
 		if (compareAtPrice && !isNaN(Number(compareAtPrice))) payload.compareAtPrice = Number(compareAtPrice);
 
-		// Clean Variants/Addons
-		const cleanItems = (list) => list.map(i => ({
-			...i,
-			name: i.name.trim(),
-			price: Number(i.price) || 0
-		})).filter(i => i.name && !isNaN(i.price));
+		// Order Constraints
+		payload.minOrderQuantity = Number(minOrderQuantity) || 1;
+		if (minOrderValue && !isNaN(Number(minOrderValue))) payload.minOrderValue = Number(minOrderValue);
 
-		if (variants.length) payload.variants = cleanItems(variants);
-		if (addOns.length) payload.addOns = cleanItems(addOns).map((a, i) => ({ ...a, compulsory: addOns[i].compulsory }));
+		// Clean Option Groups
+		const cleanOptions = (opts) => opts.map(o => ({
+			name: o.name.trim(),
+			price: Number(o.price) || 0
+		})).filter(o => o.name);
+
+		const cleanGroups = optionGroups.map(g => ({
+			name: g.name.trim(),
+			minSelection: Number(g.minSelection) || 0,
+			maxSelection: g.maxSelection ? Number(g.maxSelection) : null,
+			options: cleanOptions(g.options || [])
+		})).filter(g => g.name && g.options.length > 0);
+
+		if (cleanGroups.length) payload.optionGroups = cleanGroups;
+
+
 
 		if (type === 'physical') {
 			if (!price) return Alert.alert('Validation', 'Price is required');
@@ -507,6 +532,34 @@ const AddProduct = ({
 					</View>
 				</Section>
 
+				{/* Order Restrictions */}
+				<Section title="Order Rules">
+					<View style={styles.row}>
+						<View style={{ flex: 1, marginRight: 8 }}>
+							<Label text="Min Order Qty" />
+							<Input
+								value={minOrderQuantity}
+								onChangeText={t => setMinOrderQuantity(t.replace(/[^0-9]/g, ''))}
+								keyboardType="numeric"
+								placeholder="1"
+							/>
+						</View>
+						<View style={{ flex: 1, marginLeft: 8 }}>
+							<Label text="Min Order Value" />
+							<View style={styles.priceInputWrap}>
+								<Text style={styles.currencyPrefix}>{currency}</Text>
+								<TextInput
+									style={styles.priceInput}
+									value={minOrderValue}
+									onChangeText={t => setMinOrderValue(t.replace(/[^0-9.]/g, ''))}
+									keyboardType="numeric"
+									placeholder="0.00"
+								/>
+							</View>
+						</View>
+					</View>
+				</Section>
+
 				{/* Type Specific */}
 				{type === 'physical' && (
 					<Section title="Inventory & Shipping">
@@ -596,59 +649,114 @@ const AddProduct = ({
 					</>
 				)}
 
-				{/* Variants */}
-				<Section title="Variants">
-					{variants.map((v, i) => (
-						<View key={i} style={styles.variantRow}>
-							<Input style={{ flex: 2, marginBottom: 0 }} placeholder="Option Name" value={v.name} onChangeText={t => {
-								const n = [...variants]; n[i].name = t; setVariants(n);
-							}} />
-							<Input style={{ flex: 1, marginLeft: 8, marginBottom: 0 }} placeholder="Price" value={v.price} onChangeText={t => {
-								const n = [...variants]; n[i].price = t.replace(/[^0-9.]/g, ''); setVariants(n);
-							}} keyboardType="numeric" />
-							<TouchableOpacity onPress={() => setVariants(prev => prev.filter((_, idx) => idx !== i))} style={styles.removeIconBtn}>
-								<Ionicons name="trash-outline" size={20} color={COLORS.danger} />
-							</TouchableOpacity>
-						</View>
-					))}
-					<TouchableOpacity style={styles.addMoreBtn} onPress={() => setVariants([...variants, { name: '', price: '' }])}>
-						<Ionicons name="add" size={18} color={COLORS.primary} />
-						<Text style={styles.addMoreText}>Add Variant</Text>
-					</TouchableOpacity>
-				</Section>
+				{/* Option Groups */}
+				<Section title="Product Options">
+					<Text style={styles.sectionSubtitle}>
+						Create groups like "Sizes", "Colors", or "Toppings".
+					</Text>
 
-				{/* Add-ons */}
-				<Section title="Add-ons">
-					{addOns.map((a, i) => (
-						<View key={i} style={styles.variantRow}>
-							<View style={{ flex: 1 }}>
-								<View style={{ flexDirection: 'row' }}>
-									<Input style={{ flex: 2, marginBottom: 0 }} placeholder="Add-on Name" value={a.name} onChangeText={t => {
-										const n = [...addOns]; n[i].name = t; setAddOns(n);
-									}} />
-									<Input style={{ flex: 1, marginLeft: 8, marginBottom: 0 }} placeholder="Price" value={a.price} onChangeText={t => {
-										const n = [...addOns]; n[i].price = t.replace(/[^0-9.]/g, ''); setAddOns(n);
-									}} keyboardType="numeric" />
-								</View>
-								<View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 8 }}>
-									<Text style={styles.switchLabelSmall}>Compulsory?</Text>
+					{optionGroups.map((group, gIndex) => (
+						<View key={gIndex} style={styles.groupCard}>
+							<View style={styles.groupHeader}>
+								<Input
+									style={{ flex: 1, marginBottom: 0, fontWeight: 'bold' }}
+									placeholder="Group Name (e.g. Size, Color)"
+									value={group.name}
+									onChangeText={t => {
+										const n = [...optionGroups]; n[gIndex].name = t; setOptionGroups(n);
+									}}
+								/>
+								<TouchableOpacity onPress={() => setOptionGroups(prev => prev.filter((_, i) => i !== gIndex))} style={styles.removeGroupBtn}>
+									<Ionicons name="trash-outline" size={20} color={COLORS.danger} />
+								</TouchableOpacity>
+							</View>
+
+							<View style={styles.groupControls}>
+								<View style={styles.controlRow}>
+									<Text style={styles.controlLabel}>Required?</Text>
 									<Switch
-										style={{ transform: [{ scale: 0.7 }] }}
-										value={a.compulsory}
+										value={group.minSelection > 0}
 										onValueChange={v => {
-											const n = [...addOns]; n[i].compulsory = v; setAddOns(n);
+											const n = [...optionGroups];
+											n[gIndex].minSelection = v ? 1 : 0;
+											setOptionGroups(n);
 										}}
+										trackColor={{ false: "#E5E7EB", true: COLORS.primaryLight }}
+										thumbColor={group.minSelection > 0 ? COLORS.primary : "#f4f3f4"}
+									/>
+								</View>
+								<View style={styles.controlRow}>
+									<Text style={styles.controlLabel}>Allow Multiple?</Text>
+									<Switch
+										value={!group.maxSelection || group.maxSelection > 1}
+										onValueChange={v => {
+											const n = [...optionGroups];
+											// If true (allow multiple), set to null (unlimited) or high number. 
+											// If false (single), max is 1.
+											n[gIndex].maxSelection = v ? null : 1;
+											setOptionGroups(n);
+										}}
+										trackColor={{ false: "#E5E7EB", true: COLORS.primaryLight }}
+										thumbColor={(!group.maxSelection || group.maxSelection > 1) ? COLORS.primary : "#f4f3f4"}
 									/>
 								</View>
 							</View>
-							<TouchableOpacity onPress={() => setAddOns(prev => prev.filter((_, idx) => idx !== i))} style={styles.removeIconBtn}>
-								<Ionicons name="trash-outline" size={20} color={COLORS.danger} />
-							</TouchableOpacity>
+
+							<View style={styles.optionsList}>
+								{group.options?.map((opt, oIndex) => (
+									<View key={oIndex} style={styles.variantRow}>
+										<Input
+											style={{ flex: 2, marginBottom: 0 }}
+											placeholder="Option Name"
+											value={opt.name}
+											onChangeText={t => {
+												const n = [...optionGroups];
+												n[gIndex].options[oIndex].name = t;
+												setOptionGroups(n);
+											}}
+										/>
+										<Input
+											style={{ flex: 1, marginLeft: 8, marginBottom: 0 }}
+											placeholder="Price"
+											value={String(opt.price || '')}
+											onChangeText={t => {
+												const n = [...optionGroups];
+												n[gIndex].options[oIndex].price = t.replace(/[^0-9.]/g, '');
+												setOptionGroups(n);
+											}}
+											keyboardType="numeric"
+										/>
+										<TouchableOpacity
+											onPress={() => {
+												const n = [...optionGroups];
+												n[gIndex].options = n[gIndex].options.filter((_, i) => i !== oIndex);
+												setOptionGroups(n);
+											}}
+											style={styles.removeIconBtn}
+										>
+											<Ionicons name="close-circle-outline" size={24} color={COLORS.textLight} />
+										</TouchableOpacity>
+									</View>
+								))}
+								<TouchableOpacity
+									style={styles.addSimpleBtn}
+									onPress={() => {
+										const n = [...optionGroups];
+										if (!n[gIndex].options) n[gIndex].options = [];
+										n[gIndex].options.push({ name: '', price: '' });
+										setOptionGroups(n);
+									}}
+								>
+									<Ionicons name="add" size={16} color={COLORS.primary} />
+									<Text style={styles.addSimpleText}>Add Option</Text>
+								</TouchableOpacity>
+							</View>
 						</View>
 					))}
-					<TouchableOpacity style={styles.addMoreBtn} onPress={() => setAddOns([...addOns, { name: '', price: '', compulsory: false }])}>
-						<Ionicons name="add" size={18} color={COLORS.primary} />
-						<Text style={styles.addMoreText}>Add Add-on</Text>
+
+					<TouchableOpacity style={styles.addMoreBtn} onPress={() => setOptionGroups([...optionGroups, { name: '', minSelection: 0, maxSelection: 1, options: [] }])}>
+						<Ionicons name="add-circle" size={24} color={COLORS.primary} />
+						<Text style={[styles.addMoreText, { fontSize: 16, fontWeight: '600' }]}>Add Option Group</Text>
 					</TouchableOpacity>
 				</Section>
 
@@ -798,12 +906,68 @@ const styles = StyleSheet.create({
 		borderWidth: 1,
 		borderColor: COLORS.border,
 		borderRadius: 12,
-		paddingHorizontal: 16,
-		paddingVertical: 12,
-		fontSize: 16,
-		color: COLORS.text,
+		padding: 12,
 		marginBottom: 16,
+		fontSize: 15,
+		color: COLORS.text,
 	},
+	sectionSubtitle: {
+		fontSize: 13,
+		color: COLORS.textLight,
+		marginBottom: 12,
+		fontStyle: 'italic',
+	},
+	groupCard: {
+		backgroundColor: '#F9FAFB',
+		borderRadius: 12,
+		padding: 12,
+		marginBottom: 12,
+		borderWidth: 1,
+		borderColor: '#E5E7EB',
+	},
+	groupHeader: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		marginBottom: 8,
+		gap: 8,
+	},
+	removeGroupBtn: {
+		padding: 8,
+	},
+	groupControls: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		marginBottom: 12,
+		paddingHorizontal: 4,
+	},
+	controlRow: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 8,
+	},
+	controlLabel: {
+		fontSize: 13,
+		color: COLORS.text,
+		fontWeight: '600',
+	},
+	optionsList: {
+		borderTopWidth: 1,
+		borderTopColor: '#E5E7EB',
+		paddingTop: 12,
+	},
+	addSimpleBtn: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		paddingVertical: 8,
+		paddingHorizontal: 4,
+	},
+	addSimpleText: {
+		color: COLORS.primary,
+		fontWeight: '600',
+		fontSize: 14,
+		marginLeft: 4,
+	},
+
 	textArea: { height: 100, textAlignVertical: 'top' },
 
 	// Segment Control

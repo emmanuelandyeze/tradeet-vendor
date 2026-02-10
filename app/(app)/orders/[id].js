@@ -26,6 +26,7 @@ import {
 } from 'react-native';
 import axiosInstance from '@/utils/axiosInstance';
 import { StatusBar } from 'expo-status-bar';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import Feather from '@expo/vector-icons/Feather';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
@@ -87,6 +88,9 @@ const SingleOrderPage = () => {
 	const [paymentNote, setPaymentNote] = useState('');
 
 	const orderId = id;
+
+	const insets = useSafeAreaInsets();
+	const headerTopPadding = Math.max(insets.top, 20) + 10;
 
 	// --- Helpers ---
 	const formatOrderId = (id) => id ? `#${id.slice(-6).toUpperCase()}` : 'N/A';
@@ -356,7 +360,7 @@ const SingleOrderPage = () => {
 		<SafeAreaView style={styles.container}>
 			<StatusBar style="dark" backgroundColor={COLORS.white} />
 
-			<View style={styles.header}>
+			<View style={[styles.header, { paddingTop: headerTopPadding }]}>
 				<TouchableOpacity onPress={() => router.back()} style={styles.iconBtn}>
 					<Ionicons name="arrow-back" size={24} color={COLORS.text} />
 				</TouchableOpacity>
@@ -428,6 +432,13 @@ const SingleOrderPage = () => {
 									<Text key={`addon-${i}`} style={styles.variantText}>
 										+ {addOn.name} {addOn.quantity > 1 ? `(x${addOn.quantity})` : ''}
 										{addOn.price > 0 ? ` - ₦${(addOn.price * addOn.quantity).toLocaleString()}` : ''}
+									</Text>
+								))}
+								{/* New Option Groups Support */}
+								{item.selectedOptions?.map((opt, i) => (
+									<Text key={`opt-${i}`} style={styles.variantText}>
+										+ {opt.group ? `${opt.group}: ` : ''}{opt.name}
+										{opt.price > 0 ? ` - ₦${Number(opt.price).toLocaleString()}` : ''}
 									</Text>
 								))}
 							</View>
@@ -697,7 +708,8 @@ const styles = StyleSheet.create({
 	header: {
 		backgroundColor: COLORS.white,
 		paddingHorizontal: 20,
-		paddingVertical: 16,
+		paddingBottom: 16,
+		// paddingTop: handled inline
 		flexDirection: 'row',
 		alignItems: 'center',
 		borderBottomWidth: 1,

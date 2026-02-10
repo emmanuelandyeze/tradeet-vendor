@@ -29,7 +29,7 @@ const ActiveOrders = ({ onCountChange, ordersData, sendPushNotification }) => {
 					storeId: order?.storeId._id,
 				},
 			);
-			
+
 
 			if (response.data.order) {
 
@@ -95,6 +95,11 @@ const ActiveOrders = ({ onCountChange, ordersData, sendPushNotification }) => {
 							{item?.addOns?.map((addon, index) => (
 								<Text style={{ fontSize: 14 }} key={index}>
 									{addon.name} (x{addon.quantity})
+								</Text>
+							))}
+							{item?.selectedOptions?.map((opt, index) => (
+								<Text style={{ fontSize: 14 }} key={`opt-${index}`}>
+									{opt.group ? `${opt.group}: ` : ''}{opt.name} {opt.price > 0 ? `(+₦${opt.price})` : ''}
 								</Text>
 							))}
 						</View>
