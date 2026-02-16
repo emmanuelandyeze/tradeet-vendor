@@ -25,6 +25,7 @@ import axiosInstance from '@/utils/axiosInstance';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { AuthContext } from '@/context/AuthContext';
 import { Picker } from '@react-native-picker/picker';
+import { Platform } from 'react-native';
 
 const days = [
 	'Monday',

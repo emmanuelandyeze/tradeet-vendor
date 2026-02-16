@@ -1560,8 +1560,18 @@ const AuthProvider = ({ children }) => {
 		// Actually, trials are usually for the paid plans. 
 		// If plan is 'Starter' but isTrial is true, it means they are trialing a paid plan.
 		// For now, let's treat any trial as 'Business' access to unlock everything.
+		// Check for trial status and expiry
 		if (userInfo?.plan?.isTrial) {
-			planName = 'Business';
+			const expiryDate = userInfo.plan.expiryDate ? new Date(userInfo.plan.expiryDate) : null;
+			const isExpired = expiryDate && expiryDate < new Date();
+
+			if (!isExpired) {
+				// Active Trial gets full Business featuers
+				planName = 'Business';
+			} else {
+				// Expired Trial degrades to Starter
+				planName = 'Starter';
+			}
 		}
 
 		const capabilities = {
@@ -1644,7 +1654,8 @@ const AuthProvider = ({ children }) => {
 				isBiometricSupported,
 				isBiometricEnabled,
 				enableBiometrics,
-				disableBiometrics
+				disableBiometrics,
+				loginWithBiometrics
 			}}
 		>
 			{children}

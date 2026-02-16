@@ -144,8 +144,22 @@ const InvoiceTable = ({
 		const displayStore = getDisplayStore();
 
 		// Check subscription plan
-		const planName = (userInfo?.plan?.name || '').toLowerCase();
-		const isPremium = planName === 'pro' || planName === 'business';
+		// Check subscription plan
+		// We can rely on userInfo.plan details directly or use planName passed from parent if available.
+		// However, AuthContext's getPlanCapability logic already handles trial/expiry logic.
+		// If we are just checking for visual watermark, we should check:
+		// 1. Is it a paid plan (Pro/Business)?
+		// 2. OR is it an active trial?
+
+		const userPlanName = (userInfo?.plan?.name || '').toLowerCase();
+		const isPaidPlan = userPlanName === 'pro' || userPlanName === 'business';
+
+		const isTrial = userInfo?.plan?.isTrial;
+		const expiryDate = userInfo?.plan?.expiryDate ? new Date(userInfo.plan.expiryDate) : null;
+		const isExpired = expiryDate && expiryDate < new Date();
+		const isActiveTrial = isTrial && !isExpired;
+
+		const isPremium = isPaidPlan || isActiveTrial;
 
 		const logoUrl = displayStore.logoUrl || '';
 		const storeName = (displayStore.name || '').replace(/&/g, '&amp;');
@@ -517,8 +531,16 @@ const InvoiceTable = ({
 		const displayStore = getDisplayStore();
 
 		// Check subscription plan
-		const planName = (userInfo?.plan?.name || '').toLowerCase();
-		const isPremium = planName === 'pro' || planName === 'business';
+		// Check subscription plan
+		const userPlanName = (userInfo?.plan?.name || '').toLowerCase();
+		const isPaidPlan = userPlanName === 'pro' || userPlanName === 'business';
+
+		const isTrial = userInfo?.plan?.isTrial;
+		const expiryDate = userInfo?.plan?.expiryDate ? new Date(userInfo.plan.expiryDate) : null;
+		const isExpired = expiryDate && expiryDate < new Date();
+		const isActiveTrial = isTrial && !isExpired;
+
+		const isPremium = isPaidPlan || isActiveTrial;
 
 		const logoUrl = displayStore.logoUrl || '';
 		const storeName = (displayStore.name || '').replace(/&/g, '&amp;');

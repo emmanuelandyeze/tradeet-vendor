@@ -26,6 +26,11 @@ const ProfileScreen = () => {
 	const insets = useSafeAreaInsets();
 	const headerTopPadding = Math.max(insets.top, 20) + 10;
 
+	// Check for trial expiry to show message
+	const isTrial = userInfo?.plan?.isTrial;
+	const expiryDate = userInfo?.plan?.expiryDate ? new Date(userInfo.plan.expiryDate) : null;
+	const isExpired = expiryDate && expiryDate < new Date();
+
 	// Open website
 	const handleOpenWebsite = () => {
 		const storeStart = selectedStore || userInfo;
@@ -139,7 +144,7 @@ const ProfileScreen = () => {
 					disabled: true
 				},
 				// Biometric Toggle
-				...(!isBiometricSupported ? [{
+				...(isBiometricSupported ? [{
 					id: 'bio-auth',
 					title: 'Biometric Login',
 					icon: Platform.OS === 'ios' ? 'face-id' : 'finger-print', // Ionicons might not have face-id, checking below
@@ -179,6 +184,27 @@ const ProfileScreen = () => {
 			</View>
 
 			<ScrollView contentContainerStyle={{ paddingBottom: 40, paddingTop: 16 }}>
+
+				{/* Trial Expired Banner */}
+				{isExpired && (
+					<View style={styles.expiredBanner}>
+						<Ionicons name="alert-circle" size={24} color="#B45309" />
+						<View style={{ flex: 1 }}>
+							<Text style={styles.expiredTitle}>Trial Expired</Text>
+							<Text style={styles.expiredText}>
+								Your free trial has ended. Premium features are now disabled.
+								Upgrade to a paid plan to restore full access.
+							</Text>
+						</View>
+						<TouchableOpacity
+							style={styles.upgradeBannerBtn}
+							onPress={() => router.push('/(app)/subscription')}
+						>
+							<Text style={styles.upgradeBannerText}>Upgrade</Text>
+						</TouchableOpacity>
+					</View>
+				)}
+
 				{/* My Businesses Section */}
 				<View style={styles.section}>
 					<Text style={styles.sectionTitle}>My Businesses</Text>
@@ -469,5 +495,39 @@ const styles = StyleSheet.create({
 		color: '#065637',
 		fontWeight: '600',
 		fontSize: 15,
+	},
+	expiredBanner: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		backgroundColor: '#FFFBEB',
+		marginHorizontal: 20,
+		marginBottom: 24,
+		padding: 16,
+		borderRadius: 12,
+		borderWidth: 1,
+		borderColor: '#FCD34D',
+		gap: 12,
+	},
+	expiredTitle: {
+		fontSize: 15,
+		fontWeight: '700',
+		color: '#92400E',
+	},
+	expiredText: {
+		fontSize: 13,
+		color: '#B45309',
+		marginTop: 2,
+		lineHeight: 18,
+	},
+	upgradeBannerBtn: {
+		backgroundColor: '#B45309',
+		paddingHorizontal: 12,
+		paddingVertical: 8,
+		borderRadius: 8,
+	},
+	upgradeBannerText: {
+		color: '#FFF',
+		fontSize: 13,
+		fontWeight: '700',
 	},
 });

@@ -115,13 +115,18 @@ const HomeScreen = ({ userInfo }) => {
 		}
 	};
 
+	// Trial Logic
+	const isTrial = userInfo?.plan?.isTrial;
+	const expiryDate = userInfo?.plan?.expiryDate ? new Date(userInfo.plan.expiryDate) : null;
+	const isExpired = expiryDate && expiryDate < new Date();
+
 	const getRemainingTrialDays = () => {
-		if (!userInfo?.plan?.isTrial || !userInfo?.plan?.expiryDate) return null;
-		const expiry = new Date(userInfo.plan.expiryDate);
+		if (!isTrial || !expiryDate) return null;
 		const now = new Date();
-		const diff = expiry - now;
+		const diff = expiryDate - now;
+		// If expired, diff is negative
 		const days = Math.ceil(diff / (1000 * 60 * 60 * 24));
-		return days > 0 ? days : 0;
+		return days;
 	};
 
 	const trialDays = getRemainingTrialDays();
@@ -352,22 +357,27 @@ const HomeScreen = ({ userInfo }) => {
 					<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#065637" />
 				}
 			>
-				{trialDays !== null && (
+				{isTrial && (
 					<TouchableOpacity
-						style={styles.trialBanner}
+						style={[styles.trialBanner, isExpired && styles.trialBannerExpired]}
 						onPress={() => router.push('/(app)/subscription')}
 						activeOpacity={0.9}
 					>
-						<View style={styles.trialBannerIcon}>
-							<Ionicons name="gift" size={20} color="#6366f1" />
+						<View style={[styles.trialBannerIcon, isExpired && styles.trialBannerIconExpired]}>
+							<Ionicons name={isExpired ? "alert-circle" : "gift"} size={20} color={isExpired ? "#B45309" : "#6366f1"} />
 						</View>
 						<View style={{ flex: 1 }}>
-							<Text style={styles.trialBannerTitle}>14-Day Business Trial Active</Text>
-							<Text style={styles.trialBannerSub}>
-								{trialDays > 0 ? `${trialDays} days remaining` : 'Last day of trial'} — Enjoy all premium features!
+							<Text style={[styles.trialBannerTitle, isExpired && styles.trialBannerTitleExpired]}>
+								{isExpired ? 'Trial Expired' : '14-Day Business Trial Active'}
+							</Text>
+							<Text style={[styles.trialBannerSub, isExpired && styles.trialBannerSubExpired]}>
+								{isExpired
+									? 'Your trial has ended. Upgrade to continue using premium features.'
+									: `${trialDays > 0 ? trialDays : 0} days remaining — Enjoy all premium features!`
+								}
 							</Text>
 						</View>
-						<Ionicons name="chevron-forward" size={18} color="#6366f1" />
+						<Ionicons name="chevron-forward" size={18} color={isExpired ? "#B45309" : "#6366f1"} />
 					</TouchableOpacity>
 				)}
 
@@ -507,6 +517,7 @@ const styles = StyleSheet.create({
 		fontWeight: '700',
 		color: '#111827',
 	},
+	// Active Trial Styles
 	trialBanner: {
 		marginHorizontal: 16,
 		marginBottom: 16,
@@ -536,5 +547,21 @@ const styles = StyleSheet.create({
 		fontSize: 12,
 		color: '#4338CA',
 		marginTop: 2,
+		lineHeight: 18,
+	},
+
+	// Expired Trial Styles
+	trialBannerExpired: {
+		backgroundColor: '#FFFBEB',
+		borderColor: '#FCD34D',
+	},
+	trialBannerIconExpired: {
+		backgroundColor: '#FFF7ED',
+	},
+	trialBannerTitleExpired: {
+		color: '#92400E',
+	},
+	trialBannerSubExpired: {
+		color: '#B45309',
 	},
 });
