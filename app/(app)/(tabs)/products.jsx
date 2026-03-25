@@ -28,6 +28,7 @@ import { ProductsContext } from '@/context/ProductsContext';
 import { AuthContext } from '@/context/AuthContext';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import SkeletonLoader from '@/components/SkeletonLoader';
 
 const DEFAULT_THUMB =
 	'https://res.cloudinary.com/demo/image/upload/v1690000000/placeholder.png';
@@ -423,7 +424,9 @@ const Products = () => {
 				}}
 				onEndReachedThreshold={0.5}
 				ListEmptyComponent={
-					!loading && (
+					loading ? (
+						<SkeletonLoader type="products" count={6} />
+					) : (
 						<View style={styles.emptyState}>
 							<View style={styles.emptyIconBg}>
 								<Ionicons name="cube-outline" size={48} color="#9CA3AF" />

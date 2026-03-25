@@ -46,7 +46,7 @@ const StatsGrid = ({
 								₦{totalIncomeAmount?.toLocaleString() || '0'}
 							</Text>
 						) : (
-							<View style={styles.hiddenValue} />
+							<Text style={styles.hiddenTextValue}>••••••••</Text>
 						)
 					)}
 				</View>
@@ -70,7 +70,7 @@ const StatsGrid = ({
 									₦{totalInvoiceAmount?.toLocaleString() || '0'}
 								</Text>
 							) : (
-								<View style={styles.hiddenValue} />
+								<Text style={styles.hiddenTextValue}>••••••••</Text>
 							)}
 							<View style={styles.subTextContainer}>
 								<Text style={styles.subText}>
@@ -100,7 +100,7 @@ const StatsGrid = ({
 								₦{totalPendingAmount?.toLocaleString() || '0'}
 							</Text>
 						) : (
-							<View style={styles.hiddenValue} />
+							<Text style={styles.hiddenTextValue}>••••••••</Text>
 						)
 					)}
 				</View>
@@ -123,7 +123,7 @@ const StatsGrid = ({
 								₦{totalExpensesAmount?.toLocaleString() || '0'}
 							</Text>
 						) : (
-							<View style={styles.hiddenValue} />
+							<Text style={styles.hiddenTextValue}>••••••••</Text>
 						)
 					)}
 				</View>
@@ -189,11 +189,12 @@ const styles = StyleSheet.create({
 		color: '#111827',
 		letterSpacing: -0.5,
 	},
-	hiddenValue: {
-		backgroundColor: '#E5E7EB',
-		borderRadius: 4,
-		width: '70%',
-		height: 24,
+	hiddenTextValue: {
+		fontSize: 18,
+		fontWeight: '800',
+		color: '#9CA3AF',
+		letterSpacing: 2,
+		marginTop: 2, // Slight adjustment for dots alignment
 	},
 	subTextContainer: {
 		flexDirection: 'row',

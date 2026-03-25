@@ -5,6 +5,7 @@ import React, {
 	useEffect,
 	useState,
 } from 'react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import {
 	RefreshControl,
 	View,
@@ -36,23 +37,25 @@ import UpgradeButton from './UpgradeButton';
 
 const { width } = Dimensions.get('window');
 
+let hasHomeScreenLoadedBefore = false;
+
 const HomeScreen = ({ userInfo }) => {
 	const router = useRouter();
 	const { selectedStore, getPlanCapability } = useContext(AuthContext);
 	const hasAdvancedAnalytics = getPlanCapability('hasAdvancedAnalytics');
 
+	const previousStoreRef = React.useRef(selectedStore?._id);
+	if (previousStoreRef.current !== selectedStore?._id) {
+		hasHomeScreenLoadedBefore = false;
+		previousStoreRef.current = selectedStore?._id;
+	}
+
+	const queryClient = useQueryClient();
+
 	// State
-	const [loading, setLoading] = useState(true);
 	const [refreshing, setRefreshing] = useState(false);
 	const [viewValues, setViewValues] = useState(true);
-
-	// Data
-	const [businessData, setBusinessData] = useState(null);
-	const [orders, setOrders] = useState([]);
 	const [filteredOrders, setFilteredOrders] = useState([]);
-	const [invoices, setInvoices] = useState([]);
-	const [expenses, setExpenses] = useState([]);
-	const [wallet, setWallet] = useState(0);
 
 	// Filters
 	const [orderFilter, setOrderFilter] = useState('new');
@@ -61,59 +64,89 @@ const HomeScreen = ({ userInfo }) => {
 	const [selectedFinancialWeek, setSelectedFinancialWeek] = useState(null);
 
 	// --- Fetching Logic ---
+	const targetStoreId = selectedStore?.parent || selectedStore?._id;
+	const branchQuery = selectedStore?.parent ? `?branchId=${selectedStore._id}` : '';
 
-	const fetchData = async () => {
-		if (!selectedStore?._id) return;
-		try {
-			// Business Info
-			const storeRes = await axiosInstance.get(`/stores/?id=${selectedStore._id}`);
-			setBusinessData(storeRes.data.store);
-
-			// Orders
-			const targetStoreId = selectedStore.parent || selectedStore._id;
-			const branchQuery = selectedStore.parent ? `?branchId=${selectedStore._id}` : '';
-
-			const ordersRes = await axiosInstance.get(
-				`/orders/store/${targetStoreId}${branchQuery}`
-			);
-			const ordersData = Array.isArray(ordersRes.data)
-				? ordersRes.data
-				: ordersRes.data.orders ?? ordersRes.data;
-			setOrders((ordersData || []).slice().reverse());
-
-			// Invoices
-			const invParams = {
-				storeId: selectedStore.parent || selectedStore._id,
-			};
-			if (selectedStore.parent) {
-				invParams.branchId = selectedStore._id;
+	const storeQuery = useQuery({
+		queryKey: ['store', selectedStore?._id],
+		queryFn: async () => {
+			try {
+				const res = await axiosInstance.get(`/stores/?id=${selectedStore._id}`);
+				return res.data.store;
+			} catch (err) {
+				return null;
 			}
+		},
+		enabled: !!selectedStore?._id,
+	});
 
-			const invRes = await axiosInstance.get('/invoices', {
-				params: invParams,
-			});
-			const invData = Array.isArray(invRes.data)
-				? invRes.data
-				: invRes.data.invoices ?? invRes.data;
-			setInvoices(
-				(invData || []).slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt))
-			);
+	const ordersQuery = useQuery({
+		queryKey: ['orders', targetStoreId, branchQuery],
+		queryFn: async () => {
+			try {
+				const res = await axiosInstance.get(`/orders/store/${targetStoreId}${branchQuery}`);
+				const data = Array.isArray(res.data) ? res.data : res.data.orders ?? res.data;
+				return (data || []).slice().reverse();
+			} catch (err) {
+				return [];
+			}
+		},
+		enabled: !!targetStoreId,
+	});
 
-			// Expenses
-			// Expenses
-			const expRes = await axiosInstance.get(`/expenses/${targetStoreId}`);
-			setExpenses(expRes.data.expenses || []);
+	const invoicesQuery = useQuery({
+		queryKey: ['invoices', targetStoreId, selectedStore?.parent ? selectedStore._id : null],
+		queryFn: async () => {
+			try {
+				const params = { storeId: targetStoreId };
+				if (selectedStore?.parent) params.branchId = selectedStore._id;
+				const res = await axiosInstance.get('/invoices', { params });
+				const data = Array.isArray(res.data) ? res.data : res.data.invoices ?? res.data;
+				return (data || []).slice().sort((a, b) => new Date(b.createdAt) - new Date(a.createdAt));
+			} catch (err) {
+				return [];
+			}
+		},
+		enabled: !!targetStoreId,
+	});
 
-			// Wallet
-			const walletRes = await axiosInstance.get(`/businesses/wallet/${selectedStore._id}`);
-			setWallet(walletRes.data.walletBalance);
+	const expensesQuery = useQuery({
+		queryKey: ['expenses', targetStoreId],
+		queryFn: async () => {
+			try {
+				const res = await axiosInstance.get(`/expenses/${targetStoreId}`);
+				return res.data.expenses || [];
+			} catch (err) {
+				return [];
+			}
+		},
+		enabled: !!targetStoreId,
+	});
 
-		} catch (error) {
-			console.log('Error fetching dashboard data:', error?.message);
-		} finally {
-			setLoading(false);
-		}
-	};
+	const walletQuery = useQuery({
+		queryKey: ['wallet', selectedStore?._id],
+		queryFn: async () => {
+			try {
+				const res = await axiosInstance.get(`/businesses/wallet/${selectedStore._id}`);
+				return res.data.walletBalance;
+			} catch (err) {
+				return 0;
+			}
+		},
+		enabled: !!selectedStore?._id,
+	});
+
+	if (storeQuery.data && ordersQuery.data) {
+		hasHomeScreenLoadedBefore = true;
+	}
+
+	const loading = !hasHomeScreenLoadedBefore && (storeQuery.isPending || ordersQuery.isPending);
+
+	const businessData = storeQuery.data || null;
+	const orders = ordersQuery.data || [];
+	const invoices = invoicesQuery.data || [];
+	const expenses = expensesQuery.data || [];
+	const wallet = walletQuery.data || 0;
 
 	// Trial Logic
 	const isTrial = userInfo?.plan?.isTrial;
@@ -131,29 +164,30 @@ const HomeScreen = ({ userInfo }) => {
 
 	const trialDays = getRemainingTrialDays();
 
-	useEffect(() => {
-		if (selectedStore) {
-			setLoading(true);
-			fetchData();
-		}
-	}, [selectedStore]);
-
-	const onRefresh = useCallback(() => {
+	const onRefresh = useCallback(async () => {
 		setRefreshing(true);
-		fetchData().then(() => setRefreshing(false));
-	}, [selectedStore]);
+		await Promise.all([
+			storeQuery.refetch(),
+			ordersQuery.refetch(),
+			invoicesQuery.refetch(),
+			expensesQuery.refetch(),
+			walletQuery.refetch(),
+		]);
+		setRefreshing(false);
+	}, [storeQuery, ordersQuery, invoicesQuery, expensesQuery, walletQuery]);
 
 	// --- Socket Logic ---
 
 	useEffect(() => {
+		const orderQueryKey = ['orders', targetStoreId, branchQuery];
 		const handleOrderUpdate = (updated) => {
-			setOrders((prev) => prev.map((o) => (o._id === updated._id ? updated : o)));
+			queryClient.setQueryData(orderQueryKey, (old) => old ? old.map((o) => (o._id === updated._id ? updated : o)) : old);
 		};
 		const handleNewOrder = (newOrder) => {
-			setOrders((prev) => [newOrder, ...prev]);
+			queryClient.setQueryData(orderQueryKey, (old) => old ? [newOrder, ...old] : old);
 		};
 		const handleDeleteOrder = (id) => {
-			setOrders((prev) => prev.filter((o) => o._id !== id));
+			queryClient.setQueryData(orderQueryKey, (old) => old ? old.filter((o) => o._id !== id) : old);
 		};
 
 		socket.on('orderUpdate', handleOrderUpdate);
@@ -165,7 +199,7 @@ const HomeScreen = ({ userInfo }) => {
 			socket.off('newOrder', handleNewOrder);
 			socket.off('deleteOrder', handleDeleteOrder);
 		};
-	}, []);
+	}, [targetStoreId, branchQuery, queryClient]);
 
 	// --- Filtering Logic (Orders) ---
 
@@ -264,45 +298,8 @@ const HomeScreen = ({ userInfo }) => {
 		if (paid === 0 && o.payment?.providerData?.amountPaid) {
 			paid = o.payment.providerData.amountPaid;
 		}
-		// If paid includes fee, we subtract fee from paid too for "net paid".
-		// Actually outstanding = NetTotal - NetPaid. 
-		// If paid >= grossTotal, outstanding is 0.
-		// If paid < grossTotal, outstanding is grossTotal - paid. 
-		// We want vendor outstanding: (grossTotal - fee) - (paid - fee_paid).
-		// Simplest: Outstanding = max(0, totalAmount - paid). If totalAmount = 105 (100 item + 5 fee) and paid = 105. Outstanding = 0. Vendor gets 100.
-		// If totalAmount = 105, paid = 0. Outstanding = 105. Vendor View: Outstanding = 100.
-		// So yes, subtract fee from outstanding too.
-		const realUniqueOutstanding = Math.max(0, grossTotal - paid);
-		// If part paid, e.g. paid 50. Outstanding 55. Fee 5. Vendor share of outstanding? 
-		// Let's just subtract fee from total outstanding if not fully paid? 
-		// Actually, simpler: Vendor Revenue = Total - Fee. Vendor Outstanding = max(0, (Total - Fee) - (Paid - FeeAllocated)).
-		// Assuming Fee is paid first.
-		// Let's stick to simple: Vendor Outstanding = TotalOutstanding - RemainingFee. 
-		// If TotalOutstanding > Fee, then VendorOutstanding = TotalOutstanding - Fee. (Assumes Fee is unpaid).
-		// If TotalOutstanding <= Fee, then VendorOutstanding = 0 (only fee left).
-		// BUT usually platform fee is deducted at payout or source.
-		// Let's just do: NetOrderValue = Total - Fee. PaidValue = Paid. 
-		// Outstanding = max(0, NetOrderValue - Paid). (This assumes Paid pays for vendor items first? No usually fee first).
-		// If Fee is first: Paid 5. Fee 5. Net Paid to Vendor 0. Net Order Value 100. Outstanding 100.
-		// Correct logc: Outstanding = max(0, totalAmount - paid).
-		// Display Outstanding = max(0, Outstanding - (Fee - Paid_towards_fee)).
-		// If paid covers fee (paid >= fee), then DisplayOutstanding = Outstanding.
-		// If paid < fee, then DisplayOutstanding = Outstanding - (Fee - Paid).
-		// actually:
-		// Vendor Total = T - F
-		// Vendor Paid = max(0, P - F)
-		// Vendor Outstanding = Vendor Total - Vendor Paid = (T-F) - (P-F) = T-P = Normal Outstanding.
-		// WAIT. If P < F. Vendor Paid = 0. Vendor Total = T-F. Vendor Outstanding = T-F.
-		// Normal Outstanding = T - P.
-		// Diff = (T-F) - (T-P) = P - F. (Negative).
-		// Example: T=105, F=5, P=2. 
-		// Normal Out = 103.
-		// Vendor Total = 100. Vendor Paid = 0. Vendor Out = 100.
-		// So if P < F, Vendor Out < Normal Out.
 
-		// To be safe and simple given the prompt "only vendor earnings":
-		// We will treat "Income" as "Net Paid to Vendor" (Paid - Fee).
-		// And "Outstanding" as "Net Receivable" (TotalNet - NetPaid).
+		const realUniqueOutstanding = Math.max(0, grossTotal - paid);
 
 		const discount = o.discountAmount || 0;
 		const paidNet = Math.max(0, paid - fee);
@@ -387,11 +384,15 @@ const HomeScreen = ({ userInfo }) => {
 					<View style={styles.sectionHeader}>
 						<View style={styles.titleRow}>
 							<Text style={styles.sectionTitle}>Overview</Text>
-							<TouchableOpacity onPress={() => setViewValues(!viewValues)}>
+							<TouchableOpacity
+								onPress={() => setViewValues(!viewValues)}
+								style={styles.eyeToggleBtn}
+								activeOpacity={0.7}
+							>
 								<Ionicons
 									name={viewValues ? 'eye-outline' : 'eye-off-outline'}
-									size={20}
-									color="#6B7280"
+									size={16}
+									color="#4B5563"
 								/>
 							</TouchableOpacity>
 						</View>
@@ -516,6 +517,14 @@ const styles = StyleSheet.create({
 		fontSize: 18,
 		fontWeight: '700',
 		color: '#111827',
+	},
+	eyeToggleBtn: {
+		backgroundColor: '#F3F4F6',
+		paddingHorizontal: 8,
+		paddingVertical: 6,
+		borderRadius: 12,
+		borderWidth: 1,
+		borderColor: '#E5E7EB',
 	},
 	// Active Trial Styles
 	trialBanner: {

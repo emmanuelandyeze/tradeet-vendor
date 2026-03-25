@@ -2,6 +2,7 @@ import {
 	useLocalSearchParams,
 	useRouter,
 } from 'expo-router';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import React, {
 	useContext,
 	useEffect,
@@ -31,6 +32,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import Feather from '@expo/vector-icons/Feather';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { AuthContext } from '@/context/AuthContext';
+import SkeletonLoader from '@/components/SkeletonLoader';
 
 const COLORS = {
 	primary: '#065637',
@@ -58,10 +60,9 @@ const ALL_STATUSES = [
 ];
 
 const SingleOrderPage = () => {
-	const { userInfo, sendPushNotification } = useContext(AuthContext);
+	const { userInfo, selectedStore, sendPushNotification } = useContext(AuthContext);
 	const { id } = useLocalSearchParams();
-	const [order, setOrder] = useState(null);
-	const [loading, setLoading] = useState(true);
+	const queryClient = useQueryClient();
 	const [isSubmitting, setIsSubmitting] = useState(false);
 	const router = useRouter();
 
@@ -74,8 +75,6 @@ const SingleOrderPage = () => {
 	const [runnerLoading, setRunnerLoading] = useState(false);
 	const [showStatusModal, setShowStatusModal] = useState(false);
 	const [statusUpdating, setStatusUpdating] = useState(false);
-	const [showSelfDeliveryModal, setShowSelfDeliveryModal] = useState(false);
-	const [selfDeliveryCode, setSelfDeliveryCode] = useState('');
 	const [expandedSections, setExpandedSections] = useState({
 		items: true,
 		summary: true,
@@ -96,32 +95,30 @@ const SingleOrderPage = () => {
 	const formatOrderId = (id) => id ? `#${id.slice(-6).toUpperCase()}` : 'N/A';
 
 	// --- Data Fetching ---
-	const fetchOrderDetails = useCallback(async () => {
-		setLoading(true);
-		try {
+	const { data: orderData, isLoading: loading, refetch: fetchOrderDetails } = useQuery({
+		queryKey: ['orderDetail', orderId],
+		queryFn: async () => {
 			const response = await axiosInstance.get(`/orders/${orderId}`);
-			setOrder(response.data.order);
+			return response.data;
+		},
+		enabled: !!orderId,
+	});
 
-			if (response.data.customerInfo?.pickUp === true) {
+	const order = orderData?.order || null;
+
+	useEffect(() => {
+		if (orderData) {
+			if (orderData.customerInfo?.pickUp === true) {
 				setDeliveryType('customer_pickup');
-			} else if (response.data.deliveryOption) {
-				setDeliveryType(response.data.deliveryOption);
-			} else if (response.data.runnerInfo?.runnerId) {
+			} else if (orderData.deliveryOption) {
+				setDeliveryType(orderData.deliveryOption);
+			} else if (orderData.runnerInfo?.runnerId) {
 				setDeliveryType('assigned');
 			} else {
 				setDeliveryType('');
 			}
-		} catch (error) {
-			Alert.alert('Error', 'Failed to fetch order details.');
-			console.error('Error fetching order:', error);
-		} finally {
-			setLoading(false);
 		}
-	}, [orderId]);
-
-	useEffect(() => {
-		fetchOrderDetails();
-	}, [fetchOrderDetails]);
+	}, [orderData]);
 
 	// --- Fetch Runners ---
 	const fetchDeliveryPersonnel = async () => {
@@ -132,10 +129,10 @@ const SingleOrderPage = () => {
 				setAvailableRunners(personnelFromOrder);
 				return;
 			}
-			const storeId = order?.storeId?._id || order?.storeId;
+			const storeId = selectedStore?._id || order?.storeId?._id || order?.storeId;
 			if (!storeId) return;
 
-			const resp = await axiosInstance.get(`/stores?id=${storeId}`);
+			const resp = await axiosInstance.get(`delivery/stores/${storeId}`);
 			setAvailableRunners(resp.data?.deliverySettings?.personnel || []);
 		} catch (error) {
 			Alert.alert('Error', 'Failed to fetch delivery personnel.');
@@ -170,6 +167,97 @@ const SingleOrderPage = () => {
 	};
 
 	// --- Actions ---
+	const sendWhatsApp = (runner, phone, fullDetails) => {
+		const formatWA = (p) => {
+			if (!p) return null;
+			const clean = p.replace(/[^0-9+]/g, '');
+			let formatted = clean;
+			if (formatted.startsWith('0') && formatted.length === 11) {
+				formatted = '234' + formatted.substring(1);
+			} else if (formatted.startsWith('+')) {
+				formatted = formatted.substring(1);
+			}
+			return formatted;
+		};
+
+		const storeName = order?.storeId?.name || 'Tradeet Store';
+		const vendorPhone = order?.storeId?.owner?.phone || order?.storeId?.phone;
+		const customerPhone = order?.customerInfo?.contact;
+
+		let text = `📦 *NEW DELIVERY ASSIGNMENT*\n`;
+		text += `--------------------------------\n`;
+		text += `*Order:* #${order?.orderNumber || '00000'}\n`;
+		text += `*Store:* ${storeName}\n`;
+		text += `*Customer:* ${order?.customerInfo?.name || 'Guest'}\n`;
+		text += `*Address:* ${order?.customerInfo?.address || 'N/A'}\n`;
+
+		if (fullDetails) {
+			text += `\n*ITEMS:*\n`;
+			order?.items?.forEach(item => {
+				text += `- ${item.quantity}x ${item.name}`;
+
+				const details = [];
+				if (item.variants?.length > 0) {
+					details.push(...item.variants.map(v => v.name));
+				}
+				if (item.selectedOptions?.length > 0) {
+					details.push(...item.selectedOptions.map(o => `${o.group}: ${o.name}`));
+				}
+				if (item.addOns?.length > 0) {
+					details.push(...item.addOns.map(a => `+${a.name}`));
+				}
+
+				if (details.length > 0) {
+					text += ` (${details.join(', ')})`;
+				}
+				text += `\n`;
+			});
+			text += `\n*TOTAL:* ₦${((order?.totalAmount || order?.itemsAmount || 0) + (order?.deliveryFee || 0)).toLocaleString()}\n`;
+			text += `*PAYMENT:* ${order?.payment?.status === 'paid' ? 'PAID ✅' : 'NOT PAID ❌'}\n`;
+		}
+
+		text += `\n--------------------------------\n`;
+		text += `📱 *QUICK LINKS:*\n`;
+
+		const customerWA = formatWA(customerPhone);
+		if (customerWA) text += `Chat with Customer: https://wa.me/${customerWA}\n`;
+
+		const vendorWA = formatWA(vendorPhone);
+		if (vendorWA) text += `Chat with Vendor: https://wa.me/${vendorWA}\n`;
+
+		text += `\n_Please confirm when you receive this message._`;
+
+		const runnerWA = formatWA(phone);
+		const fullUrl = `https://wa.me/${runnerWA}?text=${encodeURIComponent(text)}`;
+
+		Linking.canOpenURL(fullUrl).then(supported => {
+			if (supported) {
+				Linking.openURL(fullUrl);
+			} else {
+				showToast('WhatsApp not installed.');
+			}
+		}).catch(() => {
+			Linking.openURL(fullUrl);
+		});
+	};
+
+	const promptWhatsAppDelivery = (runner) => {
+		const phone = runner.whatsapp || runner.phone || runner.contact;
+		if (!phone) {
+			return; // quietly skip if no phone available
+		}
+
+		Alert.alert(
+			'Runner Assigned!',
+			`Send order details to ${runner.name} on WhatsApp?`,
+			[
+				{ text: 'Cancel', style: 'cancel' },
+				{ text: 'Summary Only', onPress: () => sendWhatsApp(runner, phone, false) },
+				{ text: 'Full Details', onPress: () => sendWhatsApp(runner, phone, true) }
+			]
+		);
+	};
+
 	const handleUpdateOrderStatus = async (status) => {
 		if (!status) return;
 		setStatusUpdating(true);
@@ -177,6 +265,8 @@ const SingleOrderPage = () => {
 			const response = await axiosInstance.patch(`/orders/${orderId}/status`, { status });
 			if (response.status === 200) {
 				await fetchOrderDetails();
+				await queryClient.invalidateQueries({ queryKey: ['ordersList'] });
+				await queryClient.invalidateQueries({ queryKey: ['orders'] });
 				showToast(`Order updated to ${status}.`);
 				setShowStatusModal(false);
 				const refreshed = response.data?.order || (await axiosInstance.get(`/orders/${orderId}`)).data;
@@ -200,6 +290,8 @@ const SingleOrderPage = () => {
 		try {
 			await axiosInstance.patch(`/orders/${orderId}/payment-status`, { status: 'paid' });
 			await fetchOrderDetails();
+			await queryClient.invalidateQueries({ queryKey: ['ordersList'] });
+			await queryClient.invalidateQueries({ queryKey: ['orders'] });
 			const refreshed = (await axiosInstance.get(`/orders/${orderId}`)).data;
 			if (refreshed?.storeId?.expoPushToken) {
 				sendPushNotification(
@@ -217,7 +309,7 @@ const SingleOrderPage = () => {
 
 	const handleCompleteDelivery = async (code) => {
 		const codeToSend = code ?? deliveryCode;
-		if ((['self', 'assigned'].includes(deliveryType) || order.customerInfo?.pickUp) && codeToSend?.length !== 4) {
+		if ((['assigned'].includes(deliveryType) || order.customerInfo?.pickUp) && codeToSend?.length !== 4) {
 			return Alert.alert('Invalid Code', 'Enter a valid 4-digit code.');
 		}
 
@@ -225,6 +317,8 @@ const SingleOrderPage = () => {
 		try {
 			await axiosInstance.post(`/businesses/${userInfo?._id}/order/${orderId}/delivered`, { deliveryCode: codeToSend });
 			await fetchOrderDetails();
+			await queryClient.invalidateQueries({ queryKey: ['ordersList'] });
+			await queryClient.invalidateQueries({ queryKey: ['orders'] });
 			showToast('Order marked as delivered!');
 			if (order?.payment?.status !== 'paid') await handleProcessPaymentToRestaurant();
 			if (order?.customerInfo?.expoPushToken) {
@@ -252,6 +346,8 @@ const SingleOrderPage = () => {
 				note: paymentNote,
 			});
 			await fetchOrderDetails();
+			await queryClient.invalidateQueries({ queryKey: ['ordersList'] });
+			await queryClient.invalidateQueries({ queryKey: ['orders'] });
 			showToast('Payment recorded successfully!');
 			setShowRecordPaymentModal(false);
 
@@ -269,11 +365,19 @@ const SingleOrderPage = () => {
 		if (!runner) return;
 		setIsSubmitting(true);
 		try {
-			await axiosInstance.post(`/orders/${orderId}/assign-runner`, { runnerId: runner._id });
+			// Using WhatsApp phone number as the unique identifier for robust matching
+			await axiosInstance.post(`/orders/${orderId}/assign-runner`, {
+				runnerId: runner.whatsapp || runner._id || runner.name,
+				branchId: selectedStore?._id || order?.branchId?._id || order?.branchId
+			});
 			await fetchOrderDetails();
+			await queryClient.invalidateQueries({ queryKey: ['ordersList'] });
+			await queryClient.invalidateQueries({ queryKey: ['orders'] });
 			showToast(`${runner.name} assigned!`);
 			if (runner.expoPushToken) sendPushNotification(runner.expoPushToken, 'New Delivery Assignment!', `Order ${formatOrderId(order.orderNumber)} assigned.`);
 			setShowRunnerModal(false);
+
+
 		} catch (error) {
 			Alert.alert('Error', 'Failed to assign runner.');
 		} finally {
@@ -291,6 +395,8 @@ const SingleOrderPage = () => {
 					try {
 						await axiosInstance.patch(`/orders/${orderId}/clear-runner`);
 						await fetchOrderDetails();
+						await queryClient.invalidateQueries({ queryKey: ['ordersList'] });
+						await queryClient.invalidateQueries({ queryKey: ['orders'] });
 						setDeliveryType('unassigned');
 						showToast('Runner removed.');
 					} catch (error) {
@@ -303,47 +409,29 @@ const SingleOrderPage = () => {
 		]);
 	};
 
-	const handleSelectDeliveryType = async (type) => {
-		if (type === 'assigned' && order?.runnerInfo?.runnerId) {
-			return Alert.alert('Reassign Runner?', 'Do you want to change the runner?', [
+	const openRunnerModal = async () => {
+		if (order?.runnerInfo?.runnerId) {
+			return Alert.alert('Reassign Runner?', 'Do you want to change the currently assigned runner?', [
 				{ text: 'No', style: 'cancel' },
 				{
 					text: 'Yes', onPress: async () => {
-						setDeliveryType(type);
 						await fetchDeliveryPersonnel();
 						setShowRunnerModal(true);
 					}
 				}
 			]);
 		}
-		if (deliveryType === type) return;
 
-		setIsSubmitting(true);
-		try {
-			if (type === 'self') {
-				setShowSelfDeliveryModal(true); setIsSubmitting(false); return;
-			}
-			setDeliveryType(type);
-			if (type === 'assigned') {
-				await fetchDeliveryPersonnel(); setShowRunnerModal(true);
-			} else if (type === 'self' && order?.runnerInfo?.runnerId) {
-				await axiosInstance.patch(`/orders/${orderId}/clear-runner`);
-				await fetchOrderDetails();
-			}
-			await fetchOrderDetails();
-		} catch (error) {
-			Alert.alert('Error', 'Failed to set delivery type.');
-		} finally {
-			setIsSubmitting(false);
-		}
+		await fetchDeliveryPersonnel();
+		setShowRunnerModal(true);
 	};
 
-	if (loading) return <View style={styles.center}><ActivityIndicator size="large" color={COLORS.primary} /></View>;
+	if (loading) return <SkeletonLoader type="detail" headerTopPadding={headerTopPadding} />;
 	if (!order) return <View style={styles.center}><Text>Order not found</Text><TouchableOpacity onPress={fetchOrderDetails}><Text style={{ color: COLORS.primary }}>Retry</Text></TouchableOpacity></View>;
 
 	const isStatusUpdatable = !['completed', 'cancelled', 'rejected', 'refunded'].includes(order.status);
 	const isRunnerAssigned = order.runnerInfo && order.runnerInfo.runnerId;
-	const shouldShowCompleteDeliverySection = order.status === 'accepted' && (order.customerInfo?.pickUp || deliveryType === 'self' || isRunnerAssigned);
+	const shouldShowCompleteDeliverySection = order.status === 'accepted' && (order.customerInfo?.pickUp || isRunnerAssigned);
 	const showDeliveryMethod = ['accepted', 'processing', 'out-for-delivery'].includes(order?.status) && !order.customerInfo?.pickUp;
 
 	const Card = ({ title, children, expanded, onToggle }) => (
@@ -438,7 +526,7 @@ const SingleOrderPage = () => {
 								{item.selectedOptions?.map((opt, i) => (
 									<Text key={`opt-${i}`} style={styles.variantText}>
 										+ {opt.group ? `${opt.group}: ` : ''}{opt.name}
-										{opt.price > 0 ? ` - ₦${Number(opt.price).toLocaleString()}` : ''}
+										{opt.price > 0 ? ` - ₦${Number(opt.price).toLocaleString()} (x${opt.quantity})` : ''}
 									</Text>
 								))}
 							</View>
@@ -449,23 +537,15 @@ const SingleOrderPage = () => {
 
 				{/* Delivery Method */}
 				{showDeliveryMethod && (
-					<Card title="Delivery Method">
-						<View style={styles.deliverySelector}>
+					<Card title="Delivery Assignment">
+						{!isRunnerAssigned ? (
 							<TouchableOpacity
-								style={[styles.deliveryChoice, deliveryType === 'self' && styles.deliveryChoiceActive]}
-								onPress={() => handleSelectDeliveryType('self')}
+								style={{ padding: 14, backgroundColor: COLORS.primaryLight, borderRadius: 10, alignItems: 'center', marginVertical: 8 }}
+								onPress={openRunnerModal}
 							>
-								<Text style={[styles.deliveryChoiceText, deliveryType === 'self' && styles.deliveryChoiceTextActive]}>Self Delivery</Text>
+								<Text style={{ color: COLORS.primary, fontWeight: '700', fontSize: 15 }}>Assign Runner</Text>
 							</TouchableOpacity>
-							<TouchableOpacity
-								style={[styles.deliveryChoice, deliveryType === 'assigned' && styles.deliveryChoiceActive]}
-								onPress={() => handleSelectDeliveryType('assigned')}
-							>
-								<Text style={[styles.deliveryChoiceText, deliveryType === 'assigned' && styles.deliveryChoiceTextActive]}>Runner</Text>
-							</TouchableOpacity>
-						</View>
-
-						{isRunnerAssigned && (
+						) : (
 							<View style={styles.runnerInfoContainer}>
 								<Image
 									source={{ uri: order.runnerInfo.profileImage || 'https://via.placeholder.com/40' }}
@@ -610,42 +690,6 @@ const SingleOrderPage = () => {
 						)}
 					</View>
 				</TouchableOpacity>
-			</Modal>
-
-			{/* Self Delivery Confirm */}
-			<Modal visible={showSelfDeliveryModal} transparent animationType="fade" onRequestClose={() => setShowSelfDeliveryModal(false)}>
-				<View style={styles.modalCenterOverlay}>
-					<View style={styles.modalCard}>
-						<Text style={styles.modalTitle}>Confirm Self Delivery</Text>
-						<Text style={styles.helpText}>Enter 4-digit verification code:</Text>
-						<TextInput
-							style={styles.modalCodeInput}
-							value={selfDeliveryCode}
-							onChangeText={setSelfDeliveryCode}
-							keyboardType="number-pad"
-							maxLength={4}
-							autoFocus
-							placeholder="0000"
-						/>
-						<View style={styles.modalActions}>
-							<TouchableOpacity onPress={() => setShowSelfDeliveryModal(false)} style={styles.mdlBtnOutline}>
-								<Text style={{ color: COLORS.text }}>Cancel</Text>
-							</TouchableOpacity>
-							<TouchableOpacity
-								onPress={async () => {
-									if (selfDeliveryCode.length !== 4) return;
-									setShowSelfDeliveryModal(false);
-									setDeliveryType('self');
-									await handleCompleteDelivery(selfDeliveryCode);
-									setSelfDeliveryCode('');
-								}}
-								style={styles.mdlBtnPrimary}
-							>
-								<Text style={{ color: COLORS.white }}>Verify & Complete</Text>
-							</TouchableOpacity>
-						</View>
-					</View>
-				</View>
 			</Modal>
 
 			{/* Record Payment Modal */}

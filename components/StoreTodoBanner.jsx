@@ -10,11 +10,11 @@ import {
 	Platform,
 } from 'react-native';
 import { Ionicons, Feather } from '@expo/vector-icons';
+import { LinearGradient } from 'expo-linear-gradient';
 import PropTypes from 'prop-types';
 
 const { width: screenWidth } = Dimensions.get('window');
-// Slightly wider card for better readability
-const CARD_WIDTH = Math.min(360, Math.round(screenWidth * 0.85));
+const CARD_WIDTH = screenWidth - 62;
 const CARD_HEIGHT = 140;
 
 function formatDueText(due) {
@@ -48,53 +48,60 @@ const StoreTodoBanner = ({ tasks, style }) => {
 		return (
 			<View style={styles.cardWrapper}>
 				<TouchableOpacity
-					style={styles.card}
 					activeOpacity={0.9}
 					onPress={() => item.onPress && item.onPress(item)}
+					style={styles.cardShadow}
 				>
-					{/* Header: Title + Badge/Due */}
-					<View style={styles.cardHeader}>
-						<View style={styles.headerTopRow}>
-							{item.urgent ? (
-								<View style={styles.urgentBadge}>
-									<Text style={styles.urgentText}>URGENT</Text>
-								</View>
-							) : dueText ? (
-								<View style={styles.dueBadge}>
-									<Text style={styles.dueText}>{dueText}</Text>
-								</View>
-							) : (
-								<View style={styles.setupBadge}>
-									<Text style={styles.setupText}>SETUP</Text>
-								</View>
-							)}
-							{/* Action Arrow (top right) */}
-							<Feather name="arrow-right" size={16} color="#9CA3AF" />
-						</View>
-
-						<Text style={styles.title} numberOfLines={1}>
-							{item.title}
-						</Text>
-						<Text style={styles.subtitle} numberOfLines={2}>
-							{item.subtitle}
-						</Text>
-					</View>
-
-					{/* Footer: Progress + Button */}
-					<View style={styles.cardFooter}>
-						{/* Progress Bar */}
-						<View style={styles.progressContainer}>
-							<View style={styles.progressBarBg}>
-								<View style={[styles.progressBarFill, { width: `${progress * 100}%` }]} />
+					<LinearGradient
+						colors={['#065637', '#032b1b']}
+						start={{ x: 0, y: 0 }}
+						end={{ x: 1, y: 1 }}
+						style={styles.card}
+					>
+						{/* Header: Title + Badge/Due */}
+						<View style={styles.cardHeader}>
+							<View style={styles.headerTopRow}>
+								{item.urgent ? (
+									<View style={styles.urgentBadge}>
+										<Text style={styles.urgentText}>URGENT</Text>
+									</View>
+								) : dueText ? (
+									<View style={styles.dueBadge}>
+										<Text style={styles.dueText}>{dueText}</Text>
+									</View>
+								) : (
+									<View style={styles.setupBadge}>
+										<Text style={styles.setupText}>SETUP</Text>
+									</View>
+								)}
+								{/* Action Arrow (top right) */}
+								<Feather name="arrow-up-right" size={20} color="rgba(255,255,255,0.6)" />
 							</View>
-							<Text style={styles.progressText}>{Math.round(progress * 100)}%</Text>
+
+							<Text style={styles.title} numberOfLines={1}>
+								{item.title}
+							</Text>
+							<Text style={styles.subtitle} numberOfLines={2}>
+								{item.subtitle}
+							</Text>
 						</View>
 
-						{/* Action Button */}
-						<View style={styles.actionBtn}>
-							<Text style={styles.actionBtnText}>{item.actionLabel || 'Start'}</Text>
+						{/* Footer: Progress + Button */}
+						<View style={styles.cardFooter}>
+							{/* Progress Bar */}
+							<View style={styles.progressContainer}>
+								<View style={styles.progressBarBg}>
+									<View style={[styles.progressBarFill, { width: `${progress * 100}%` }]} />
+								</View>
+								<Text style={styles.progressText}>{Math.round(progress * 100)}%</Text>
+							</View>
+
+							{/* Action Button */}
+							<View style={styles.actionBtn}>
+								<Text style={styles.actionBtnText}>{item.actionLabel || 'Start'}</Text>
+							</View>
 						</View>
-					</View>
+					</LinearGradient>
 				</TouchableOpacity>
 			</View>
 		);
@@ -140,20 +147,19 @@ const styles = StyleSheet.create({
 		width: CARD_WIDTH,
 		marginRight: 12,
 	},
+	cardShadow: {
+		shadowColor: '#065637',
+		shadowOffset: { width: 0, height: 6 },
+		shadowOpacity: 0.15,
+		shadowRadius: 10,
+		elevation: 6,
+	},
 	card: {
 		height: CARD_HEIGHT,
-		backgroundColor: '#fff',
-		borderRadius: 12,
+		borderRadius: 16,
 		padding: 16,
 		justifyContent: 'space-between',
-		borderWidth: 1,
-		borderColor: '#E5E7EB',
-		// Soft shadow
-		shadowColor: '#000',
-		shadowOffset: { width: 0, height: 2 },
-		shadowOpacity: 0.03,
-		shadowRadius: 8,
-		elevation: 2,
+		overflow: 'hidden',
 	},
 	cardHeader: {
 		flex: 1,
@@ -165,55 +171,52 @@ const styles = StyleSheet.create({
 		marginBottom: 8,
 	},
 	urgentBadge: {
-		backgroundColor: '#FEF2F2',
-		paddingHorizontal: 6,
-		paddingVertical: 2,
-		borderRadius: 4,
-		borderWidth: 0.5,
-		borderColor: '#FECACA',
+		backgroundColor: '#EF4444',
+		paddingHorizontal: 8,
+		paddingVertical: 4,
+		borderRadius: 6,
 	},
 	urgentText: {
-		color: '#DC2626',
+		color: '#FFFFFF',
 		fontSize: 10,
-		fontWeight: '700',
+		fontWeight: '800',
 		letterSpacing: 0.5,
 	},
 	dueBadge: {
-		backgroundColor: '#FFF7ED',
-		paddingHorizontal: 6,
-		paddingVertical: 2,
-		borderRadius: 4,
+		backgroundColor: 'rgba(255,165,0,0.2)',
+		paddingHorizontal: 8,
+		paddingVertical: 4,
+		borderRadius: 6,
 		borderWidth: 0.5,
-		borderColor: '#FED7AA',
+		borderColor: 'rgba(255,165,0,0.5)',
 	},
 	dueText: {
-		color: '#EA580C',
+		color: '#FBBF24',
 		fontSize: 10,
 		fontWeight: '700',
 	},
 	setupBadge: {
-		backgroundColor: '#F3F4F6',
-		paddingHorizontal: 6,
-		paddingVertical: 2,
-		borderRadius: 4,
-		borderWidth: 0.5,
-		borderColor: '#E5E7EB',
+		backgroundColor: 'rgba(255,255,255,0.15)',
+		paddingHorizontal: 8,
+		paddingVertical: 4,
+		borderRadius: 6,
 	},
 	setupText: {
-		color: '#4B5563',
+		color: '#FFFFFF',
 		fontSize: 10,
 		fontWeight: '700',
 		letterSpacing: 0.5,
 	},
 	title: {
-		fontSize: 15,
+		fontSize: 16,
 		fontWeight: '700',
-		color: '#111827',
+		color: '#FFFFFF',
 		marginBottom: 4,
+		letterSpacing: -0.2,
 	},
 	subtitle: {
 		fontSize: 12,
-		color: '#6B7280',
+		color: 'rgba(255,255,255,0.7)',
 		lineHeight: 18,
 	},
 
@@ -221,40 +224,40 @@ const styles = StyleSheet.create({
 		flexDirection: 'row',
 		alignItems: 'center',
 		justifyContent: 'space-between',
-		marginTop: 12,
+		marginTop: 8,
 	},
 	progressContainer: {
 		flexDirection: 'row',
 		alignItems: 'center',
 		gap: 8,
 		flex: 1,
-		paddingRight: 12,
+		paddingRight: 16,
 	},
 	progressBarBg: {
 		flex: 1,
-		height: 6,
-		backgroundColor: '#F3F4F6',
-		borderRadius: 3,
+		height: 4,
+		backgroundColor: 'rgba(255,255,255,0.2)',
+		borderRadius: 2,
 		overflow: 'hidden',
 	},
 	progressBarFill: {
 		height: '100%',
-		backgroundColor: '#10B981', // Success Green
+		backgroundColor: '#10B981', // Success Green / vivid
 	},
 	progressText: {
 		fontSize: 11,
 		fontWeight: '600',
-		color: '#6B7280',
+		color: 'rgba(255,255,255,0.8)',
 	},
 	actionBtn: {
-		backgroundColor: '#065637',
-		paddingHorizontal: 12,
-		paddingVertical: 6,
-		borderRadius: 6,
+		backgroundColor: '#FFFFFF',
+		paddingHorizontal: 16,
+		paddingVertical: 8,
+		borderRadius: 20, // Perfect pill
 	},
 	actionBtnText: {
-		color: '#fff',
+		color: '#065637',
 		fontSize: 12,
-		fontWeight: '600',
+		fontWeight: '700',
 	},
 });

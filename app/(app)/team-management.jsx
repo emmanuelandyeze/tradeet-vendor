@@ -22,6 +22,8 @@ export default function TeamManagement() {
     const { selectedStore, userInfo } = useContext(AuthContext);
 
     const [managers, setManagers] = useState([]);
+    const [branches, setBranches] = useState([]);
+    const [activeBranchId, setActiveBranchId] = useState(null); // null means Global Brand Managers
     const [loading, setLoading] = useState(true);
     const [modalVisible, setModalVisible] = useState(false);
     const [newPhone, setNewPhone] = useState('');
@@ -29,20 +31,63 @@ export default function TeamManagement() {
     const [adding, setAdding] = useState(false);
 
     // Ensure we operate on the main store ID if it's a branch
-    const storeId = selectedStore?._isBranch ? selectedStore._storeId : selectedStore?._id;
+    const brandId = selectedStore?._isBranch ? selectedStore._storeId : selectedStore?._id;
     // Identify if current user is owner (only owner can add/remove)
-    const isOwner = selectedStore && userInfo && String(selectedStore.owner || selectedStore.parent?.owner) === String(userInfo._id);
+    const isOwner = React.useMemo(() => {
+        if (!selectedStore || !userInfo) {
+            console.log('[DEBUG-TEAM] No store/user', { hasStore: !!selectedStore, hasUser: !!userInfo });
+            return false;
+        }
+        const myId = String(userInfo._id);
+        const currentBrandId = String(brandId);
+        
+        // 1. Direct check on selectedStore (Handles case where it's a full Store object)
+        const directOwnerId = selectedStore.owner?._id || selectedStore.owner;
+        if (directOwnerId && String(directOwnerId) === myId) return true;
+        
+        // 2. Parent check if branch (Handles case where branch has parent object populated)
+        const parentOwnerId = selectedStore.parent?.owner?._id || selectedStore.parent?.owner;
+        if (parentOwnerId && String(parentOwnerId) === myId) return true;
+        
+        // 3. Search in userInfo.stores (Most reliable if stores are populated in AuthContext)
+        if (userInfo.stores && Array.isArray(userInfo.stores)) {
+            const store = userInfo.stores.find(s => String(s._id) === currentBrandId);
+            if (store) {
+                const storeOwnerId = store.owner?._id || store.owner;
+                if (String(storeOwnerId) === myId) return true;
+            } else {
+                console.log('[DEBUG-TEAM] Brand ID not found in user stores', { brandId: currentBrandId, storeCount: userInfo.stores.length });
+            }
+        } else {
+            console.log('[DEBUG-TEAM] userInfo.stores missing or not an array');
+        }
+        
+        console.log('[DEBUG-TEAM] Ownership failed for', { myId, currentBrandId, directOwnerId, parentOwnerId });
+        return false;
+    }, [selectedStore, userInfo, brandId]);
 
     useEffect(() => {
-        if (storeId) {
+        if (brandId) {
+            fetchBranches();
             fetchManagers();
         }
-    }, [storeId]);
+    }, [brandId, activeBranchId]);
+
+    const fetchBranches = async () => {
+        try {
+            const response = await axiosInstance.get(`/stores/${brandId}/branches`);
+            setBranches(response.data.branches || []);
+        } catch (error) {
+            console.log('Error fetching branches:', error);
+        }
+    };
 
     const fetchManagers = async () => {
         try {
             setLoading(true);
-            const response = await axiosInstance.get(`/stores/${storeId}/managers`);
+            const targetId = activeBranchId || brandId;
+            const response = await axiosInstance.get(`/stores/${targetId}/managers`);
+            console.log(`[DEBUG-TEAM] Fetched ${response.data.managers?.length || 0} managers for ${targetId}`);
             setManagers(response.data.managers || []);
         } catch (error) {
             console.log('Error fetching managers:', error);
@@ -59,11 +104,12 @@ export default function TeamManagement() {
         }
         try {
             setAdding(true);
-            // API expects { phone, name }
-            const response = await axiosInstance.post(`/stores/${storeId}/managers`, {
+            const targetId = activeBranchId || brandId;
+            const response = await axiosInstance.post(`/stores/${targetId}/managers`, {
                 phone: newPhone.trim(),
                 name: newName.trim()
             });
+            console.log(`[DEBUG-TEAM] Added manager. New count: ${response.data.managers?.length || 0}`);
             setManagers(response.data.managers || []);
             setNewPhone('');
             setNewName('');
@@ -88,7 +134,8 @@ export default function TeamManagement() {
                     style: 'destructive',
                     onPress: async () => {
                         try {
-                            const response = await axiosInstance.delete(`/stores/${storeId}/managers/${managerId}`);
+                            const targetId = activeBranchId || brandId;
+                            const response = await axiosInstance.delete(`/stores/${targetId}/managers/${managerId}`);
                             setManagers(response.data.managers || []);
                         } catch (error) {
                             const msg = error.response?.data?.message || 'Failed to remove manager';
@@ -116,7 +163,7 @@ export default function TeamManagement() {
                     <Text style={styles.memberName}>{item.name || 'Unknown'}</Text>
                     <Text style={styles.memberEmail}>{item.phone || item.email}</Text>
                     <View style={styles.roleBadge}>
-                        <Text style={styles.roleText}>Manager</Text>
+                        <Text style={styles.roleText}>{item.branchRole ? `Branch ${item.branchRole}` : 'Store Manager'}</Text>
                     </View>
                 </View>
             </View>
@@ -132,6 +179,38 @@ export default function TeamManagement() {
         </View>
     );
 
+    const renderBranchSelector = () => {
+        if (branches.length === 0) return null;
+
+        return (
+            <View style={styles.branchSelectorContainer}>
+                <FlatList
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    data={[{ _id: null, name: 'Global Team' }, ...branches]}
+                    keyExtractor={item => item._id || 'global'}
+                    renderItem={({ item }) => (
+                        <TouchableOpacity
+                            style={[
+                                styles.branchChip,
+                                activeBranchId === item._id && styles.activeBranchChip
+                            ]}
+                            onPress={() => setActiveBranchId(item._id)}
+                        >
+                            <Text style={[
+                                styles.branchChipText,
+                                activeBranchId === item._id && styles.activeBranchChipText
+                            ]}>
+                                {item.name}
+                            </Text>
+                        </TouchableOpacity>
+                    )}
+                    contentContainerStyle={styles.branchSelectorContent}
+                />
+            </View>
+        );
+    };
+
     return (
         <View style={styles.container}>
             <StatusBar style="dark" />
@@ -146,6 +225,8 @@ export default function TeamManagement() {
                 <View style={{ width: 40 }} />
             </View>
 
+            {renderBranchSelector()}
+
             {loading ? (
                 <View style={styles.center}>
                     <ActivityIndicator size="large" color="#065637" />
@@ -159,7 +240,7 @@ export default function TeamManagement() {
                     ListHeaderComponent={
                         <View style={styles.listHeader}>
                             <Text style={styles.subTitle}>
-                                Manage people who have access to your store.
+                                Manage people who have access to your {activeBranchId ? 'specific branch' : 'entire store'}.
                             </Text>
                         </View>
                     }
@@ -179,7 +260,7 @@ export default function TeamManagement() {
                         onPress={() => setModalVisible(true)}
                     >
                         <Feather name="plus" size={20} color="#fff" />
-                        <Text style={styles.addBtnText}>Add Manager</Text>
+                        <Text style={styles.addBtnText}>Add {activeBranchId ? 'Branch ' : ''}Manager</Text>
                     </TouchableOpacity>
                 </View>
             )}
@@ -377,6 +458,38 @@ const styles = StyleSheet.create({
         marginTop: 12,
         color: '#9CA3AF',
         fontSize: 15,
+    },
+    // Branch Selector
+    branchSelectorContainer: {
+        backgroundColor: '#fff',
+        borderBottomWidth: 1,
+        borderBottomColor: '#F3F4F6',
+    },
+    branchSelectorContent: {
+        paddingHorizontal: 16,
+        paddingVertical: 12,
+        gap: 8,
+    },
+    branchChip: {
+        paddingHorizontal: 16,
+        paddingVertical: 8,
+        borderRadius: 20,
+        backgroundColor: '#F3F4F6',
+        borderWidth: 1,
+        borderColor: '#E5E7EB',
+        marginRight: 8,
+    },
+    activeBranchChip: {
+        backgroundColor: '#065637',
+        borderColor: '#065637',
+    },
+    branchChipText: {
+        fontSize: 14,
+        fontWeight: '500',
+        color: '#4B5563',
+    },
+    activeBranchChipText: {
+        color: '#fff',
     },
     // Modal
     modalOverlay: {

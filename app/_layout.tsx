@@ -12,6 +12,16 @@ import {
 	AuthProvider,
 	AuthContext,
 } from '@/context/AuthContext';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+
+const queryClient = new QueryClient({
+	defaultOptions: {
+		queries: {
+			staleTime: 1000 * 60 * 5, // 5 minutes
+			retry: 1,
+		},
+	},
+});
 import { ProductsProvider } from '@/context/ProductsContext';
 import Toast from 'react-native-toast-message';
 import * as Linking from 'expo-linking';
@@ -76,14 +86,16 @@ export default function Layout() {
 
 	return (
 		<View style={{ flex: 1 }} onLayout={onLayoutRootView}>
-			<AuthProvider>
-				<AuthWrapper>
-					<ProductsProvider>
-						<Stack screenOptions={{ headerShown: false }} />
-						<Toast />
-					</ProductsProvider>
-				</AuthWrapper>
-			</AuthProvider>
+			<QueryClientProvider client={queryClient}>
+				<AuthProvider>
+					<AuthWrapper>
+						<ProductsProvider>
+							<Stack screenOptions={{ headerShown: false }} />
+							<Toast />
+						</ProductsProvider>
+					</AuthWrapper>
+				</AuthProvider>
+			</QueryClientProvider>
 			<StatusBar style="auto" />
 		</View>
 	);

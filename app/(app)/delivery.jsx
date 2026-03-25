@@ -261,9 +261,10 @@ const DeliverySettingsScreen = () => {
 					onPress: async () => {
 						try {
 							const response = await axiosInstance.delete(
-								`delivery/stores/${storeId}/zones/${encodeURIComponent(
+								`delivery/stores/${selectedStore?.parent || selectedStore?._id}/zones/${encodeURIComponent(
 									zone.key,
 								)}`,
+								{ data: { branchId: selectedStore?._id } }
 							);
 							if (response.status !== 200 && response.status !== 204) {
 								throw new Error('Failed to delete zone');
@@ -301,12 +302,14 @@ const DeliverySettingsScreen = () => {
 			name: personName,
 			phone: personPhone,
 			whatsapp: personWhatsapp,
+			branchId: selectedStore?._id,
 		};
 		try {
 			let response;
+			const parentId = selectedStore?.parent || selectedStore?._id;
 			if (editingPerson) {
 				response = await axiosInstance.put(
-					`delivery/stores/${storeId}/personnel/${editingPerson._id}`,
+					`delivery/stores/${parentId}/personnel/${editingPerson._id}`,
 					personData,
 				);
 				if (response.status !== 200 && response.status !== 201) {
@@ -326,7 +329,7 @@ const DeliverySettingsScreen = () => {
 				);
 			} else {
 				response = await axiosInstance.post(
-					`delivery/stores/${storeId}/personnel`,
+					`delivery/stores/${parentId}/personnel`,
 					personData,
 				);
 				if (response.status !== 200 && response.status !== 201) {
@@ -364,8 +367,10 @@ const DeliverySettingsScreen = () => {
 					style: 'destructive',
 					onPress: async () => {
 						try {
+							const parentId = selectedStore?.parent || selectedStore?._id;
 							const response = await axiosInstance.delete(
-								`delivery/stores/${storeId}/personnel/${person._id}`,
+								`delivery/stores/${parentId}/personnel/${person._id}`,
+								{ data: { branchId: selectedStore?._id } }
 							);
 							if (response.status !== 200 && response.status !== 204) {
 								throw new Error(

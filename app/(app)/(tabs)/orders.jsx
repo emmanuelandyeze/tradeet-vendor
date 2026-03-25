@@ -18,11 +18,13 @@ import React, {
 	useCallback,
 } from 'react';
 import { router } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
 import { AuthContext } from '@/context/AuthContext';
 import axiosInstance from '@/utils/axiosInstance';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import SkeletonLoader from '@/components/SkeletonLoader';
 
 // Helper for "Time Ago"
 const formatTimeAgo = (dateString) => {
@@ -44,6 +46,8 @@ const formatTimeAgo = (dateString) => {
 	return 'Just now';
 };
 
+let hasOrdersScreenLoadedBefore = false;
+
 const Orders = () => {
 	const {
 		userInfo,
@@ -52,6 +56,12 @@ const Orders = () => {
 		switchSelectedStore,
 	} = useContext(AuthContext);
 
+	const previousStoreRef = React.useRef(selectedStore?._id);
+	if (previousStoreRef.current !== selectedStore?._id) {
+		hasOrdersScreenLoadedBefore = false;
+		previousStoreRef.current = selectedStore?._id;
+	}
+
 	const insets = useSafeAreaInsets();
 	const headerTopPadding = Math.max(insets.top, 20) + 10;
 
@@ -59,12 +69,10 @@ const Orders = () => {
 	const storesList = Array.isArray(userInfo?.stores) ? userInfo.stores : [];
 
 	// Local State for Filtering & UI
-	const [orders, setOrders] = useState([]);
 	const [statusFilter, setStatusFilter] = useState('in progress');
 	const [paymentFilter, setPaymentFilter] = useState('all');
 	const [searchQuery, setSearchQuery] = useState('');
 	const [filteredOrders, setFilteredOrders] = useState([]);
-	const [loading, setLoading] = useState(false);
 	const [refreshing, setRefreshing] = useState(false);
 
 	// Store Selection Modal State
@@ -76,56 +84,56 @@ const Orders = () => {
 	const displayStoreName = selectedStore?.parentStoreName || selectedStore?.name || 'Select Store';
 
 	// Fetch orders based on CURRENT selectedStore from Context
-	const fetchOrders = useCallback(async () => {
-		if (!selectedStore) return;
-		setLoading(true);
-		try {
-			let url = `/orders`;
-			const params = [];
+	const ordersQuery = useQuery({
+		queryKey: ['ordersList', selectedStore?._id, selectedStore?.parent],
+		queryFn: async () => {
+			try {
+				let url = `/orders`;
+				const params = [];
 
-			if (selectedStore.parent) {
-				// It's a branch
-				params.push(`storeId=${encodeURIComponent(selectedStore.parent)}`);
-				params.push(`branchId=${encodeURIComponent(selectedStore._id)}`);
-			} else {
-				// It's a store
-				params.push(`storeId=${encodeURIComponent(selectedStore._id)}`);
+				if (selectedStore.parent) {
+					// It's a branch
+					params.push(`storeId=${encodeURIComponent(selectedStore.parent)}`);
+					params.push(`branchId=${encodeURIComponent(selectedStore._id)}`);
+				} else {
+					// It's a store
+					params.push(`storeId=${encodeURIComponent(selectedStore._id)}`);
+				}
+
+				if (params.length) url = `${url}?${params.join('&')}`;
+
+				const response = await axiosInstance.get(url);
+				const fetched =
+					response?.data?.orders ??
+					response?.data?.items ??
+					response?.data ??
+					[];
+
+				return Array.isArray(fetched)
+					? fetched.sort(
+						(a, b) =>
+							new Date(b.createdAt) - new Date(a.createdAt),
+					)
+					: [];
+			} catch (err) {
+				return [];
 			}
+		},
+		enabled: !!selectedStore,
+	});
 
-			if (params.length) url = `${url}?${params.join('&')}`;
+	if (ordersQuery.data) {
+		hasOrdersScreenLoadedBefore = true;
+	}
 
-			const response = await axiosInstance.get(url);
-			const fetched =
-				response?.data?.orders ??
-				response?.data?.items ??
-				response?.data ??
-				[];
-
-			const sortedOrders = Array.isArray(fetched)
-				? fetched.sort(
-					(a, b) =>
-						new Date(b.createdAt) - new Date(a.createdAt),
-				)
-				: [];
-
-			setOrders(sortedOrders);
-		} catch (err) {
-			console.error('Error fetching orders:', err);
-		} finally {
-			setLoading(false);
-		}
-	}, [selectedStore]);
-
-	// Load on mount or context change
-	useEffect(() => {
-		fetchOrders();
-	}, [fetchOrders]);
+	const orders = ordersQuery.data || [];
+	const loading = !hasOrdersScreenLoadedBefore && ordersQuery.isPending;
 
 	const onRefresh = useCallback(async () => {
 		setRefreshing(true);
-		await fetchOrders();
+		await ordersQuery.refetch();
 		setRefreshing(false);
-	}, [fetchOrders]);
+	}, [ordersQuery]);
 
 	// Filter Logic (Same as before)
 	const applyFiltersAndSearch = useCallback(() => {
@@ -284,7 +292,9 @@ const Orders = () => {
 					<RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor="#065637" />
 				}
 				ListEmptyComponent={
-					!loading && (
+					loading ? (
+						<SkeletonLoader type="list" count={5} />
+					) : (
 						<View style={styles.emptyState}>
 							<View style={styles.emptyIconBg}>
 								<Ionicons name="documents-outline" size={48} color="#9CA3AF" />
