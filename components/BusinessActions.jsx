@@ -49,7 +49,7 @@ const ACTIONS = [
 		label: 'Customers',
 		icon: 'users',
 		lib: Feather,
-		action: () => Alert.alert('Coming Soon', 'Customer management is on the way!'),
+		route: '/(app)/customers',
 		color: '#065637',
 	},
 	{

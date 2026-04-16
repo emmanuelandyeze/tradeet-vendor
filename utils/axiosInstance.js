@@ -1,7 +1,7 @@
 // utils/axiosInstance.js
 import axios from 'axios';
 
-// const BASE_URL = 'http://10.28.234.102:8080/api/v1';
+// const BASE_URL = 'http://192.168.100.50:8080/api/v1';
 const BASE_URL =
 	'https://tradeet-server.onrender.com/api/v1/';
 
