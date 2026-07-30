@@ -452,11 +452,11 @@ const StorePaymentsScreen = () => {
 										<TextInput
 											value={accountName}
 											onChangeText={setAccountName}
-											placeholder="Auto-verified payment name"
-											style={[styles.textInput, { backgroundColor: '#F3F4F6' }]}
-											editable={true} // Allow edit if verification fails often? Or keep readOnly
+											placeholder="Enter Account Name"
+											style={styles.textInput}
+											editable={true}
 										/>
-										<Text style={styles.helperText}>Name will be verified automatically.</Text>
+										<Text style={styles.helperText}>Provide the matching account owner name.</Text>
 									</View>
 
 									<View style={styles.switchRow}>

@@ -79,11 +79,11 @@ const PaymentInfoModal = ({ visible, onClose, onSave }) => {
 
 	// Save payment info
 	const handleSave = () => {
-		if (!accountName) {
-			Alert.alert('Error', 'Account not verified');
+		if (!accountName.trim()) {
+			Alert.alert('Error', 'Please enter your account name');
 			return;
 		}
-		onSave({ selectedBank, accountNumber, accountName });
+		onSave({ selectedBank, accountNumber, accountName: accountName.trim() });
 		onClose(); // Close the modal after saving
 	};
 
@@ -135,7 +135,8 @@ const PaymentInfoModal = ({ visible, onClose, onSave }) => {
 						style={styles.input}
 						placeholder="Account Name"
 						value={accountName}
-						editable={false}
+						onChangeText={setAccountName}
+						editable={true}
 					/>
 
 					<TouchableOpacity
