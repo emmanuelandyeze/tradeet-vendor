@@ -27,6 +27,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 const { width } = Dimensions.get('window');
 
+// Keep in sync with MAX_BROADCAST_RECIPIENTS in tradeet-server/controllers/customerController.js
+const MAX_RECIPIENTS = 50;
+
 const TABS = [
 	{ id: 'all', label: 'All' },
 	{ id: 'existing', label: 'Existing' },
@@ -43,6 +46,9 @@ export default function CustomersScreen() {
 	const [messageModalVisible, setMessageModalVisible] = useState(false);
 	const [selectedCustomer, setSelectedCustomer] = useState(null);
 	const [customMsg, setCustomMsg] = useState('');
+	// Multi-select broadcast. The server rejects more than MAX_RECIPIENTS in one send.
+	const [selectionMode, setSelectionMode] = useState(false);
+	const [selectedIds, setSelectedIds] = useState([]);
 
 	const {
 		data: customers = [],
@@ -54,9 +60,17 @@ export default function CustomersScreen() {
 		queryFn: async () => {
 			const typeQuery = activeTab !== 'all' ? `?type=${activeTab}` : '';
 			const res = await axiosInstance.get(`/customers/${selectedStore._id}${typeQuery}`);
-			return res.data.data || [];
+			return res.data;
 		},
 		enabled: !!selectedStore?._id,
+		select: (res) => res?.data || [],
+	});
+
+	// Promotional sends left in the merchant's rolling 24h allowance.
+	const { data: quota } = useQuery({
+		queryKey: ['customers', selectedStore?._id, activeTab],
+		enabled: !!selectedStore?._id,
+		select: (res) => res?.quota || null,
 	});
 
 	const messageMutation = useMutation({
@@ -73,6 +87,10 @@ export default function CustomersScreen() {
 			Alert.alert('Sent', data.message || 'Message sent!');
 			setMessageModalVisible(false);
 			setCustomMsg('');
+			setSelectionMode(false);
+			setSelectedIds([]);
+			// Refresh so the remaining daily allowance reflects this send.
+			queryClient.invalidateQueries({ queryKey: ['customers', selectedStore?._id] });
 		},
 		onError: (error) => {
 			Alert.alert('Not sent', error?.response?.data?.message || 'Failed to send message');
@@ -97,8 +115,67 @@ export default function CustomersScreen() {
 		setMessageModalVisible(true);
 	};
 
+	const isSelected = (id) => selectedIds.includes(id);
+
+	const toggleSelected = (customer) => {
+		if (customer.marketingOptOut) {
+			Alert.alert(
+				'Opted out',
+				`${customer.name} asked to stop receiving promotional messages. You can still message them about their orders.`
+			);
+			return;
+		}
+		setSelectedIds(prev => {
+			if (prev.includes(customer._id)) return prev.filter(x => x !== customer._id);
+			if (prev.length >= MAX_RECIPIENTS) {
+				Alert.alert(
+					'Limit reached',
+					`You can message up to ${MAX_RECIPIENTS} customers at a time. Send this batch first, then select the rest.`
+				);
+				return prev;
+			}
+			return [...prev, customer._id];
+		});
+	};
+
+	const enterSelectionMode = (customer) => {
+		setExpandedId(null);
+		setSelectionMode(true);
+		setSelectedIds(customer ? [customer._id] : []);
+	};
+
+	const exitSelectionMode = () => {
+		setSelectionMode(false);
+		setSelectedIds([]);
+	};
+
+	// Fills up to the cap from the customers currently visible in this tab.
+	const selectAllVisible = () => {
+		const eligible = customers.filter(c => !c.marketingOptOut);
+		setSelectedIds(eligible.map(c => c._id).slice(0, MAX_RECIPIENTS));
+
+		const optedOut = customers.length - eligible.length;
+		if (eligible.length > MAX_RECIPIENTS) {
+			Alert.alert(
+				`Selected the first ${MAX_RECIPIENTS}`,
+				`This tab has ${eligible.length} customers you can message. Sends are capped at ${MAX_RECIPIENTS} per batch, so the first ${MAX_RECIPIENTS} are selected.`
+			);
+		} else if (optedOut > 0) {
+			Alert.alert(
+				`Selected ${eligible.length}`,
+				`${optedOut} customer${optedOut === 1 ? '' : 's'} opted out of promotional messages and were left out.`
+			);
+		}
+	};
+
+	// One customer, or the whole selection. The server personalises {{1}} per recipient, so
+	// the name passed here is only a placeholder for the single-recipient preview.
+	const recipients = selectionMode
+		? customers.filter(c => selectedIds.includes(c._id))
+		: (selectedCustomer ? [selectedCustomer] : []);
+
 	const handleSendMessage = () => {
-		if (!selectedCustomer) return;
+		if (recipients.length === 0) return;
 
 		if (!customMsg.trim()) {
 			Alert.alert('Empty Message', 'Please type a message to send.');
@@ -109,9 +186,9 @@ export default function CustomersScreen() {
 		// fullMessage keeps the line breaks — the server switches to the button template and
 		// delivers this verbatim when the customer taps through.
 		messageMutation.mutate({
-			customerIds: [selectedCustomer._id],
+			customerIds: recipients.map(c => c._id),
 			templateName: 'promotional_update',
-			variables: [selectedCustomer.name, sanitizeTemplateParam(customMsg), selectedStore.name],
+			variables: [recipients[0].name, sanitizeTemplateParam(customMsg), selectedStore.name],
 			fullMessage: customMsg.trim()
 		});
 	};
@@ -156,20 +233,41 @@ export default function CustomersScreen() {
 
 	const renderCustomer = ({ item }) => {
 		const isExpanded = expandedId === item._id;
+		const picked = selectionMode && isSelected(item._id);
 
 		return (
-			<View style={[styles.card, isExpanded && styles.cardExpanded]}>
+			<View style={[styles.card, isExpanded && styles.cardExpanded, picked && styles.cardSelected]}>
 				<TouchableOpacity
 					style={styles.cardHeader}
-					onPress={() => setExpandedId(isExpanded ? null : item._id)}
+					onPress={() =>
+						selectionMode
+							? toggleSelected(item)
+							: setExpandedId(isExpanded ? null : item._id)
+					}
+					onLongPress={() => !selectionMode && enterSelectionMode(item)}
+					delayLongPress={250}
 					activeOpacity={0.7}
 				>
+					{selectionMode ? (
+						<View style={[
+							styles.checkbox,
+							picked && styles.checkboxChecked,
+							item.marketingOptOut && styles.checkboxDisabled
+						]}>
+							{picked && <Feather name="check" size={15} color="#FFF" />}
+							{item.marketingOptOut && <Feather name="slash" size={12} color="#9CA3AF" />}
+						</View>
+					) : null}
 					<View style={styles.avatar}>
 						<Text style={styles.avatarText}>{getInitials(item.name)}</Text>
 					</View>
 					<View style={styles.mainInfo}>
 						<Text style={styles.nameText}>{item.name}</Text>
-						<Text style={styles.phoneText}>{item.whatsappNumber}</Text>
+						{item.marketingOptOut ? (
+							<Text style={styles.optedOutText}>Opted out of promotions</Text>
+						) : (
+							<Text style={styles.phoneText}>{item.whatsappNumber}</Text>
+						)}
 					</View>
 					<View style={styles.headerRight}>
 						<View style={[styles.badge, item.type === 'existing' ? styles.badgeExisting : styles.badgePotential]}>
@@ -177,11 +275,13 @@ export default function CustomersScreen() {
 								{(item.type || 'potential').charAt(0).toUpperCase()}
 							</Text>
 						</View>
-						<Feather name={isExpanded ? "chevron-up" : "chevron-down"} size={20} color="#9CA3AF" />
+						{!selectionMode && (
+							<Feather name={isExpanded ? "chevron-up" : "chevron-down"} size={20} color="#9CA3AF" />
+						)}
 					</View>
 				</TouchableOpacity>
 
-				{isExpanded && (
+				{isExpanded && !selectionMode && (
 					<View style={styles.expandedContent}>
 						<View style={styles.detailsGrid}>
 							<View style={styles.detailItem}>
@@ -241,33 +341,66 @@ export default function CustomersScreen() {
 		<SafeAreaView style={styles.container}>
 			<StatusBar style="dark" backgroundColor="#fff" />
 			{/* Header */}
-			<View style={styles.header}>
-				<View style={styles.headerLeft}>
-					<TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-						<Feather name="arrow-left" size={24} color="#111827" />
-					</TouchableOpacity>
-					<View>
-						<Text style={styles.headerTitle}>Customers</Text>
-						<TouchableOpacity
-							style={styles.branchSelector}
-							onPress={() => setBranchModalVisible(true)}
-						>
-							<Text style={styles.branchSelectorText}>
-								{selectedStore?.name || 'Main Branch'}
+			{selectionMode ? (
+				<View style={styles.header}>
+					<View style={styles.headerLeft}>
+						<TouchableOpacity onPress={exitSelectionMode} style={styles.backBtn}>
+							<Feather name="x" size={24} color="#111827" />
+						</TouchableOpacity>
+						<View>
+							<Text style={styles.headerTitle}>
+								{selectedIds.length} selected
 							</Text>
-							<Feather name="chevron-down" size={14} color="#065637" />
+							<Text style={styles.selectionHint}>
+								Max {MAX_RECIPIENTS} per send
+								{quota ? ` · ${quota.remaining} left today` : ''}
+							</Text>
+						</View>
+					</View>
+
+					<TouchableOpacity
+						onPress={selectedIds.length ? () => setSelectedIds([]) : selectAllVisible}
+						style={styles.syncBtn}
+					>
+						<Text style={styles.selectAllText}>
+							{selectedIds.length ? 'Clear' : 'Select all'}
+						</Text>
+					</TouchableOpacity>
+				</View>
+			) : (
+				<View style={styles.header}>
+					<View style={styles.headerLeft}>
+						<TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+							<Feather name="arrow-left" size={24} color="#111827" />
+						</TouchableOpacity>
+						<View>
+							<Text style={styles.headerTitle}>Customers</Text>
+							<TouchableOpacity
+								style={styles.branchSelector}
+								onPress={() => setBranchModalVisible(true)}
+							>
+								<Text style={styles.branchSelectorText}>
+									{selectedStore?.name || 'Main Branch'}
+								</Text>
+								<Feather name="chevron-down" size={14} color="#065637" />
+							</TouchableOpacity>
+						</View>
+					</View>
+
+					<View style={styles.headerActions}>
+						<TouchableOpacity onPress={() => enterSelectionMode(null)} style={styles.syncBtn}>
+							<MaterialIcons name="checklist" size={24} color="#065637" />
+						</TouchableOpacity>
+						<TouchableOpacity onPress={handleSync} disabled={syncMutation.isPending} style={styles.syncBtn}>
+							{syncMutation.isPending ? (
+								<ActivityIndicator size="small" color="#065637" />
+							) : (
+								<MaterialIcons name="sync" size={24} color="#065637" />
+							)}
 						</TouchableOpacity>
 					</View>
 				</View>
-
-				<TouchableOpacity onPress={handleSync} disabled={syncMutation.isPending} style={styles.syncBtn}>
-					{syncMutation.isPending ? (
-						<ActivityIndicator size="small" color="#065637" />
-					) : (
-						<MaterialIcons name="sync" size={24} color="#065637" />
-					)}
-				</TouchableOpacity>
-			</View>
+			)}
 
 			{/* Tabs */}
 			<View style={styles.tabContainer}>
@@ -317,12 +450,29 @@ export default function CustomersScreen() {
 				/>
 			)}
 
-			<TouchableOpacity
-				style={styles.fab}
-				onPress={() => router.push('/(app)/customers/new')}
-			>
-				<Feather name="plus" size={24} color="#FFF" />
-			</TouchableOpacity>
+			{selectionMode ? (
+				<View style={styles.selectionBar}>
+					<TouchableOpacity
+						style={[styles.selectionSendBtn, selectedIds.length === 0 && styles.sendBtnDisabled]}
+						onPress={() => setMessageModalVisible(true)}
+						disabled={selectedIds.length === 0}
+					>
+						<MaterialIcons name="whatsapp" size={20} color="#FFF" />
+						<Text style={styles.selectionSendText}>
+							{selectedIds.length === 0
+								? 'Select customers to message'
+								: `Message ${selectedIds.length} customer${selectedIds.length === 1 ? '' : 's'}`}
+						</Text>
+					</TouchableOpacity>
+				</View>
+			) : (
+				<TouchableOpacity
+					style={styles.fab}
+					onPress={() => router.push('/(app)/customers/new')}
+				>
+					<Feather name="plus" size={24} color="#FFF" />
+				</TouchableOpacity>
+			)}
 
 			{/* Branch Selector Modal */}
 			<Modal
@@ -381,7 +531,9 @@ export default function CustomersScreen() {
 				>
 					<View style={styles.modalCard}>
 						<View style={styles.modalHeader}>
-							<Text style={styles.modalTitle}>Compose Message</Text>
+							<Text style={styles.modalTitle}>
+								{recipients.length > 1 ? `Message ${recipients.length} customers` : 'Compose Message'}
+							</Text>
 							<TouchableOpacity onPress={() => setMessageModalVisible(false)}>
 								<Feather name="x" size={24} color="#374151" />
 							</TouchableOpacity>
@@ -389,12 +541,21 @@ export default function CustomersScreen() {
 
 						<ScrollView keyboardShouldPersistTaps="handled">
 							<View style={styles.templatePreview}>
-								<Text style={styles.previewLabel}>Exactly what they'll receive:</Text>
+								<Text style={styles.previewLabel}>
+									{recipients.length > 1
+										? "Each customer gets their own name:"
+										: "Exactly what they'll receive:"}
+								</Text>
 								<Text style={styles.previewText}>
-									Hello <Text style={styles.previewHighlight}>{selectedCustomer?.name || 'Customer'}</Text>! We hope you're having a great day. We're reaching out from <Text style={styles.previewHighlight}>{selectedStore?.name}</Text> with a quick update for you:{"\n\n"}
+									Hello <Text style={styles.previewHighlight}>
+										{recipients.length > 1
+											? '[their name]'
+											: (recipients[0]?.name || 'Customer')}
+									</Text>! We hope you're having a great day. We're reaching out from <Text style={styles.previewHighlight}>{selectedStore?.name}</Text> with a quick update for you:{"\n\n"}
 									{sanitizeTemplateParam(customMsg) || '...'}{"\n\n"}
 									<Text style={styles.previewMuted}>Thank you for being a valued customer!</Text>
 								</Text>
+								<Text style={styles.previewFooter}>Reply STOP to opt out of promotional messages.</Text>
 							</View>
 
 							<TextInput
@@ -425,7 +586,11 @@ export default function CustomersScreen() {
 								) : (
 									<>
 										<MaterialIcons name="send" size={20} color="#FFF" />
-										<Text style={styles.sendBtnText}>Send to {selectedCustomer?.name}</Text>
+										<Text style={styles.sendBtnText}>
+											{recipients.length > 1
+												? `Send to ${recipients.length} customers`
+												: `Send to ${recipients[0]?.name || 'customer'}`}
+										</Text>
 									</>
 								)}
 							</TouchableOpacity>
@@ -455,6 +620,46 @@ const styles = StyleSheet.create({
 	branchSelector: { flexDirection: 'row', alignItems: 'center', marginTop: 2 },
 	branchSelectorText: { fontSize: 13, color: '#065637', fontWeight: '600', marginRight: 4 },
 	syncBtn: { padding: 8 },
+	headerActions: { flexDirection: 'row', alignItems: 'center' },
+	selectionHint: { fontSize: 12, color: '#9CA3AF', marginTop: 2 },
+	selectAllText: { fontSize: 14, fontWeight: '600', color: '#065637' },
+
+	checkbox: {
+		width: 22,
+		height: 22,
+		borderRadius: 6,
+		borderWidth: 2,
+		borderColor: '#D1D5DB',
+		alignItems: 'center',
+		justifyContent: 'center',
+		marginRight: 12,
+	},
+	checkboxChecked: { backgroundColor: '#065637', borderColor: '#065637' },
+	checkboxDisabled: { backgroundColor: '#F3F4F6', borderColor: '#E5E7EB' },
+	optedOutText: { fontSize: 13, color: '#B45309', marginTop: 2, fontWeight: '500' },
+
+	selectionBar: {
+		position: 'absolute',
+		left: 0,
+		right: 0,
+		bottom: 0,
+		backgroundColor: '#FFF',
+		paddingHorizontal: 16,
+		paddingTop: 12,
+		paddingBottom: 28,
+		borderTopWidth: 1,
+		borderTopColor: '#E5E7EB',
+	},
+	selectionSendBtn: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'center',
+		backgroundColor: '#25D366',
+		borderRadius: 12,
+		paddingVertical: 15,
+		gap: 8,
+	},
+	selectionSendText: { color: '#FFF', fontSize: 15, fontWeight: '700' },
 
 	tabContainer: {
 		flexDirection: 'row',
@@ -488,6 +693,7 @@ const styles = StyleSheet.create({
 		borderBottomColor: '#F3F4F6',
 	},
 	cardExpanded: { backgroundColor: '#F9FAFB' },
+	cardSelected: { backgroundColor: '#F0FDF4' },
 	cardHeader: {
 		flexDirection: 'row',
 		alignItems: 'center',
@@ -597,6 +803,14 @@ const styles = StyleSheet.create({
 	previewText: { fontSize: 15, color: '#374151', lineHeight: 22 },
 	previewHighlight: { color: '#065637', fontWeight: '700' },
 	previewMuted: { color: '#9CA3AF', fontSize: 13, fontStyle: 'italic' },
+	previewFooter: {
+		fontSize: 12,
+		color: '#9CA3AF',
+		marginTop: 12,
+		paddingTop: 10,
+		borderTopWidth: 1,
+		borderTopColor: '#E5E7EB',
+	},
 	composerInput: {
 		backgroundColor: '#F9FAFB',
 		borderWidth: 1,

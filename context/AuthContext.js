@@ -166,6 +166,65 @@ const STORAGE_KEY = 'userToken';
 const SELECTED_STORE_KEY = 'selectedStore'; // saved as { _id, _isBranch?, _storeId? }
 const BIOMETRIC_ENABLED_KEY = 'biometricEnabled';
 
+/* ---------------------- Selected store/branch resolution ---------------------- */
+
+/**
+ * Turn a persisted { _id, _isBranch, _storeId } into the live store/branch object from
+ * userInfo.stores. Returns null when the saved selection no longer exists (branch deleted,
+ * access revoked, different account), so the caller can fall back to a default.
+ */
+function resolveSelectionFromStores(parsed, stores) {
+	if (!parsed?._id || !Array.isArray(stores) || stores.length === 0) return null;
+
+	if (parsed._isBranch) {
+		// Prefer the recorded parent, but a branch can move between stores.
+		const ordered = [
+			...stores.filter((s) => String(s._id) === String(parsed._storeId)),
+			...stores.filter((s) => String(s._id) !== String(parsed._storeId)),
+		];
+		for (const s of ordered) {
+			const br = (s.branches || []).find(
+				(b) => String(b._id) === String(parsed._id),
+			);
+			if (br) return { ...br, _isBranch: true, _storeId: s._id };
+		}
+		return null;
+	}
+
+	const storeObj = stores.find((s) => String(s._id) === String(parsed._id));
+	if (!storeObj) return null;
+
+	// A store selection resolves to its default branch, since everything is branch-scoped.
+	const branchObj =
+		(storeObj.branches || []).find(
+			(b) => String(b._id) === String(storeObj.defaultBranch),
+		) ||
+		(storeObj.branches || []).find((b) => b.isDefault) ||
+		(storeObj.branches || [])[0] ||
+		null;
+
+	return branchObj
+		? { ...branchObj, _isBranch: true, _storeId: storeObj._id }
+		: { ...storeObj, _isBranch: false };
+}
+
+/** First store's default branch — used only when there is nothing valid to restore. */
+function pickDefaultSelection(stores) {
+	if (!Array.isArray(stores) || stores.length === 0) return null;
+	const firstStore = stores[0];
+	const branchObj =
+		(firstStore.branches || []).find(
+			(b) => String(b._id) === String(firstStore.defaultBranch),
+		) ||
+		(firstStore.branches || []).find((b) => b.isDefault) ||
+		(firstStore.branches || [])[0] ||
+		null;
+
+	return branchObj
+		? { ...branchObj, _isBranch: true, _storeId: firstStore._id }
+		: { ...firstStore, _isBranch: false };
+}
+
 /* ---------------------- AuthProvider ---------------------- */
 
 const AuthProvider = ({ children }) => {
@@ -179,6 +238,21 @@ const AuthProvider = ({ children }) => {
 	//  - store object: { _id, name, branches: [...], ... , _isBranch: false }
 	//  - branch object: { _id, name, ... , _isBranch: true, _storeId: <parent store id> }
 	const [selectedStore, setSelectedStore] = useState(null);
+
+	// Read the saved selection exactly once, started before any network call so nothing can
+	// race ahead of it. Both consumers below await this same promise, which is what stops the
+	// userInfo effect from installing the first store's default over the user's real choice.
+	const [persistedSelectionPromise] = useState(() =>
+		AsyncStorage.getItem(SELECTED_STORE_KEY)
+			.then((raw) => {
+				try {
+					return raw ? JSON.parse(raw) : null;
+				} catch {
+					return null;
+				}
+			})
+			.catch(() => null),
+	);
 
 	// Biometric State
 	const [isBiometricSupported, setIsBiometricSupported] = useState(false);
@@ -568,145 +642,13 @@ const AuthProvider = ({ children }) => {
 
 				const u = await getUserInfo(token); // u.stores = full objects
 
-				// Try restore persisted selected store/branch
+				// Restore the saved store/branch. resolveSelectionFromStores is shared with the
+				// userInfo effect below so both paths always agree on the same selection.
 				try {
-					const persisted = await AsyncStorage.getItem(
-						SELECTED_STORE_KEY,
-					);
-					let restored = null;
-					if (persisted) {
-						const parsed = JSON.parse(persisted);
-						if (parsed && parsed._id) {
-							// If persisted is branch
-							if (parsed._isBranch && parsed._storeId) {
-								// find parent store in userInfo.stores
-								const parent = (u.stores || []).find(
-									(s) =>
-										String(s._id) ===
-										String(parsed._storeId),
-								);
-								if (
-									parent &&
-									Array.isArray(parent.branches)
-								) {
-									const br = parent.branches.find(
-										(b) =>
-											String(b._id) === String(parsed._id),
-									);
-									if (br)
-										restored = {
-											...br,
-											_isBranch: true,
-											_storeId: parent._id,
-										};
-								}
-								// fallback: try searching branches across stores
-								if (!restored) {
-									for (const s of u.stores || []) {
-										if (Array.isArray(s.branches)) {
-											const br = s.branches.find(
-												(b) =>
-													String(b._id) ===
-													String(parsed._id),
-											);
-											if (br) {
-												restored = {
-													...br,
-													_isBranch: true,
-													_storeId: s._id,
-												};
-												break;
-											}
-										}
-									}
-								}
-							} else {
-								// persisted is a store id
-								const storeObj = (u.stores || []).find(
-									(s) =>
-										String(s._id) === String(parsed._id),
-								);
-								if (storeObj) {
-									// Resolve default branch for the store (prefer store.defaultBranch or branch.isDefault)
-									let branchObj = null;
-									if (storeObj.defaultBranch) {
-										branchObj = (
-											storeObj.branches || []
-										).find(
-											(b) =>
-												String(b._id) ===
-												String(storeObj.defaultBranch),
-										);
-									}
-									if (
-										!branchObj &&
-										Array.isArray(storeObj.branches)
-									) {
-										branchObj =
-											storeObj.branches.find(
-												(b) => b.isDefault,
-											) ||
-											storeObj.branches[0] ||
-											null;
-									}
-									if (branchObj)
-										restored = {
-											...branchObj,
-											_isBranch: true,
-											_storeId: storeObj._id,
-										};
-									else
-										restored = {
-											...storeObj,
-											_isBranch: false,
-										};
-								}
-							}
-						}
-					}
-
-					// If nothing restored, pick a sensible default from userInfo.stores
-					if (!restored) {
-						if (
-							Array.isArray(u.stores) &&
-							u.stores.length > 0
-						) {
-							const firstStore = u.stores[0];
-							let branchObj = null;
-							if (firstStore.defaultBranch) {
-								branchObj = (
-									firstStore.branches || []
-								).find(
-									(b) =>
-										String(b._id) ===
-										String(firstStore.defaultBranch),
-								);
-							}
-							if (
-								!branchObj &&
-								Array.isArray(firstStore.branches)
-							) {
-								branchObj =
-									firstStore.branches.find(
-										(b) => b.isDefault,
-									) ||
-									firstStore.branches[0] ||
-									null;
-							}
-							console.log('firstStore:', firstStore);
-							if (branchObj)
-								restored = {
-									...branchObj,
-									_isBranch: true,
-									_storeId: firstStore._id,
-								};
-							else
-								restored = {
-									...firstStore,
-									_isBranch: false,
-								};
-						}
-					}
+					const parsed = await persistedSelectionPromise;
+					const restored =
+						resolveSelectionFromStores(parsed, u?.stores) ||
+						pickDefaultSelection(u?.stores);
 
 					if (restored) {
 						setSelectedStore(restored);
@@ -890,37 +832,16 @@ const AuthProvider = ({ children }) => {
 			return;
 
 		(async () => {
-			// If no selectedStore, pick default branch or first branch/store
+			// No selection yet: this effect fires the moment getUserInfo() sets userInfo, which
+			// is *before* checkLoginStatus() finishes restoring. Resolve from the saved value
+			// here too, or it would install the first store and overwrite the real choice.
 			if (!selectedStore) {
-				const firstStore = userInfo.stores[0];
-				console.log('firstStore:', firstStore);
-				let branchObj = null;
-				if (firstStore.defaultBranch) {
-					branchObj = (firstStore.branches || []).find(
-						(b) =>
-							String(b._id) ===
-							String(firstStore.defaultBranch),
-					);
-				}
-				if (
-					!branchObj &&
-					Array.isArray(firstStore.branches)
-				) {
-					branchObj =
-						firstStore.branches.find((b) => b.isDefault) ||
-						firstStore.branches[0] ||
-						null;
-				}
-				if (branchObj) {
-					const sel = {
-						...branchObj,
-						_isBranch: true,
-						_storeId: firstStore._id,
-					};
-					setSelectedStore(sel);
-					prevSelectedStoreRef.current = sel;
-				} else {
-					const sel = { ...firstStore, _isBranch: false };
+				const parsed = await persistedSelectionPromise;
+				const sel =
+					resolveSelectionFromStores(parsed, userInfo.stores) ||
+					pickDefaultSelection(userInfo.stores);
+
+				if (sel) {
 					setSelectedStore(sel);
 					prevSelectedStoreRef.current = sel;
 				}
@@ -987,23 +908,26 @@ const AuthProvider = ({ children }) => {
 	/* ---------------------- Persist selectedStore ---------------------- */
 
 	useEffect(() => {
+		// selectedStore is null on every cold start, and this effect runs immediately —
+		// while checkLoginStatus() only reads the key after a network round-trip. Clearing
+		// here would therefore wipe the saved branch before it could ever be restored, so
+		// the user always landed back on the first store's default branch. Only logout
+		// clears the key, and it does so explicitly.
+		if (!selectedStore) return;
+
 		(async () => {
 			try {
-				if (selectedStore) {
-					const toPersist = {
-						_id: selectedStore._id,
-						_isBranch: !!selectedStore._isBranch,
-						_storeId: selectedStore._isBranch
-							? selectedStore._storeId
-							: undefined,
-					};
-					await AsyncStorage.setItem(
-						SELECTED_STORE_KEY,
-						JSON.stringify(toPersist),
-					);
-				} else {
-					await AsyncStorage.removeItem(SELECTED_STORE_KEY);
-				}
+				const toPersist = {
+					_id: selectedStore._id,
+					_isBranch: !!selectedStore._isBranch,
+					_storeId: selectedStore._isBranch
+						? selectedStore._storeId
+						: undefined,
+				};
+				await AsyncStorage.setItem(
+					SELECTED_STORE_KEY,
+					JSON.stringify(toPersist),
+				);
 			} catch (e) {
 				console.warn('Failed to persist selectedStore:', e);
 			}
