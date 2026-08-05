@@ -109,17 +109,7 @@ export default function TabLayout() {
 			<Tabs.Screen
 				name="marketing"
 				options={{
-					title: 'Marketing',
-					tabBarIcon: ({ color, focused }) => (
-						<AnimatedTabIcon
-							name={
-								focused ? 'megaphone' : 'megaphone-outline'
-							}
-							color={color}
-							size={24}
-							focused={focused}
-						/>
-					),
+					href: null,
 				}}
 			/>
 

@@ -10,12 +10,15 @@ import {
 	TextInput,
 	Platform,
 	Modal,
+	ToastAndroid,
+	Alert,
 } from 'react-native';
 import React, {
 	useContext,
 	useEffect,
 	useState,
 	useCallback,
+	useRef,
 } from 'react';
 import { router } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
@@ -25,6 +28,7 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SkeletonLoader from '@/components/SkeletonLoader';
+import * as Notifications from 'expo-notifications';
 
 // Helper for "Time Ago"
 const formatTimeAgo = (dateString) => {
@@ -83,7 +87,7 @@ const Orders = () => {
 	// Display Name Logic
 	const displayStoreName = selectedStore?.parentStoreName || selectedStore?.name || 'Select Store';
 
-	// Fetch orders based on CURRENT selectedStore from Context
+	// Fetch orders based on CURRENT selectedStore from Context with 5-second polling
 	const ordersQuery = useQuery({
 		queryKey: ['ordersList', selectedStore?._id, selectedStore?.parent],
 		queryFn: async () => {
@@ -120,7 +124,59 @@ const Orders = () => {
 			}
 		},
 		enabled: !!selectedStore,
+		refetchInterval: 5000, // Auto poll every 5 seconds
+		refetchIntervalInBackground: true,
 	});
+
+	// Track known order IDs to detect & notify on newly arrived orders
+	const knownOrderIdsRef = useRef(null);
+
+	useEffect(() => {
+		if (!ordersQuery.data || !Array.isArray(ordersQuery.data)) return;
+
+		const currentOrders = ordersQuery.data;
+
+		// Initial load: populate known IDs without triggering sound/toast
+		if (knownOrderIdsRef.current === null) {
+			knownOrderIdsRef.current = new Set(currentOrders.map((o) => o._id));
+			return;
+		}
+
+		// Detect new orders that arrived during polling
+		const newOrders = currentOrders.filter(
+			(order) => !knownOrderIdsRef.current.has(order._id)
+		);
+
+		if (newOrders.length > 0) {
+			newOrders.forEach((newOrder) => {
+				const orderNum = newOrder.orderNumber || newOrder._id?.slice(-6) || 'New';
+				const amountStr = newOrder.totalAmount ? `₦${newOrder.totalAmount.toLocaleString()}` : '';
+				const title = '📦 New Order Received!';
+				const body = `Order #${orderNum} ${amountStr} from ${newOrder.customerName || 'a customer'}`;
+
+				// 1. Trigger local system notification (works in-app and background!)
+				Notifications.scheduleNotificationAsync({
+					content: {
+						title,
+						body,
+						sound: 'default',
+						priority: Notifications.AndroidNotificationPriority.MAX,
+					},
+					trigger: null, // Fire immediately
+				}).catch((err) => console.warn('[NOTIF ERROR]:', err));
+
+				// 2. In-app feedback
+				if (Platform.OS === 'android') {
+					ToastAndroid.show(`🎉 ${title} - ${body}`, ToastAndroid.LONG);
+				} else {
+					Alert.alert(title, body);
+				}
+			});
+
+			// Update known order IDs
+			knownOrderIdsRef.current = new Set(currentOrders.map((o) => o._id));
+		}
+	}, [ordersQuery.data]);
 
 	if (ordersQuery.data) {
 		hasOrdersScreenLoadedBefore = true;

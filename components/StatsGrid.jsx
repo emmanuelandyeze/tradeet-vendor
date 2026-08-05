@@ -13,6 +13,7 @@ import {
 	MaterialCommunityIcons,
 } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { COLORS, TYPOGRAPHY, LAYOUT, ACCESSIBILITY } from '@/constants/theme';
 
 const { width } = Dimensions.get('window');
 
@@ -42,11 +43,11 @@ const StatsGrid = ({
 	return (
 		<View style={styles.statsContainer}>
 			{/* 1. Income Card */}
-			<TouchableWithoutFeedback>
+			<TouchableWithoutFeedback {...ACCESSIBILITY.buttonProps('Income Summary Card')}>
 				<View style={[styles.statCard, styles.incomeCard]}>
 					<View style={styles.statHeader}>
-						<View style={[styles.iconCircle, { backgroundColor: '#E6F4EA' }]}>
-							<Entypo name="arrow-bold-down" size={14} color="#065637" />
+						<View style={[styles.iconCircle, { backgroundColor: COLORS.primaryLight }]}>
+							<Entypo name="arrow-bold-down" size={14} color={COLORS.primary} />
 						</View>
 						<Text style={styles.statLabel}>Income</Text>
 					</View>
@@ -63,11 +64,14 @@ const StatsGrid = ({
 			</TouchableWithoutFeedback>
 
 			{/* 2. Invoices Card */}
-			<TouchableWithoutFeedback onPress={onInvoicePress}>
+			<TouchableWithoutFeedback
+				onPress={onInvoicePress}
+				{...ACCESSIBILITY.buttonProps('Invoices Summary Card', 'Navigates to invoices')}
+			>
 				<View style={[styles.statCard, styles.invoiceCard]}>
 					<View style={styles.statHeader}>
-						<View style={[styles.iconCircle, { backgroundColor: '#EFF6FF' }]}>
-							<AntDesign name="file-text" size={14} color="#1D4ED8" />
+						<View style={[styles.iconCircle, { backgroundColor: COLORS.infoBg }]}>
+							<AntDesign name="file-text" size={14} color={COLORS.info} />
 						</View>
 						<Text style={styles.statLabel}>Invoices</Text>
 					</View>
@@ -86,7 +90,7 @@ const StatsGrid = ({
 								<Text style={styles.subText}>
 									{unpaidInvoicesCount} unpaid
 								</Text>
-								<AntDesign name="right" size={10} color="#94A3B8" />
+								<AntDesign name="right" size={10} color={COLORS.textLight} />
 							</View>
 						</View>
 					)}
@@ -94,11 +98,14 @@ const StatsGrid = ({
 			</TouchableWithoutFeedback>
 
 			{/* 3. Debtors Card */}
-			<TouchableWithoutFeedback onPress={() => router.push('/(app)/debtors')}>
+			<TouchableWithoutFeedback
+				onPress={() => router.push('/(app)/debtors')}
+				{...ACCESSIBILITY.buttonProps('Debtors Summary Card', 'Opens Customer Debt Book')}
+			>
 				<View style={[styles.statCard, styles.debtorsCard]}>
 					<View style={styles.statHeader}>
-						<View style={[styles.iconCircle, { backgroundColor: '#FFFBEB' }]}>
-							<MaterialCommunityIcons name="book-open-variant" size={14} color="#D97706" />
+						<View style={[styles.iconCircle, { backgroundColor: COLORS.warningBg }]}>
+							<MaterialCommunityIcons name="book-open-variant" size={14} color={COLORS.warning} />
 						</View>
 						<Text style={styles.statLabel}>Debtors</Text>
 					</View>
@@ -115,7 +122,7 @@ const StatsGrid = ({
 							)}
 							<View style={styles.subTextContainer}>
 								<Text style={styles.subText}>{debtorsCount} debtors</Text>
-								<AntDesign name="right" size={10} color="#94A3B8" />
+								<AntDesign name="right" size={10} color={COLORS.textLight} />
 							</View>
 						</View>
 					)}
@@ -123,11 +130,11 @@ const StatsGrid = ({
 			</TouchableWithoutFeedback>
 
 			{/* 4. Expenses Card */}
-			<TouchableWithoutFeedback>
+			<TouchableWithoutFeedback {...ACCESSIBILITY.buttonProps('Expenses Summary Card')}>
 				<View style={[styles.statCard, styles.expensesCard]}>
 					<View style={styles.statHeader}>
-						<View style={[styles.iconCircle, { backgroundColor: '#FEF2F2' }]}>
-							<Entypo name="arrow-bold-up" size={14} color="#DC2626" />
+						<View style={[styles.iconCircle, { backgroundColor: COLORS.dangerBg }]}>
+							<Entypo name="arrow-bold-up" size={14} color={COLORS.danger} />
 						</View>
 						<Text style={styles.statLabel}>Expenses</Text>
 					</View>
@@ -157,23 +164,22 @@ const styles = StyleSheet.create({
 		marginBottom: 16,
 	},
 	statCard: {
-		backgroundColor: '#FFFFFF',
-		borderRadius: 14,
+		backgroundColor: COLORS.surface,
+		borderRadius: LAYOUT.borderRadiusMd,
 		padding: 14,
-		width: '48.5%', // 2 cards per row
+		width: '48.5%',
 		borderWidth: 1,
-		borderColor: '#F1F5F9',
+		borderColor: COLORS.borderSubtle,
 		shadowColor: '#000',
 		shadowOffset: { width: 0, height: 1 },
 		shadowOpacity: 0.04,
 		shadowRadius: 3,
 		elevation: 1,
 	},
-	// Color coded left accent borders
-	incomeCard: { borderLeftWidth: 3, borderLeftColor: '#065637' },
-	invoiceCard: { borderLeftWidth: 3, borderLeftColor: '#1D4ED8' },
-	debtorsCard: { borderLeftWidth: 3, borderLeftColor: '#D97706' },
-	expensesCard: { borderLeftWidth: 3, borderLeftColor: '#DC2626' },
+	incomeCard: { borderLeftWidth: 3, borderLeftColor: COLORS.primary },
+	invoiceCard: { borderLeftWidth: 3, borderLeftColor: COLORS.info },
+	debtorsCard: { borderLeftWidth: 3, borderLeftColor: COLORS.warning },
+	expensesCard: { borderLeftWidth: 3, borderLeftColor: COLORS.danger },
 
 	statHeader: {
 		flexDirection: 'row',
@@ -189,21 +195,20 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 	},
 	statLabel: {
-		fontSize: 12,
-		color: '#64748B',
-		fontWeight: '700',
+		...TYPOGRAPHY.captionBold,
+		color: COLORS.textMuted,
 		flex: 1,
 	},
 	statValue: {
+		...TYPOGRAPHY.h2,
 		fontSize: 17,
-		fontWeight: '800',
-		color: '#0F172A',
+		color: COLORS.textPrimary,
 		letterSpacing: -0.3,
 	},
 	hiddenTextValue: {
+		...TYPOGRAPHY.h2,
 		fontSize: 16,
-		fontWeight: '800',
-		color: '#94A3B8',
+		color: COLORS.textLight,
 		letterSpacing: 2,
 		marginTop: 2,
 	},
@@ -214,14 +219,13 @@ const styles = StyleSheet.create({
 		marginTop: 6,
 	},
 	subText: {
-		fontSize: 11,
-		color: '#64748B',
-		fontWeight: '600',
+		...TYPOGRAPHY.captionBold,
+		color: COLORS.textMuted,
 	},
 	skeletonBox: {
 		height: 24,
 		width: '60%',
-		backgroundColor: '#E2E8F0',
+		backgroundColor: COLORS.border,
 		borderRadius: 4,
 	},
 });

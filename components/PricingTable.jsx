@@ -19,6 +19,7 @@ import {
 import { Paystack } from 'react-native-paystack-webview';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { COLORS, TYPOGRAPHY, LAYOUT, ACCESSIBILITY } from '@/constants/theme';
 
 const { width } = Dimensions.get('window');
 
@@ -176,7 +177,7 @@ const PricingTable = ({ getBusinessInfo, setPayModalVisible }) => {
 
 				{userInfo?.plan?.isTrial && (
 					<View style={styles.trialNotice}>
-						<Ionicons name="gift-outline" size={18} color="#065637" />
+						<Ionicons name="gift-outline" size={18} color={COLORS.primary} />
 						<Text style={styles.trialNoticeText}>
 							You are exploring the <Text style={{ fontWeight: '700' }}>Business Plan</Text> free trial!
 							{userInfo.plan.expiryDate && ` Ends ${new Date(userInfo.plan.expiryDate).toLocaleDateString()}`}
@@ -193,6 +194,7 @@ const PricingTable = ({ getBusinessInfo, setPayModalVisible }) => {
 								style={[styles.toggleOption, active && styles.activeToggleOption]}
 								onPress={() => setBilling(key)}
 								activeOpacity={0.8}
+								{...ACCESSIBILITY.buttonProps(`Select ${cfg.label} billing`)}
 							>
 								<Text style={[styles.toggleText, active && styles.activeToggleText]}>
 									{cfg.label}
@@ -222,7 +224,7 @@ const PricingTable = ({ getBusinessInfo, setPayModalVisible }) => {
 						<View key={plan.id} style={[styles.planCard, isPro && styles.featuredCard]}>
 							{isPro && (
 								<LinearGradient
-									colors={['#065637', '#0B7A4F']}
+									colors={[COLORS.primary, '#0B7A4F']}
 									start={{ x: 0, y: 0 }}
 									end={{ x: 1, y: 0 }}
 									style={styles.popularBadge}
@@ -233,7 +235,7 @@ const PricingTable = ({ getBusinessInfo, setPayModalVisible }) => {
 
 							{isCurrent && (
 								<View style={styles.currentBadge}>
-									<Ionicons name="checkmark-circle" size={12} color="#065637" />
+									<Ionicons name="checkmark-circle" size={12} color={COLORS.primary} />
 									<Text style={styles.currentBadgeText}>CURRENT PLAN</Text>
 								</View>
 							)}
@@ -253,11 +255,11 @@ const PricingTable = ({ getBusinessInfo, setPayModalVisible }) => {
 								{plan.features.map((f, idx) => (
 									<View key={idx} style={styles.featureRow}>
 										{f.soon ? (
-											<Ionicons name="time-outline" size={16} color="#9CA3AF" />
+											<Ionicons name="time-outline" size={16} color={COLORS.textLight} />
 										) : f.muted ? (
-											<Ionicons name="remove-outline" size={16} color="#9CA3AF" />
+											<Ionicons name="remove-outline" size={16} color={COLORS.textLight} />
 										) : (
-											<Ionicons name="checkmark-circle" size={18} color="#065637" />
+											<Ionicons name="checkmark-circle" size={18} color={COLORS.primary} />
 										)}
 										<Text
 											style={[
@@ -282,6 +284,10 @@ const PricingTable = ({ getBusinessInfo, setPayModalVisible }) => {
 								]}
 								onPress={() => handlePayNow(plan)}
 								disabled={isProcessing || isCurrent}
+								{...ACCESSIBILITY.buttonProps(
+									isCurrent ? 'Active Plan' : `Select ${plan.name} Plan`,
+									`Subscribes to ${plan.name} for ₦${price.toLocaleString()}`
+								)}
 							>
 								{isProcessing ? (
 									<Text style={styles.selectButtonText}>Processing...</Text>
@@ -346,7 +352,7 @@ const PricingTable = ({ getBusinessInfo, setPayModalVisible }) => {
 const styles = StyleSheet.create({
 	container: {
 		flex: 1,
-		backgroundColor: '#F8FAFC',
+		backgroundColor: COLORS.background,
 	},
 	headerSection: {
 		paddingTop: 10,
@@ -355,32 +361,33 @@ const styles = StyleSheet.create({
 		alignItems: 'center',
 	},
 	mainTitle: {
-		fontSize: 22,
-		fontWeight: '800',
-		color: '#1E293B',
+		...TYPOGRAPHY.h1,
+		color: COLORS.textPrimary,
 		marginBottom: 4,
 	},
 	subtitle: {
+		...TYPOGRAPHY.body,
 		fontSize: 13,
-		color: '#64748B',
+		color: COLORS.textMuted,
 		marginBottom: 16,
 		textAlign: 'center',
 	},
 	toggleContainer: {
 		flexDirection: 'row',
-		backgroundColor: '#E2E8F0',
+		backgroundColor: COLORS.border,
 		padding: 3,
-		borderRadius: 12,
+		borderRadius: LAYOUT.borderRadiusMd,
 		width: '100%',
 	},
 	toggleOption: {
 		flex: 1,
-		paddingVertical: 8,
+		minHeight: LAYOUT.minTouchTarget,
+		justifyContent: 'center',
 		alignItems: 'center',
 		borderRadius: 9,
 	},
 	activeToggleOption: {
-		backgroundColor: '#FFFFFF',
+		backgroundColor: COLORS.surface,
 		shadowColor: '#000',
 		shadowOffset: { width: 0, height: 1 },
 		shadowOpacity: 0.1,
@@ -388,35 +395,33 @@ const styles = StyleSheet.create({
 		elevation: 2,
 	},
 	toggleText: {
-		fontSize: 13,
-		fontWeight: '600',
-		color: '#64748B',
+		...TYPOGRAPHY.captionBold,
+		color: COLORS.textMuted,
 	},
 	activeToggleText: {
-		color: '#065637',
-		fontWeight: '700',
+		color: COLORS.primary,
+		fontWeight: '800',
 	},
 	billingNote: {
 		marginTop: 8,
-		fontSize: 12,
-		fontWeight: '600',
-		color: '#065637',
+		...TYPOGRAPHY.captionBold,
+		color: COLORS.primary,
 	},
 	scrollContent: {
 		paddingHorizontal: 20,
 		paddingBottom: 40,
 	},
 	planCard: {
-		backgroundColor: '#FFFFFF',
-		borderRadius: 20,
+		backgroundColor: COLORS.surface,
+		borderRadius: LAYOUT.borderRadiusXl,
 		padding: 20,
 		marginBottom: 18,
 		borderWidth: 1,
-		borderColor: '#E2E8F0',
+		borderColor: COLORS.border,
 		position: 'relative',
 	},
 	featuredCard: {
-		borderColor: '#065637',
+		borderColor: COLORS.primary,
 		borderWidth: 2,
 	},
 	popularBadge: {
@@ -428,37 +433,32 @@ const styles = StyleSheet.create({
 		borderRadius: 16,
 	},
 	popularText: {
-		color: '#FFFFFF',
-		fontSize: 10,
-		fontWeight: '800',
-		letterSpacing: 0.5,
+		...TYPOGRAPHY.micro,
+		color: COLORS.textWhite,
 	},
 	currentBadge: {
 		flexDirection: 'row',
 		alignItems: 'center',
 		gap: 4,
 		alignSelf: 'flex-start',
-		backgroundColor: '#E6F4EA',
+		backgroundColor: COLORS.primaryLight,
 		paddingHorizontal: 8,
 		paddingVertical: 3,
 		borderRadius: 12,
 		marginBottom: 8,
 	},
 	currentBadgeText: {
-		color: '#065637',
-		fontSize: 10,
-		fontWeight: '800',
-		letterSpacing: 0.5,
+		...TYPOGRAPHY.micro,
+		color: COLORS.primary,
 	},
 	planName: {
+		...TYPOGRAPHY.h1,
 		fontSize: 18,
-		fontWeight: '800',
-		color: '#0F172A',
 		marginBottom: 2,
 	},
 	tagline: {
-		fontSize: 13,
-		color: '#64748B',
+		...TYPOGRAPHY.caption,
+		color: COLORS.textMuted,
 		marginBottom: 12,
 		lineHeight: 18,
 	},
@@ -468,26 +468,22 @@ const styles = StyleSheet.create({
 		marginBottom: 16,
 	},
 	currencySymbol: {
+		...TYPOGRAPHY.h2,
 		fontSize: 18,
-		fontWeight: '700',
-		color: '#0F172A',
 	},
 	priceText: {
+		...TYPOGRAPHY.h1,
 		fontSize: 30,
-		fontWeight: '800',
-		color: '#0F172A',
 	},
 	billingCycle: {
-		fontSize: 13,
-		color: '#64748B',
+		...TYPOGRAPHY.caption,
 		marginLeft: 4,
-		fontWeight: '500',
 	},
 	featureList: {
 		marginBottom: 20,
 		gap: 10,
 		borderTopWidth: 1,
-		borderTopColor: '#F1F5F9',
+		borderTopColor: COLORS.borderSubtle,
 		paddingTop: 16,
 	},
 	featureRow: {
@@ -496,65 +492,65 @@ const styles = StyleSheet.create({
 		gap: 8,
 	},
 	featureText: {
+		...TYPOGRAPHY.body,
 		fontSize: 13,
-		color: '#475569',
 		flex: 1,
-		lineHeight: 18,
 	},
 	featureTextStrong: {
-		fontWeight: '600',
-		color: '#0F172A',
+		...TYPOGRAPHY.bodyBold,
+		fontSize: 13,
 	},
 	featureTextMuted: {
-		color: '#94A3B8',
+		color: COLORS.textLight,
 	},
 	soonTag: {
 		fontSize: 11,
-		color: '#94A3B8',
+		color: COLORS.textLight,
 		fontStyle: 'italic',
 	},
 	selectButton: {
-		backgroundColor: '#F1F5F9',
-		paddingVertical: 12,
-		borderRadius: 12,
+		backgroundColor: COLORS.surfaceSubtle,
+		minHeight: LAYOUT.minTouchTarget,
+		justifyContent: 'center',
+		borderRadius: LAYOUT.borderRadiusMd,
 		alignItems: 'center',
 	},
 	selectButtonPrimary: {
-		backgroundColor: '#065637',
+		backgroundColor: COLORS.primary,
 	},
 	selectButtonCurrent: {
-		backgroundColor: '#F1F5F9',
+		backgroundColor: COLORS.surfaceSubtle,
 		borderWidth: 1,
-		borderColor: '#E2E8F0',
+		borderColor: COLORS.border,
 	},
 	selectButtonText: {
+		...TYPOGRAPHY.h3,
 		fontSize: 14,
-		fontWeight: '700',
-		color: '#334155',
+		color: COLORS.textSecondary,
 	},
 	selectButtonTextPrimary: {
-		color: '#FFFFFF',
+		color: COLORS.textWhite,
 	},
 	selectButtonTextCurrent: {
+		...TYPOGRAPHY.h3,
 		fontSize: 14,
-		fontWeight: '700',
-		color: '#94A3B8',
+		color: COLORS.textLight,
 	},
 	trialNotice: {
 		flexDirection: 'row',
 		alignItems: 'center',
-		backgroundColor: '#E6F4EA',
+		backgroundColor: COLORS.primaryLight,
 		paddingHorizontal: 14,
 		paddingVertical: 10,
-		borderRadius: 12,
+		borderRadius: LAYOUT.borderRadiusMd,
 		marginBottom: 12,
 		gap: 8,
 		borderWidth: 1,
 		borderColor: '#A7F3D0',
 	},
 	trialNoticeText: {
-		fontSize: 12,
-		color: '#065637',
+		...TYPOGRAPHY.caption,
+		color: COLORS.primary,
 		flex: 1,
 	},
 });

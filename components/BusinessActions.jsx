@@ -15,6 +15,7 @@ import {
 	Feather,
 } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import { COLORS, TYPOGRAPHY, LAYOUT, ACCESSIBILITY } from '@/constants/theme';
 
 const { width } = Dimensions.get('window');
 
@@ -31,8 +32,8 @@ const ACTIONS = [
 		icon: 'sale',
 		lib: MaterialCommunityIcons,
 		route: '/sales',
-		color: '#065637',
-		bgColor: '#E6F4EA',
+		color: COLORS.primary,
+		bgColor: COLORS.primaryLight,
 	},
 	{
 		id: 'invoices',
@@ -40,8 +41,8 @@ const ACTIONS = [
 		icon: 'receipt',
 		lib: MaterialIcons,
 		route: '/invoices',
-		color: '#1D4ED8',
-		bgColor: '#EFF6FF',
+		color: COLORS.info,
+		bgColor: COLORS.infoBg,
 	},
 	{
 		id: 'expenses',
@@ -49,8 +50,8 @@ const ACTIONS = [
 		icon: 'circle-minus',
 		lib: FontAwesome6,
 		route: '/expenses',
-		color: '#B91C1C',
-		bgColor: '#FEF2F2',
+		color: COLORS.danger,
+		bgColor: COLORS.dangerBg,
 	},
 	{
 		id: 'debtors',
@@ -58,8 +59,8 @@ const ACTIONS = [
 		icon: 'book-open-variant',
 		lib: MaterialCommunityIcons,
 		route: '/(app)/debtors',
-		color: '#D97706',
-		bgColor: '#FFFBEB',
+		color: COLORS.warning,
+		bgColor: COLORS.warningBg,
 	},
 
 	// Row 2: Store Operations & Growth
@@ -69,8 +70,8 @@ const ACTIONS = [
 		icon: 'users',
 		lib: Feather,
 		route: '/(app)/customers',
-		color: '#7C3AED',
-		bgColor: '#F3E8FF',
+		color: COLORS.purple,
+		bgColor: COLORS.purpleBg,
 	},
 	{
 		id: 'discounts',
@@ -122,6 +123,7 @@ const BusinessActions = () => {
 							style={styles.actionItem}
 							onPress={() => handlePress(item)}
 							activeOpacity={0.75}
+							{...ACCESSIBILITY.buttonProps(`Open ${item.label}`, `Navigates to ${item.label} screen`)}
 						>
 							<View style={[styles.iconBox, { backgroundColor: item.bgColor }]}>
 								<IconLib name={item.icon} size={22} color={item.color} />
@@ -141,12 +143,12 @@ export default BusinessActions;
 
 const styles = StyleSheet.create({
 	container: {
-		backgroundColor: '#FFFFFF',
-		borderRadius: 16,
+		backgroundColor: COLORS.surface,
+		borderRadius: LAYOUT.borderRadiusLg,
 		padding: 16,
 		marginBottom: 16,
 		borderWidth: 1,
-		borderColor: '#F1F5F9',
+		borderColor: COLORS.borderSubtle,
 		shadowColor: '#000',
 		shadowOffset: { width: 0, height: 1 },
 		shadowOpacity: 0.04,
@@ -154,9 +156,7 @@ const styles = StyleSheet.create({
 		elevation: 1,
 	},
 	sectionTitle: {
-		fontSize: 16,
-		fontWeight: '800',
-		color: '#0F172A',
+		...TYPOGRAPHY.h2,
 		marginBottom: 16,
 	},
 	grid: {
@@ -166,21 +166,22 @@ const styles = StyleSheet.create({
 		rowGap: 18,
 	},
 	actionItem: {
-		width: '23%', // Exactly 4 items per row
+		width: '23%',
 		alignItems: 'center',
 		gap: 6,
+		minHeight: LAYOUT.minTouchTarget,
 	},
 	iconBox: {
 		width: 48,
 		height: 48,
-		borderRadius: 14,
+		borderRadius: LAYOUT.borderRadiusMd,
 		justifyContent: 'center',
 		alignItems: 'center',
 	},
 	actionLabel: {
+		...TYPOGRAPHY.captionBold,
 		fontSize: 11,
-		fontWeight: '700',
-		color: '#334155',
+		color: COLORS.textSecondary,
 		textAlign: 'center',
 	},
 });

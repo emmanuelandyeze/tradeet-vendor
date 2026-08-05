@@ -20,10 +20,11 @@ import { useRouter } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { AuthContext } from '@/context/AuthContext';
 import axiosInstance from '@/utils/axiosInstance';
+import { COLORS, TYPOGRAPHY, LAYOUT, ACCESSIBILITY } from '@/constants/theme';
 
 export default function DebtorsScreen() {
 	const router = useRouter();
-	const { selectedStore, getPlanCapability } = useContext(AuthContext);
+	const { selectedStore } = useContext(AuthContext);
 	const entityId = selectedStore?._id;
 
 	const [loading, setLoading] = useState(true);
@@ -31,7 +32,7 @@ export default function DebtorsScreen() {
 	const [debtors, setDebtors] = useState([]);
 	const [summary, setSummary] = useState({ totalStoreDebt: 0, debtorCount: 0 });
 	const [searchQuery, setSearchQuery] = useState('');
-	const [statusFilter, setStatusFilter] = useState('all'); // 'all', 'overdue', 'cleared'
+	const [statusFilter, setStatusFilter] = useState('all');
 
 	// Modals
 	const [giveCreditModalVisible, setGiveCreditModalVisible] = useState(false);
@@ -88,7 +89,6 @@ export default function DebtorsScreen() {
 		fetchDebtors();
 	};
 
-	// Open Give Credit Modal
 	const openGiveCreditModal = (customer = null) => {
 		if (customer) {
 			setSelectedCustomer(customer);
@@ -114,7 +114,6 @@ export default function DebtorsScreen() {
 		setGiveCreditModalVisible(true);
 	};
 
-	// Open Repayment Modal
 	const openRepaymentModal = (customer) => {
 		setSelectedCustomer(customer);
 		setRepaymentForm({
@@ -126,7 +125,6 @@ export default function DebtorsScreen() {
 		setRepaymentModalVisible(true);
 	};
 
-	// Open Ledger History Modal
 	const openLedgerModal = async (customer) => {
 		setSelectedCustomer(customer);
 		setLedgerModalVisible(true);
@@ -143,7 +141,6 @@ export default function DebtorsScreen() {
 		}
 	};
 
-	// Submit Give Credit
 	const handleGiveCreditSubmit = async () => {
 		if (!creditForm.amount || parseFloat(creditForm.amount) <= 0) {
 			return Alert.alert('Invalid Amount', 'Please enter a valid credit amount.');
@@ -173,7 +170,6 @@ export default function DebtorsScreen() {
 		}
 	};
 
-	// Submit Repayment
 	const handleRepaymentSubmit = async () => {
 		if (!repaymentForm.amount || parseFloat(repaymentForm.amount) <= 0) {
 			return Alert.alert('Invalid Amount', 'Please enter a valid repayment amount.');
@@ -198,7 +194,6 @@ export default function DebtorsScreen() {
 		}
 	};
 
-	// Send WhatsApp Reminder
 	const handleWhatsAppReminder = async (customer) => {
 		try {
 			const res = await axiosInstance.post(`/debts/${entityId}/reminder`, {
@@ -236,6 +231,7 @@ export default function DebtorsScreen() {
 					style={styles.debtorHeader}
 					onPress={() => openLedgerModal(item)}
 					activeOpacity={0.7}
+					{...ACCESSIBILITY.buttonProps(`View debt statement for ${item.name}`, 'Opens customer debt history')}
 				>
 					<View style={styles.avatarCircle}>
 						<Text style={styles.avatarText}>
@@ -260,8 +256,9 @@ export default function DebtorsScreen() {
 					<TouchableOpacity
 						style={[styles.actionBtn, styles.giveCreditBtn]}
 						onPress={() => openGiveCreditModal(item)}
+						{...ACCESSIBILITY.buttonProps(`Add debt for ${item.name}`)}
 					>
-						<Feather name="plus-circle" size={14} color="#065637" />
+						<Feather name="plus-circle" size={14} color={COLORS.primary} />
 						<Text style={styles.giveCreditText}>+ Credit</Text>
 					</TouchableOpacity>
 
@@ -270,16 +267,18 @@ export default function DebtorsScreen() {
 							<TouchableOpacity
 								style={[styles.actionBtn, styles.repayBtn]}
 								onPress={() => openRepaymentModal(item)}
+								{...ACCESSIBILITY.buttonProps(`Record repayment for ${item.name}`)}
 							>
-								<Feather name="check-circle" size={14} color="#2563EB" />
+								<Feather name="check-circle" size={14} color={COLORS.info} />
 								<Text style={styles.repayText}>- Repay</Text>
 							</TouchableOpacity>
 
 							<TouchableOpacity
 								style={[styles.actionBtn, styles.reminderBtn]}
 								onPress={() => handleWhatsAppReminder(item)}
+								{...ACCESSIBILITY.buttonProps(`Send WhatsApp reminder to ${item.name}`)}
 							>
-								<Ionicons name="logo-whatsapp" size={14} color="#16A34A" />
+								<Ionicons name="logo-whatsapp" size={14} color={COLORS.success} />
 								<Text style={styles.reminderText}>Remind</Text>
 							</TouchableOpacity>
 						</>
@@ -295,15 +294,20 @@ export default function DebtorsScreen() {
 
 			{/* Header */}
 			<View style={styles.header}>
-				<TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
-					<Ionicons name="arrow-back" size={24} color="#1E293B" />
+				<TouchableOpacity
+					onPress={() => router.back()}
+					style={styles.backBtn}
+					{...ACCESSIBILITY.buttonProps('Go Back', 'Returns to previous screen')}
+				>
+					<Ionicons name="arrow-back" size={24} color={COLORS.textPrimary} />
 				</TouchableOpacity>
 				<Text style={styles.headerTitle}>Customer Debt Book</Text>
 				<TouchableOpacity
 					style={styles.headerAddBtn}
 					onPress={() => openGiveCreditModal(null)}
+					{...ACCESSIBILITY.buttonProps('Add New Customer Debt')}
 				>
-					<Feather name="plus" size={18} color="#FFFFFF" />
+					<Feather name="plus" size={18} color={COLORS.textWhite} />
 					<Text style={styles.headerAddText}>Add Debt</Text>
 				</TouchableOpacity>
 			</View>
@@ -315,7 +319,7 @@ export default function DebtorsScreen() {
 					<Text style={styles.summaryAmount}>₦{(summary.totalStoreDebt || 0).toLocaleString()}</Text>
 				</View>
 				<View style={styles.summaryBadge}>
-					<Ionicons name="people-outline" size={16} color="#DC2626" />
+					<Ionicons name="people-outline" size={16} color={COLORS.danger} />
 					<Text style={styles.summaryBadgeText}>{summary.debtorCount || 0} Debtors</Text>
 				</View>
 			</View>
@@ -323,13 +327,14 @@ export default function DebtorsScreen() {
 			{/* Search & Filter */}
 			<View style={styles.filterSection}>
 				<View style={styles.searchBar}>
-					<Ionicons name="search-outline" size={18} color="#94A3B8" />
+					<Ionicons name="search-outline" size={18} color={COLORS.textMuted} />
 					<TextInput
 						style={styles.searchInput}
 						placeholder="Search debtor name or phone..."
-						placeholderTextColor="#94A3B8"
+						placeholderTextColor={COLORS.textLight}
 						value={searchQuery}
 						onChangeText={setSearchQuery}
+						{...ACCESSIBILITY.inputProps('Search debtors')}
 					/>
 				</View>
 
@@ -343,6 +348,7 @@ export default function DebtorsScreen() {
 							key={tab.id}
 							style={[styles.tabBtn, statusFilter === tab.id && styles.activeTabBtn]}
 							onPress={() => setStatusFilter(tab.id)}
+							{...ACCESSIBILITY.buttonProps(`Filter by ${tab.label}`)}
 						>
 							<Text style={[styles.tabText, statusFilter === tab.id && styles.activeTabText]}>
 								{tab.label}
@@ -355,7 +361,7 @@ export default function DebtorsScreen() {
 			{/* List */}
 			{loading ? (
 				<View style={styles.centered}>
-					<ActivityIndicator size="large" color="#065637" />
+					<ActivityIndicator size="large" color={COLORS.primary} />
 				</View>
 			) : (
 				<FlatList
@@ -366,7 +372,7 @@ export default function DebtorsScreen() {
 					refreshControl={<RefreshControl refreshing={refreshing} onRefresh={onRefresh} />}
 					ListEmptyComponent={
 						<View style={styles.emptyState}>
-							<Ionicons name="book-outline" size={48} color="#CBD5E1" />
+							<Ionicons name="book-outline" size={48} color={COLORS.textLight} />
 							<Text style={styles.emptyTitle}>No Debt Records Found</Text>
 							<Text style={styles.emptySub}>Tap "+ Add Debt" to record new customer credit.</Text>
 						</View>
@@ -380,8 +386,11 @@ export default function DebtorsScreen() {
 					<View style={styles.modalContent}>
 						<View style={styles.modalHeader}>
 							<Text style={styles.modalTitle}>Record Credit (+ Debt)</Text>
-							<TouchableOpacity onPress={() => setGiveCreditModalVisible(false)}>
-								<Ionicons name="close" size={24} color="#64748B" />
+							<TouchableOpacity
+								onPress={() => setGiveCreditModalVisible(false)}
+								{...ACCESSIBILITY.buttonProps('Close Modal')}
+							>
+								<Ionicons name="close" size={24} color={COLORS.textSecondary} />
 							</TouchableOpacity>
 						</View>
 
@@ -394,6 +403,7 @@ export default function DebtorsScreen() {
 										placeholder="e.g. Chukwuma Ada"
 										value={creditForm.name}
 										onChangeText={(text) => setCreditForm({ ...creditForm, name: text })}
+										{...ACCESSIBILITY.inputProps('Customer Name')}
 									/>
 
 									<Text style={styles.fieldLabel}>WhatsApp Phone Number *</Text>
@@ -403,6 +413,7 @@ export default function DebtorsScreen() {
 										keyboardType="phone-pad"
 										value={creditForm.whatsappNumber}
 										onChangeText={(text) => setCreditForm({ ...creditForm, whatsappNumber: text })}
+										{...ACCESSIBILITY.inputProps('WhatsApp Phone Number')}
 									/>
 								</>
 							)}
@@ -421,6 +432,7 @@ export default function DebtorsScreen() {
 								keyboardType="numeric"
 								value={creditForm.amount}
 								onChangeText={(text) => setCreditForm({ ...creditForm, amount: text })}
+								{...ACCESSIBILITY.inputProps('Credit Amount')}
 							/>
 
 							<Text style={styles.fieldLabel}>Description / Items (Optional)</Text>
@@ -430,15 +442,17 @@ export default function DebtorsScreen() {
 								multiline
 								value={creditForm.note}
 								onChangeText={(text) => setCreditForm({ ...creditForm, note: text })}
+								{...ACCESSIBILITY.inputProps('Credit Note')}
 							/>
 
 							<TouchableOpacity
 								style={[styles.submitBtn, isSubmitting && { opacity: 0.7 }]}
 								onPress={handleGiveCreditSubmit}
 								disabled={isSubmitting}
+								{...ACCESSIBILITY.buttonProps('Save Credit Record')}
 							>
 								{isSubmitting ? (
-									<ActivityIndicator color="#FFF" />
+									<ActivityIndicator color={COLORS.textWhite} />
 								) : (
 									<Text style={styles.submitBtnText}>Save Credit Record</Text>
 								)}
@@ -454,8 +468,11 @@ export default function DebtorsScreen() {
 					<View style={styles.modalContent}>
 						<View style={styles.modalHeader}>
 							<Text style={styles.modalTitle}>Record Repayment (- Pay)</Text>
-							<TouchableOpacity onPress={() => setRepaymentModalVisible(false)}>
-								<Ionicons name="close" size={24} color="#64748B" />
+							<TouchableOpacity
+								onPress={() => setRepaymentModalVisible(false)}
+								{...ACCESSIBILITY.buttonProps('Close Modal')}
+							>
+								<Ionicons name="close" size={24} color={COLORS.textSecondary} />
 							</TouchableOpacity>
 						</View>
 
@@ -473,6 +490,7 @@ export default function DebtorsScreen() {
 							keyboardType="numeric"
 							value={repaymentForm.amount}
 							onChangeText={(text) => setRepaymentForm({ ...repaymentForm, amount: text })}
+							{...ACCESSIBILITY.inputProps('Repayment Amount')}
 						/>
 
 						<Text style={styles.fieldLabel}>Payment Method</Text>
@@ -482,6 +500,7 @@ export default function DebtorsScreen() {
 									key={m}
 									style={[styles.methodBtn, repaymentForm.paymentMethod === m && styles.activeMethodBtn]}
 									onPress={() => setRepaymentForm({ ...repaymentForm, paymentMethod: m })}
+									{...ACCESSIBILITY.buttonProps(`Select ${m} payment method`)}
 								>
 									<Text style={[styles.methodText, repaymentForm.paymentMethod === m && styles.activeMethodText]}>
 										{m.toUpperCase()}
@@ -496,15 +515,17 @@ export default function DebtorsScreen() {
 							placeholder="e.g. Bank Transfer repayment"
 							value={repaymentForm.note}
 							onChangeText={(text) => setRepaymentForm({ ...repaymentForm, note: text })}
+							{...ACCESSIBILITY.inputProps('Repayment Note')}
 						/>
 
 						<TouchableOpacity
-							style={[styles.submitBtn, { backgroundColor: '#2563EB' }, isSubmitting && { opacity: 0.7 }]}
+							style={[styles.submitBtn, { backgroundColor: COLORS.info }, isSubmitting && { opacity: 0.7 }]}
 							onPress={handleRepaymentSubmit}
 							disabled={isSubmitting}
+							{...ACCESSIBILITY.buttonProps('Record Repayment')}
 						>
 							{isSubmitting ? (
-								<ActivityIndicator color="#FFF" />
+								<ActivityIndicator color={COLORS.textWhite} />
 							) : (
 								<Text style={styles.submitBtnText}>Record Repayment</Text>
 							)}
@@ -519,8 +540,11 @@ export default function DebtorsScreen() {
 					<View style={[styles.modalContent, { maxHeight: '80%' }]}>
 						<View style={styles.modalHeader}>
 							<Text style={styles.modalTitle}>Debt History Statement</Text>
-							<TouchableOpacity onPress={() => setLedgerModalVisible(false)}>
-								<Ionicons name="close" size={24} color="#64748B" />
+							<TouchableOpacity
+								onPress={() => setLedgerModalVisible(false)}
+								{...ACCESSIBILITY.buttonProps('Close History Modal')}
+							>
+								<Ionicons name="close" size={24} color={COLORS.textSecondary} />
 							</TouchableOpacity>
 						</View>
 
@@ -533,7 +557,7 @@ export default function DebtorsScreen() {
 
 						{loadingLedger ? (
 							<View style={{ padding: 40 }}>
-								<ActivityIndicator color="#065637" />
+								<ActivityIndicator color={COLORS.primary} />
 							</View>
 						) : (
 							<FlatList
@@ -553,7 +577,7 @@ export default function DebtorsScreen() {
 												</Text>
 											</View>
 											<View style={{ alignItems: 'flex-end' }}>
-												<Text style={[styles.ledgerAmount, isCredit ? { color: '#DC2626' } : { color: '#16A34A' }]}>
+												<Text style={[styles.ledgerAmount, isCredit ? { color: COLORS.danger } : { color: COLORS.success }]}>
 													{isCredit ? '+' : '-'}₦{(item.amount || 0).toLocaleString()}
 												</Text>
 												<Text style={styles.ledgerBalance}>
@@ -564,7 +588,7 @@ export default function DebtorsScreen() {
 									);
 								}}
 								ListEmptyComponent={
-									<Text style={{ textAlign: 'center', color: '#94A3B8', padding: 20 }}>
+									<Text style={{ textAlign: 'center', color: COLORS.textMuted, padding: 20 }}>
 										No debt entries recorded yet.
 									</Text>
 								}
@@ -580,82 +604,82 @@ export default function DebtorsScreen() {
 const styles = StyleSheet.create({
 	container: {
 		flex: 1,
-		backgroundColor: '#F8FAFC',
+		backgroundColor: COLORS.background,
 	},
 	header: {
 		flexDirection: 'row',
 		alignItems: 'center',
 		paddingHorizontal: 16,
 		paddingVertical: 12,
-		backgroundColor: '#FFFFFF',
+		backgroundColor: COLORS.surface,
 		borderBottomWidth: 1,
-		borderBottomColor: '#E2E8F0',
+		borderBottomColor: COLORS.border,
 		paddingTop: Platform.OS === 'android' ? 40 : 12,
 	},
 	backBtn: {
-		padding: 4,
-		marginRight: 8,
+		minWidth: LAYOUT.minTouchTarget,
+		minHeight: LAYOUT.minTouchTarget,
+		justifyContent: 'center',
+		alignItems: 'center',
+		marginRight: 4,
 	},
 	headerTitle: {
-		flex: 1,
+		...TYPOGRAPHY.h1,
 		fontSize: 18,
-		fontWeight: '800',
-		color: '#0F172A',
+		flex: 1,
 	},
 	headerAddBtn: {
 		flexDirection: 'row',
 		alignItems: 'center',
 		gap: 4,
-		backgroundColor: '#065637',
-		paddingHorizontal: 12,
-		paddingVertical: 6,
-		borderRadius: 16,
+		backgroundColor: COLORS.primary,
+		paddingHorizontal: 14,
+		minHeight: LAYOUT.minTouchTarget,
+		borderRadius: 22,
+		justifyContent: 'center',
 	},
 	headerAddText: {
-		color: '#FFFFFF',
-		fontSize: 12,
-		fontWeight: '700',
+		...TYPOGRAPHY.captionBold,
+		color: COLORS.textWhite,
 	},
 	summaryCard: {
 		flexDirection: 'row',
 		alignItems: 'center',
-		backgroundColor: '#FFFFFF',
+		backgroundColor: COLORS.surface,
 		marginHorizontal: 16,
 		marginTop: 14,
 		padding: 16,
-		borderRadius: 16,
+		borderRadius: LAYOUT.borderRadiusLg,
 		borderWidth: 1,
-		borderColor: '#FEF2F2',
+		borderColor: COLORS.border,
 		shadowColor: '#000',
 		shadowOffset: { width: 0, height: 1 },
-		shadowOpacity: 0.05,
+		shadowOpacity: 0.04,
 		shadowRadius: 3,
 		elevation: 1,
 	},
 	summaryLabel: {
-		fontSize: 12,
-		color: '#64748B',
-		fontWeight: '600',
+		...TYPOGRAPHY.caption,
+		color: COLORS.textSecondary,
 	},
 	summaryAmount: {
+		...TYPOGRAPHY.h1,
 		fontSize: 24,
-		fontWeight: '800',
-		color: '#DC2626',
+		color: COLORS.danger,
 		marginTop: 2,
 	},
 	summaryBadge: {
 		flexDirection: 'row',
 		alignItems: 'center',
 		gap: 4,
-		backgroundColor: '#FEF2F2',
+		backgroundColor: COLORS.dangerBg,
 		paddingHorizontal: 10,
 		paddingVertical: 6,
-		borderRadius: 12,
+		borderRadius: LAYOUT.borderRadiusMd,
 	},
 	summaryBadgeText: {
-		fontSize: 12,
-		fontWeight: '700',
-		color: '#DC2626',
+		...TYPOGRAPHY.captionBold,
+		color: COLORS.danger,
 	},
 	filterSection: {
 		paddingHorizontal: 16,
@@ -664,19 +688,19 @@ const styles = StyleSheet.create({
 	searchBar: {
 		flexDirection: 'row',
 		alignItems: 'center',
-		backgroundColor: '#FFFFFF',
-		borderRadius: 12,
+		backgroundColor: COLORS.surface,
+		borderRadius: LAYOUT.borderRadiusMd,
 		paddingHorizontal: 12,
 		borderWidth: 1,
-		borderColor: '#E2E8F0',
-		height: 42,
+		borderColor: COLORS.border,
+		height: 44,
 		marginBottom: 10,
 	},
 	searchInput: {
+		...TYPOGRAPHY.body,
 		flex: 1,
-		fontSize: 13,
-		color: '#0F172A',
 		marginLeft: 8,
+		color: COLORS.textPrimary,
 	},
 	tabsRow: {
 		flexDirection: 'row',
@@ -684,79 +708,74 @@ const styles = StyleSheet.create({
 		marginBottom: 6,
 	},
 	tabBtn: {
-		paddingHorizontal: 14,
-		paddingVertical: 6,
-		borderRadius: 16,
-		backgroundColor: '#E2E8F0',
+		paddingHorizontal: 16,
+		minHeight: 36,
+		justifyContent: 'center',
+		borderRadius: 18,
+		backgroundColor: COLORS.surfaceSubtle,
 	},
 	activeTabBtn: {
-		backgroundColor: '#065637',
+		backgroundColor: COLORS.primary,
 	},
 	tabText: {
-		fontSize: 12,
-		fontWeight: '600',
-		color: '#64748B',
+		...TYPOGRAPHY.captionBold,
+		color: COLORS.textSecondary,
 	},
 	activeTabText: {
-		color: '#FFFFFF',
-		fontWeight: '700',
+		color: COLORS.textWhite,
 	},
 	listContent: {
 		paddingHorizontal: 16,
 		paddingBottom: 40,
 	},
 	debtorCard: {
-		backgroundColor: '#FFFFFF',
-		borderRadius: 16,
+		backgroundColor: COLORS.surface,
+		borderRadius: LAYOUT.borderRadiusLg,
 		padding: 14,
 		marginTop: 10,
 		borderWidth: 1,
-		borderColor: '#E2E8F0',
+		borderColor: COLORS.border,
 	},
 	debtorHeader: {
 		flexDirection: 'row',
 		alignItems: 'center',
 		gap: 12,
+		minHeight: LAYOUT.minTouchTarget,
 	},
 	avatarCircle: {
 		width: 40,
 		height: 40,
 		borderRadius: 20,
-		backgroundColor: '#F1F5F9',
+		backgroundColor: COLORS.primaryLight,
 		alignItems: 'center',
-		justify: 'center',
+		justifyContent: 'center',
 	},
 	avatarText: {
+		...TYPOGRAPHY.h2,
 		fontSize: 16,
-		fontWeight: '800',
-		color: '#065637',
+		color: COLORS.primary,
 	},
 	debtorName: {
-		fontSize: 15,
-		fontWeight: '700',
-		color: '#0F172A',
+		...TYPOGRAPHY.h3,
 	},
 	debtorPhone: {
-		fontSize: 12,
-		color: '#64748B',
+		...TYPOGRAPHY.caption,
 		marginTop: 1,
 	},
 	debtAmount: {
-		fontSize: 16,
-		fontWeight: '800',
-		color: '#DC2626',
+		...TYPOGRAPHY.h2,
+		color: COLORS.danger,
 	},
 	clearedAmount: {
-		color: '#16A34A',
+		color: COLORS.success,
 	},
 	debtBadgeText: {
-		fontSize: 10,
-		fontWeight: '700',
-		color: '#DC2626',
+		...TYPOGRAPHY.micro,
+		color: COLORS.danger,
 		marginTop: 1,
 	},
 	clearedBadgeText: {
-		color: '#16A34A',
+		color: COLORS.success,
 	},
 	actionRow: {
 		flexDirection: 'row',
@@ -764,40 +783,37 @@ const styles = StyleSheet.create({
 		marginTop: 12,
 		paddingTop: 10,
 		borderTopWidth: 1,
-		borderTopColor: '#F1F5F9',
+		borderTopColor: COLORS.borderSubtle,
 	},
 	actionBtn: {
 		flexDirection: 'row',
 		alignItems: 'center',
 		gap: 4,
-		paddingHorizontal: 10,
-		paddingVertical: 6,
-		borderRadius: 8,
-		backgroundColor: '#F1F5F9',
+		paddingHorizontal: 12,
+		minHeight: 36,
+		borderRadius: LAYOUT.borderRadiusSm,
+		backgroundColor: COLORS.surfaceSubtle,
 	},
 	giveCreditBtn: {
-		backgroundColor: '#E6F4EA',
+		backgroundColor: COLORS.primaryLight,
 	},
 	giveCreditText: {
-		fontSize: 11,
-		fontWeight: '700',
-		color: '#065637',
+		...TYPOGRAPHY.captionBold,
+		color: COLORS.primary,
 	},
 	repayBtn: {
-		backgroundColor: '#EFF6FF',
+		backgroundColor: COLORS.infoBg,
 	},
 	repayText: {
-		fontSize: 11,
-		fontWeight: '700',
-		color: '#2563EB',
+		...TYPOGRAPHY.captionBold,
+		color: COLORS.info,
 	},
 	reminderBtn: {
-		backgroundColor: '#F0FDF4',
+		backgroundColor: COLORS.successBg,
 	},
 	reminderText: {
-		fontSize: 11,
-		fontWeight: '700',
-		color: '#16A34A',
+		...TYPOGRAPHY.captionBold,
+		color: COLORS.success,
 	},
 	centered: {
 		flex: 1,
@@ -811,14 +827,13 @@ const styles = StyleSheet.create({
 		paddingVertical: 50,
 	},
 	emptyTitle: {
-		fontSize: 16,
-		fontWeight: '700',
-		color: '#475569',
+		...TYPOGRAPHY.h2,
+		color: COLORS.textSecondary,
 		marginTop: 12,
 	},
 	emptySub: {
-		fontSize: 13,
-		color: '#94A3B8',
+		...TYPOGRAPHY.caption,
+		color: COLORS.textMuted,
 		marginTop: 4,
 	},
 
@@ -829,7 +844,7 @@ const styles = StyleSheet.create({
 		justifyContent: 'flex-end',
 	},
 	modalContent: {
-		backgroundColor: '#FFFFFF',
+		backgroundColor: COLORS.surface,
 		borderTopLeftRadius: 24,
 		borderTopRightRadius: 24,
 		padding: 20,
@@ -841,54 +856,49 @@ const styles = StyleSheet.create({
 		marginBottom: 16,
 	},
 	modalTitle: {
+		...TYPOGRAPHY.h2,
 		fontSize: 18,
-		fontWeight: '800',
-		color: '#0F172A',
 	},
 	fieldLabel: {
-		fontSize: 13,
-		fontWeight: '600',
-		color: '#475569',
+		...TYPOGRAPHY.captionBold,
+		color: COLORS.textSecondary,
 		marginBottom: 4,
 		marginTop: 10,
 	},
 	input: {
-		backgroundColor: '#F8FAFC',
+		...TYPOGRAPHY.body,
+		backgroundColor: COLORS.background,
 		borderWidth: 1,
-		borderColor: '#E2E8F0',
-		borderRadius: 12,
+		borderColor: COLORS.border,
+		borderRadius: LAYOUT.borderRadiusMd,
 		paddingHorizontal: 12,
-		paddingVertical: 10,
-		fontSize: 14,
-		color: '#0F172A',
+		minHeight: 44,
+		color: COLORS.textPrimary,
 	},
 	selectedCustomerBanner: {
-		backgroundColor: '#F1F5F9',
+		backgroundColor: COLORS.surfaceSubtle,
 		padding: 12,
-		borderRadius: 12,
+		borderRadius: LAYOUT.borderRadiusMd,
 		marginBottom: 10,
 	},
 	selectedCustomerName: {
-		fontSize: 15,
-		fontWeight: '700',
-		color: '#0F172A',
+		...TYPOGRAPHY.h3,
 	},
 	selectedCustomerPhone: {
-		fontSize: 12,
-		color: '#64748B',
+		...TYPOGRAPHY.caption,
 	},
 	submitBtn: {
-		backgroundColor: '#065637',
-		paddingVertical: 14,
-		borderRadius: 12,
+		backgroundColor: COLORS.primary,
+		minHeight: 48,
+		borderRadius: LAYOUT.borderRadiusMd,
 		alignItems: 'center',
+		justifyContent: 'center',
 		marginTop: 20,
 		marginBottom: 10,
 	},
 	submitBtnText: {
-		color: '#FFFFFF',
-		fontSize: 15,
-		fontWeight: '700',
+		...TYPOGRAPHY.h3,
+		color: COLORS.textWhite,
 	},
 	methodRow: {
 		flexDirection: 'row',
@@ -897,21 +907,21 @@ const styles = StyleSheet.create({
 	},
 	methodBtn: {
 		flex: 1,
-		paddingVertical: 8,
+		minHeight: 38,
+		justifyContent: 'center',
 		alignItems: 'center',
-		borderRadius: 8,
-		backgroundColor: '#F1F5F9',
+		borderRadius: LAYOUT.borderRadiusSm,
+		backgroundColor: COLORS.surfaceSubtle,
 	},
 	activeMethodBtn: {
-		backgroundColor: '#2563EB',
+		backgroundColor: COLORS.info,
 	},
 	methodText: {
-		fontSize: 12,
-		fontWeight: '700',
-		color: '#64748B',
+		...TYPOGRAPHY.captionBold,
+		color: COLORS.textSecondary,
 	},
 	activeMethodText: {
-		color: '#FFFFFF',
+		color: COLORS.textWhite,
 	},
 	ledgerRow: {
 		flexDirection: 'row',
@@ -919,29 +929,28 @@ const styles = StyleSheet.create({
 		justifyContent: 'space-between',
 		paddingVertical: 10,
 		borderBottomWidth: 1,
-		borderBottomColor: '#F1F5F9',
+		borderBottomColor: COLORS.borderSubtle,
 	},
 	ledgerType: {
+		...TYPOGRAPHY.h3,
 		fontSize: 14,
-		fontWeight: '700',
-		color: '#0F172A',
 	},
 	ledgerNote: {
-		fontSize: 12,
-		color: '#64748B',
+		...TYPOGRAPHY.caption,
 	},
 	ledgerDate: {
+		...TYPOGRAPHY.caption,
 		fontSize: 11,
-		color: '#94A3B8',
+		color: COLORS.textLight,
 		marginTop: 2,
 	},
 	ledgerAmount: {
-		fontSize: 14,
-		fontWeight: '800',
+		...TYPOGRAPHY.h2,
+		fontSize: 15,
 	},
 	ledgerBalance: {
+		...TYPOGRAPHY.caption,
 		fontSize: 11,
-		color: '#64748B',
 		marginTop: 2,
 	},
 });

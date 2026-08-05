@@ -104,6 +104,8 @@ const HomeScreen = ({ userInfo }) => {
 			}
 		},
 		enabled: !!targetStoreId,
+		refetchInterval: 5000,
+		refetchIntervalInBackground: true,
 	});
 
 	const invoicesQuery = useQuery({
