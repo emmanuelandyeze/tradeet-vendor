@@ -56,6 +56,18 @@ const HomeScreen = ({ userInfo }) => {
 	const [refreshing, setRefreshing] = useState(false);
 	const [viewValues, setViewValues] = useState(true);
 	const [filteredOrders, setFilteredOrders] = useState([]);
+	const [debtSummary, setDebtSummary] = useState({ totalStoreDebt: 0, debtorCount: 0 });
+
+	useEffect(() => {
+		if (!selectedStore?._id) return;
+		axiosInstance.get(`/debts/${selectedStore._id}`)
+			.then((res) => {
+				if (res.data?.summary) {
+					setDebtSummary(res.data.summary);
+				}
+			})
+			.catch(() => {});
+	}, [selectedStore?._id]);
 
 	// Filters
 	const [orderFilter, setOrderFilter] = useState('new');
@@ -440,6 +452,7 @@ const HomeScreen = ({ userInfo }) => {
 						unpaidInvoicesCount={unpaidInvoicesCount}
 						totalPendingAmount={totalPendingAmount}
 						totalExpensesAmount={totalExpensesAmount}
+						debtSummary={debtSummary}
 
 						onInvoicePress={() => router.push('/(app)/invoices')}
 					/>

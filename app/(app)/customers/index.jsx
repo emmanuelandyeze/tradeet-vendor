@@ -51,7 +51,7 @@ export default function CustomersScreen() {
 	const [selectedIds, setSelectedIds] = useState([]);
 
 	const {
-		data: customers = [],
+		data: payload,
 		isLoading,
 		refetch,
 		isRefetching
@@ -63,15 +63,11 @@ export default function CustomersScreen() {
 			return res.data;
 		},
 		enabled: !!selectedStore?._id,
-		select: (res) => res?.data || [],
 	});
 
-	// Promotional sends left in the merchant's rolling 24h allowance.
-	const { data: quota } = useQuery({
-		queryKey: ['customers', selectedStore?._id, activeTab],
-		enabled: !!selectedStore?._id,
-		select: (res) => res?.quota || null,
-	});
+	const customers = payload?.data || [];
+	// Promotional sends left in the merchant's rolling 24h allowance, returned alongside the list.
+	const quota = payload?.quota || null;
 
 	const messageMutation = useMutation({
 		mutationFn: async (payload) => {

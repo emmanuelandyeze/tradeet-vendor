@@ -1,9 +1,8 @@
 // utils/axiosInstance.js
 import axios from 'axios';
 
-// const BASE_URL = 'http://192.168.100.190:8080/api/v1';
 const BASE_URL =
-	'https://tradeet-server.onrender.com/api/v1/';
+	process.env.EXPO_PUBLIC_API_URL || 'http://127.0.0.1:8080/api/v1/';
 
 const axiosInstance = axios.create({
 	baseURL: BASE_URL,

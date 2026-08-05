@@ -1475,61 +1475,67 @@ const AuthProvider = ({ children }) => {
 	}, []);
 
 	// --- Plan Capabilities Helper ---
-	// --- Plan Capabilities Helper ---
 	const getPlanCapability = (capability) => {
-		let planName = userInfo?.plan?.name || 'Starter';
+		let planName = userInfo?.plan?.name || 'Free';
 
-		// If user is on a trial, grant them Business capabilities (highest tier)
-		// unless they are already on a specific plan that is higher than Starter?
-		// Actually, trials are usually for the paid plans. 
-		// If plan is 'Starter' but isTrial is true, it means they are trialing a paid plan.
-		// For now, let's treat any trial as 'Business' access to unlock everything.
-		// Check for trial status and expiry
+		// Normalise legacy 'Starter' to 'Free'
+		if (planName === 'Starter') planName = 'Free';
+
+		const expiryDate = userInfo?.plan?.expiryDate ? new Date(userInfo.plan.expiryDate) : null;
+		const isExpired = expiryDate && expiryDate < new Date();
+
+		// Handle trial status
 		if (userInfo?.plan?.isTrial) {
-			const expiryDate = userInfo.plan.expiryDate ? new Date(userInfo.plan.expiryDate) : null;
-			const isExpired = expiryDate && expiryDate < new Date();
-
 			if (!isExpired) {
-				// Active Trial gets full Business featuers
+				// Active Trial gets full Business features
 				planName = 'Business';
 			} else {
-				// Expired Trial degrades to Starter
-				planName = 'Starter';
+				// Expired Trial degrades to Free
+				planName = 'Free';
 			}
+		} else if (isExpired && planName !== 'Free') {
+			// Expired paid subscription degrades to Free
+			planName = 'Free';
 		}
 
 		const capabilities = {
 			productLimit: {
+				Free: 5,
 				Starter: 5,
 				Economy: 50,
 				Pro: 50,
 				Business: 1000000,
 			},
 			storeLimit: {
+				Free: 1,
 				Starter: 1,
 				Economy: 1,
 				Pro: 1,
 				Business: 100,
 			},
 			branchLimit: {
+				Free: 1,
 				Starter: 1,
 				Economy: 5,
 				Pro: 5,
 				Business: 100,
 			},
 			hasDiscounts: {
+				Free: false,
 				Starter: false,
 				Economy: true,
 				Pro: true,
 				Business: true,
 			},
 			hasCustomDomain: {
+				Free: false,
 				Starter: false,
 				Economy: false,
 				Pro: false,
 				Business: true,
 			},
 			hasAdvancedAnalytics: {
+				Free: false,
 				Starter: false,
 				Economy: false,
 				Pro: false,
@@ -1537,9 +1543,8 @@ const AuthProvider = ({ children }) => {
 			},
 		};
 
-		// Default to 'Starter' capability if plan not found, instead of 'false' (which is 0 in numeric comparison)
 		const planCaps = capabilities[capability];
-		return planCaps?.[planName] ?? planCaps?.['Starter'] ?? false;
+		return planCaps?.[planName] ?? planCaps?.['Free'] ?? false;
 	};
 
 	return (

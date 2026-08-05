@@ -123,6 +123,12 @@ const ProfileScreen = () => {
 					icon: 'people-outline',
 					onPress: () => router.push('/(app)/team-management'),
 				},
+				{
+					id: 'debt-book',
+					title: 'Customer Debt Book',
+					icon: 'book-outline',
+					onPress: () => router.push('/(app)/debtors'),
+				},
 			],
 		},
 		{

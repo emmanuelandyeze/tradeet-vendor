@@ -4,7 +4,6 @@ import {
 	Text,
 	View,
 	TouchableOpacity,
-	Alert,
 	Dimensions,
 } from 'react-native';
 import React from 'react';
@@ -19,7 +18,13 @@ import { useRouter } from 'expo-router';
 
 const { width } = Dimensions.get('window');
 
+/**
+ * 8 Core Quick Actions arranged in 2 symmetrical rows of 4:
+ * Row 1 (Financial Operations): Sales, Invoices, Expenses, Debt Book
+ * Row 2 (Customer & Growth): Customers, Discounts, Delivery, Website
+ */
 const ACTIONS = [
+	// Row 1: Financial Operations
 	{
 		id: 'sales',
 		label: 'Sales',
@@ -27,14 +32,7 @@ const ACTIONS = [
 		lib: MaterialCommunityIcons,
 		route: '/sales',
 		color: '#065637',
-	},
-	{
-		id: 'expenses',
-		label: 'Expenses',
-		icon: 'circle-minus',
-		lib: FontAwesome6,
-		route: '/expenses',
-		color: '#B91C1C', // distinct color for expense
+		bgColor: '#E6F4EA',
 	},
 	{
 		id: 'invoices',
@@ -42,31 +40,37 @@ const ACTIONS = [
 		icon: 'receipt',
 		lib: MaterialIcons,
 		route: '/invoices',
-		color: '#065637',
+		color: '#1D4ED8',
+		bgColor: '#EFF6FF',
 	},
+	{
+		id: 'expenses',
+		label: 'Expenses',
+		icon: 'circle-minus',
+		lib: FontAwesome6,
+		route: '/expenses',
+		color: '#B91C1C',
+		bgColor: '#FEF2F2',
+	},
+	{
+		id: 'debtors',
+		label: 'Debt Book',
+		icon: 'book-open-variant',
+		lib: MaterialCommunityIcons,
+		route: '/(app)/debtors',
+		color: '#D97706',
+		bgColor: '#FFFBEB',
+	},
+
+	// Row 2: Store Operations & Growth
 	{
 		id: 'msg',
 		label: 'Customers',
 		icon: 'users',
 		lib: Feather,
 		route: '/(app)/customers',
-		color: '#065637',
-	},
-	{
-		id: 'delivery',
-		label: 'Delivery',
-		icon: 'bike-fast',
-		lib: MaterialCommunityIcons,
-		route: '/delivery',
-		color: '#065637',
-	},
-	{
-		id: 'website',
-		label: 'Website',
-		icon: 'web',
-		lib: MaterialCommunityIcons,
-		route: '/(app)/setupstore',
-		color: '#065637',
+		color: '#7C3AED',
+		bgColor: '#F3E8FF',
 	},
 	{
 		id: 'discounts',
@@ -74,15 +78,26 @@ const ACTIONS = [
 		icon: 'discount',
 		lib: MaterialIcons,
 		route: '/(app)/discounts',
-		color: '#065637',
+		color: '#4F46E5',
+		bgColor: '#EEF2FF',
 	},
 	{
-		id: 'marketing',
-		label: 'Marketing',
-		icon: 'megaphone-outline',
-		lib: Ionicons,
-		action: () => Alert.alert('Coming Soon', 'Marketing tools are coming soon!'),
-		color: '#065637',
+		id: 'delivery',
+		label: 'Delivery',
+		icon: 'bike-fast',
+		lib: MaterialCommunityIcons,
+		route: '/delivery',
+		color: '#C2410C',
+		bgColor: '#FFF7ED',
+	},
+	{
+		id: 'website',
+		label: 'Website',
+		icon: 'web',
+		lib: MaterialCommunityIcons,
+		route: '/(app)/setupstore',
+		color: '#0D9488',
+		bgColor: '#F0FDFA',
 	},
 ];
 
@@ -90,9 +105,7 @@ const BusinessActions = () => {
 	const router = useRouter();
 
 	const handlePress = (item) => {
-		if (item.action) {
-			item.action();
-		} else if (item.route) {
+		if (item.route) {
 			router.push(item.route);
 		}
 	};
@@ -108,10 +121,10 @@ const BusinessActions = () => {
 							key={item.id}
 							style={styles.actionItem}
 							onPress={() => handlePress(item)}
-							activeOpacity={0.7}
+							activeOpacity={0.75}
 						>
-							<View style={[styles.iconBox, { backgroundColor: '#F9FAFB' }]}>
-								<IconLib name={item.icon} size={22} color="#374151" />
+							<View style={[styles.iconBox, { backgroundColor: item.bgColor }]}>
+								<IconLib name={item.icon} size={22} color={item.color} />
 							</View>
 							<Text style={styles.actionLabel} numberOfLines={1}>
 								{item.label}
@@ -128,47 +141,46 @@ export default BusinessActions;
 
 const styles = StyleSheet.create({
 	container: {
-		backgroundColor: '#fff',
-		borderRadius: 12,
+		backgroundColor: '#FFFFFF',
+		borderRadius: 16,
 		padding: 16,
 		marginBottom: 16,
-		// Shadow for professional feel
+		borderWidth: 1,
+		borderColor: '#F1F5F9',
 		shadowColor: '#000',
 		shadowOffset: { width: 0, height: 1 },
-		shadowOpacity: 0.05,
-		shadowRadius: 2,
+		shadowOpacity: 0.04,
+		shadowRadius: 3,
 		elevation: 1,
 	},
 	sectionTitle: {
 		fontSize: 16,
-		fontWeight: '700',
-		color: '#111827',
+		fontWeight: '800',
+		color: '#0F172A',
 		marginBottom: 16,
 	},
 	grid: {
 		flexDirection: 'row',
 		flexWrap: 'wrap',
 		justifyContent: 'space-between',
-		rowGap: 20,
+		rowGap: 18,
 	},
 	actionItem: {
-		width: '23%', // 4 items per row
+		width: '23%', // Exactly 4 items per row
 		alignItems: 'center',
-		gap: 8,
+		gap: 6,
 	},
 	iconBox: {
 		width: 48,
 		height: 48,
-		borderRadius: 12,
+		borderRadius: 14,
 		justifyContent: 'center',
 		alignItems: 'center',
-		borderWidth: 1,
-		borderColor: '#F3F4F6',
 	},
 	actionLabel: {
 		fontSize: 11,
-		fontWeight: '600',
-		color: '#4B5563',
+		fontWeight: '700',
+		color: '#334155',
 		textAlign: 'center',
 	},
 });
