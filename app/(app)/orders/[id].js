@@ -24,6 +24,8 @@ import {
 	Linking,
 	Platform,
 	SafeAreaView,
+	KeyboardAvoidingView,
+	Pressable,
 } from 'react-native';
 import axiosInstance from '@/utils/axiosInstance';
 import { StatusBar } from 'expo-status-bar';
@@ -85,8 +87,37 @@ const SingleOrderPage = () => {
 	const [paymentAmount, setPaymentAmount] = useState('');
 	const [paymentMethod, setPaymentMethod] = useState('cash');
 	const [paymentNote, setPaymentNote] = useState('');
+	// Message Customer State
+	const [showMessageModal, setShowMessageModal] = useState(false);
+	const [customerMsg, setCustomerMsg] = useState('');
+	const [sendingMsg, setSendingMsg] = useState(false);
 
 	const orderId = id;
+
+	// Sends from the business WhatsApp number, signed "Store (Branch)" — unlike the
+	// wa.me shortcut below, which opens the merchant's own personal WhatsApp.
+	const handleSendCustomerMessage = async () => {
+		if (!customerMsg.trim()) {
+			Alert.alert('Empty Message', 'Please type a message to send.');
+			return;
+		}
+		setSendingMsg(true);
+		try {
+			const res = await axiosInstance.post(`/orders/${orderId}/message`, {
+				message: customerMsg.trim(),
+			});
+			setShowMessageModal(false);
+			setCustomerMsg('');
+			Alert.alert('Sent', res.data?.message || 'Message sent.');
+		} catch (err) {
+			Alert.alert(
+				'Not sent',
+				err?.response?.data?.message || 'Failed to send message. Please try again.'
+			);
+		} finally {
+			setSendingMsg(false);
+		}
+	};
 
 	const insets = useSafeAreaInsets();
 	const headerTopPadding = Math.max(insets.top, 20) + 10;
@@ -484,22 +515,32 @@ const SingleOrderPage = () => {
 						</View>
 
 						{order.customerInfo?.contact && (
-							<View style={styles.contactActions}>
+							<>
+								<View style={styles.contactActions}>
+									<TouchableOpacity
+										style={styles.actionButtonOutline}
+										onPress={() => Linking.openURL(`tel:${order.customerInfo.contact}`)}
+									>
+										<Feather name="phone" size={16} color={COLORS.text} />
+										<Text style={styles.actionButtonText}>Call</Text>
+									</TouchableOpacity>
+									<TouchableOpacity
+										style={styles.actionButtonOutline}
+										onPress={() => Linking.openURL(`https://wa.me/${order.customerInfo.contact.replace('+', '')}`)}
+									>
+										<MaterialCommunityIcons name="whatsapp" size={18} color={COLORS.text} />
+										<Text style={styles.actionButtonText}>Open chat</Text>
+									</TouchableOpacity>
+								</View>
+
 								<TouchableOpacity
-									style={styles.actionButtonOutline}
-									onPress={() => Linking.openURL(`tel:${order.customerInfo.contact}`)}
+									style={styles.messageCustomerBtn}
+									onPress={() => setShowMessageModal(true)}
 								>
-									<Feather name="phone" size={16} color={COLORS.text} />
-									<Text style={styles.actionButtonText}>Call</Text>
+									<MaterialCommunityIcons name="whatsapp" size={18} color={COLORS.white} />
+									<Text style={styles.messageCustomerBtnText}>Message from store</Text>
 								</TouchableOpacity>
-								<TouchableOpacity
-									style={styles.actionButtonOutline}
-									onPress={() => Linking.openURL(`https://wa.me/${order.customerInfo.contact.replace('+', '')}`)}
-								>
-									<MaterialCommunityIcons name="whatsapp" size={18} color={COLORS.text} />
-									<Text style={styles.actionButtonText}>Message</Text>
-								</TouchableOpacity>
-							</View>
+							</>
 						)}
 					</View>
 				</Card>
@@ -741,6 +782,57 @@ const SingleOrderPage = () => {
 				</TouchableOpacity>
 			</Modal>
 
+			{/* Message Customer */}
+			<Modal visible={showMessageModal} transparent animationType="slide" onRequestClose={() => setShowMessageModal(false)}>
+				<KeyboardAvoidingView
+					style={{ flex: 1 }}
+					behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+				>
+					{/* Tapping the dimmed area closes; the inner Pressable stops taps on the
+					    sheet itself from bubbling up and dismissing it. */}
+					<Pressable style={styles.modalOverlay} onPress={() => setShowMessageModal(false)}>
+						<Pressable style={styles.modalContent} onPress={() => { }}>
+							<View style={styles.msgHeader}>
+								<Text style={[styles.modalTitle, { marginBottom: 0 }]}>Message Customer</Text>
+								<TouchableOpacity
+									onPress={() => setShowMessageModal(false)}
+									hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
+								>
+									<Feather name="x" size={24} color={COLORS.textLight} />
+								</TouchableOpacity>
+							</View>
+
+							<Text style={styles.msgSubtitle}>
+								Sent from your business WhatsApp as{' '}
+								<Text style={{ fontWeight: '700', color: COLORS.text }}>
+									{selectedStore?.name || 'your store'}
+								</Text>
+								, with the branch in brackets.
+							</Text>
+
+							<TextInput
+								style={styles.msgInput}
+								value={customerMsg}
+								onChangeText={setCustomerMsg}
+								multiline
+								maxLength={900}
+								placeholder="e.g. Your order is ready for pickup from 2pm today."
+								placeholderTextColor={COLORS.textLight}
+								autoFocus
+							/>
+
+							<TouchableOpacity
+								style={[styles.mdlBtnPrimary, { marginTop: 16, flex: 0, minHeight: 48, width: '100%' }]}
+								onPress={handleSendCustomerMessage}
+								disabled={sendingMsg}
+							>
+								{sendingMsg ? <ActivityIndicator color="#fff" /> : <Text style={{ color: COLORS.white, fontWeight: '600', fontSize: 16 }}>Send Message</Text>}
+							</TouchableOpacity>
+						</Pressable>
+					</Pressable>
+				</KeyboardAvoidingView>
+			</Modal>
+
 		</SafeAreaView >
 	);
 };
@@ -788,6 +880,32 @@ const styles = StyleSheet.create({
 	contactActions: { flexDirection: 'row', gap: 10 },
 	actionButtonOutline: { flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center', paddingVertical: 10, borderRadius: 8, borderWidth: 1, borderColor: COLORS.border, gap: 8 },
 	actionButtonText: { fontSize: 13, fontWeight: '500', color: COLORS.text },
+	messageCustomerBtn: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		justifyContent: 'center',
+		backgroundColor: '#25D366',
+		paddingVertical: 12,
+		borderRadius: 8,
+		gap: 8,
+		marginTop: 10,
+	},
+	messageCustomerBtnText: { fontSize: 14, fontWeight: '600', color: COLORS.white },
+
+	// Message Customer modal
+	msgHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 },
+	msgSubtitle: { fontSize: 13, color: COLORS.textLight, lineHeight: 19, marginBottom: 16 },
+	msgInput: {
+		backgroundColor: COLORS.secondary,
+		borderWidth: 1,
+		borderColor: COLORS.border,
+		borderRadius: 10,
+		padding: 14,
+		fontSize: 15,
+		color: COLORS.text,
+		minHeight: 110,
+		textAlignVertical: 'top',
+	},
 
 	// Items
 	itemRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start', paddingVertical: 12, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },

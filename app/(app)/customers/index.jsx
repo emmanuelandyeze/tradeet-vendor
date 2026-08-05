@@ -12,11 +12,15 @@ import {
 	FlatList,
 	Dimensions,
 	RefreshControl,
-	TextInput
+	TextInput,
+	KeyboardAvoidingView,
+	Platform,
+	ScrollView
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import { AuthContext } from '@/context/AuthContext';
 import axiosInstance from '@/utils/axiosInstance';
+import { sanitizeTemplateParam, willBeReflowed } from '@/utils/whatsappText';
 import { Feather, MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -57,15 +61,21 @@ export default function CustomersScreen() {
 
 	const messageMutation = useMutation({
 		mutationFn: async (payload) => {
-			return await axiosInstance.post(`/customers/${selectedStore._id}/message`, payload);
+			const res = await axiosInstance.post(`/customers/${selectedStore._id}/message`, payload);
+			return res.data;
 		},
-		onSuccess: () => {
-			Alert.alert('Success', 'Message sent!');
+		onSuccess: (data) => {
+			// The server reports per-customer delivery — don't claim success if nothing went out.
+			if (!data?.successCount) {
+				Alert.alert('Not sent', data?.message || 'The message could not be delivered.');
+				return;
+			}
+			Alert.alert('Sent', data.message || 'Message sent!');
 			setMessageModalVisible(false);
 			setCustomMsg('');
 		},
-		onError: () => {
-			Alert.alert('Error', 'Failed to send message');
+		onError: (error) => {
+			Alert.alert('Not sent', error?.response?.data?.message || 'Failed to send message');
 		}
 	});
 
@@ -88,15 +98,21 @@ export default function CustomersScreen() {
 	};
 
 	const handleSendMessage = () => {
+		if (!selectedCustomer) return;
+
 		if (!customMsg.trim()) {
 			Alert.alert('Empty Message', 'Please type a message to send.');
 			return;
 		}
 
+		// Order must match the approved template: {{1}} name, {{2}} message, {{3}} store.
+		// fullMessage keeps the line breaks — the server switches to the button template and
+		// delivers this verbatim when the customer taps through.
 		messageMutation.mutate({
 			customerIds: [selectedCustomer._id],
 			templateName: 'promotional_update',
-			variables: [selectedCustomer.name, customMsg, selectedStore.name]
+			variables: [selectedCustomer.name, sanitizeTemplateParam(customMsg), selectedStore.name],
+			fullMessage: customMsg.trim()
 		});
 	};
 
@@ -158,7 +174,7 @@ export default function CustomersScreen() {
 					<View style={styles.headerRight}>
 						<View style={[styles.badge, item.type === 'existing' ? styles.badgeExisting : styles.badgePotential]}>
 							<Text style={[styles.badgeText, item.type === 'existing' ? styles.badgeTextExisting : styles.badgeTextPotential]}>
-								{item.type.charAt(0).toUpperCase()}
+								{(item.type || 'potential').charAt(0).toUpperCase()}
 							</Text>
 						</View>
 						<Feather name={isExpanded ? "chevron-up" : "chevron-down"} size={20} color="#9CA3AF" />
@@ -359,7 +375,10 @@ export default function CustomersScreen() {
 				animationType="slide"
 				onRequestClose={() => setMessageModalVisible(false)}
 			>
-				<View style={styles.modalOverlay}>
+				<KeyboardAvoidingView
+					style={styles.modalOverlay}
+					behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+				>
 					<View style={styles.modalCard}>
 						<View style={styles.modalHeader}>
 							<Text style={styles.modalTitle}>Compose Message</Text>
@@ -368,40 +387,51 @@ export default function CustomersScreen() {
 							</TouchableOpacity>
 						</View>
 
-						<View style={styles.templatePreview}>
-							<Text style={styles.previewLabel}>Template Preview:</Text>
-							<Text style={styles.previewText}>
-								Hello <Text style={styles.previewHighlight}>{selectedCustomer?.name || 'Customer'}</Text>! We hope you're having a great day. We're reaching out from <Text style={styles.previewHighlight}>{selectedStore?.name}</Text> with a quick update for you:{"\n\n"}
-								{customMsg || '...'}{"\n\n"}
-								<Text style={styles.previewMuted}>Thank you for being a valued customer!</Text>
-							</Text>
-						</View>
+						<ScrollView keyboardShouldPersistTaps="handled">
+							<View style={styles.templatePreview}>
+								<Text style={styles.previewLabel}>Exactly what they'll receive:</Text>
+								<Text style={styles.previewText}>
+									Hello <Text style={styles.previewHighlight}>{selectedCustomer?.name || 'Customer'}</Text>! We hope you're having a great day. We're reaching out from <Text style={styles.previewHighlight}>{selectedStore?.name}</Text> with a quick update for you:{"\n\n"}
+									{sanitizeTemplateParam(customMsg) || '...'}{"\n\n"}
+									<Text style={styles.previewMuted}>Thank you for being a valued customer!</Text>
+								</Text>
+							</View>
 
-						<TextInput
-							style={styles.composerInput}
-							multiline
-							placeholder="Type your personal message here..."
-							value={customMsg}
-							onChangeText={setCustomMsg}
-							autoFocus
-						/>
+							<TextInput
+								style={styles.composerInput}
+								multiline
+								placeholder="Type your personal message here..."
+								value={customMsg}
+								onChangeText={setCustomMsg}
+								maxLength={700}
+								autoFocus
+							/>
 
-						<TouchableOpacity
-							style={[styles.sendBtn, messageMutation.isPending && styles.sendBtnDisabled]}
-							onPress={handleSendMessage}
-							disabled={messageMutation.isPending}
-						>
-							{messageMutation.isPending ? (
-								<ActivityIndicator size="small" color="#FFF" />
-							) : (
-								<>
-									<MaterialIcons name="send" size={20} color="#FFF" />
-									<Text style={styles.sendBtnText}>Send to {selectedCustomer?.name}</Text>
-								</>
+							{willBeReflowed(customMsg) && (
+								<Text style={styles.reflowNote}>
+									WhatsApp can't put line breaks in a promotional template, so this arrives as
+									one paragraph with a <Text style={{ fontWeight: '700' }}>View full message</Text> button.
+									One tap and they get your version exactly as you typed it.
+								</Text>
 							)}
-						</TouchableOpacity>
+
+							<TouchableOpacity
+								style={[styles.sendBtn, messageMutation.isPending && styles.sendBtnDisabled]}
+								onPress={handleSendMessage}
+								disabled={messageMutation.isPending}
+							>
+								{messageMutation.isPending ? (
+									<ActivityIndicator size="small" color="#FFF" />
+								) : (
+									<>
+										<MaterialIcons name="send" size={20} color="#FFF" />
+										<Text style={styles.sendBtnText}>Send to {selectedCustomer?.name}</Text>
+									</>
+								)}
+							</TouchableOpacity>
+						</ScrollView>
 					</View>
-				</View>
+				</KeyboardAvoidingView>
 			</Modal>
 		</SafeAreaView>
 	);
@@ -577,6 +607,16 @@ const styles = StyleSheet.create({
 		minHeight: 120,
 		textAlignVertical: 'top',
 		marginBottom: 20
+	},
+	reflowNote: {
+		fontSize: 12,
+		color: '#854D0E',
+		backgroundColor: '#FEF9C3',
+		borderRadius: 8,
+		padding: 10,
+		lineHeight: 17,
+		marginTop: -8,
+		marginBottom: 16
 	},
 	sendBtn: {
 		backgroundColor: '#065637',

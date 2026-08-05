@@ -9,11 +9,14 @@ import {
 	ActivityIndicator,
 	Alert,
 	SafeAreaView,
-	Modal
+	Modal,
+	KeyboardAvoidingView,
+	Platform
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { AuthContext } from '@/context/AuthContext';
 import axiosInstance from '@/utils/axiosInstance';
+import { sanitizeTemplateParam, willBeReflowed } from '@/utils/whatsappText';
 import { Feather, FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -30,13 +33,11 @@ export default function CustomerDetailScreen() {
 	const [messageModalVisible, setMessageModalVisible] = useState(false);
 	const [customMsg, setCustomMsg] = useState('');
 
-	const { data: customer, isLoading } = useQuery({
-		queryKey: ['customer', id],
+	const { data: customer, isLoading, error } = useQuery({
+		queryKey: ['customer', selectedStore?._id, id],
 		queryFn: async () => {
-			const res = await axiosInstance.get(`/customers/${selectedStore._id}`);
-			const found = res.data.data.find(c => String(c._id) === String(id));
-			if (!found) throw new Error('Customer not found');
-			return found;
+			const res = await axiosInstance.get(`/customers/${selectedStore._id}/${id}`);
+			return res.data.data;
 		},
 		enabled: !!selectedStore?._id && !!id,
 	});
@@ -54,25 +55,31 @@ export default function CustomerDetailScreen() {
 		},
 		onSuccess: () => {
 			Alert.alert('Success', 'Customer details updated');
-			queryClient.invalidateQueries({ queryKey: ['customer', id] });
+			queryClient.invalidateQueries({ queryKey: ['customer', selectedStore._id, id] });
 			queryClient.invalidateQueries({ queryKey: ['customers', selectedStore._id] });
 		},
-		onError: () => {
-			Alert.alert('Error', 'Failed to update customer');
+		onError: (error) => {
+			Alert.alert('Error', error?.response?.data?.message || 'Failed to update customer');
 		}
 	});
 
 	const messageMutation = useMutation({
 		mutationFn: async (payload) => {
-			return await axiosInstance.post(`/customers/${selectedStore._id}/message`, payload);
+			const res = await axiosInstance.post(`/customers/${selectedStore._id}/message`, payload);
+			return res.data;
 		},
-		onSuccess: () => {
-			Alert.alert('Success', 'Message sent!');
+		onSuccess: (data) => {
+			// The server reports per-customer delivery — don't claim success if nothing went out.
+			if (!data?.successCount) {
+				Alert.alert('Not sent', data?.message || 'The message could not be delivered.');
+				return;
+			}
+			Alert.alert('Sent', data.message || 'Message sent!');
 			setMessageModalVisible(false);
 			setCustomMsg('');
 		},
-		onError: () => {
-			Alert.alert('Error', 'Failed to send message');
+		onError: (error) => {
+			Alert.alert('Not sent', error?.response?.data?.message || 'Failed to send message');
 		}
 	});
 
@@ -86,10 +93,14 @@ export default function CustomerDetailScreen() {
 			return;
 		}
 
+		// Order must match the approved template: {{1}} name, {{2}} message, {{3}} store.
+		// fullMessage keeps the line breaks — the server switches to the button template and
+		// delivers this verbatim when the customer taps through.
 		messageMutation.mutate({
 			customerIds: [id],
 			templateName: 'promotional_update',
-			variables: [customer.name, customMsg, selectedStore.name]
+			variables: [customer.name, sanitizeTemplateParam(customMsg), selectedStore.name],
+			fullMessage: customMsg.trim()
 		});
 	};
 
@@ -101,7 +112,19 @@ export default function CustomerDetailScreen() {
 		);
 	}
 
-	if (!customer) return null;
+	if (!customer) {
+		return (
+			<SafeAreaView style={styles.center}>
+				<Feather name="user-x" size={40} color="#D1D5DB" />
+				<Text style={styles.errorText}>
+					{error?.response?.data?.message || 'Customer not found'}
+				</Text>
+				<TouchableOpacity onPress={() => router.back()}>
+					<Text style={styles.saveBtn}>Go back</Text>
+				</TouchableOpacity>
+			</SafeAreaView>
+		);
+	}
 
 	return (
 		<SafeAreaView style={styles.container}>
@@ -191,7 +214,10 @@ export default function CustomerDetailScreen() {
 				animationType="slide"
 				onRequestClose={() => setMessageModalVisible(false)}
 			>
-				<View style={styles.modalOverlay}>
+				<KeyboardAvoidingView
+					style={styles.modalOverlay}
+					behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+				>
 					<View style={styles.modalCard}>
 						<View style={styles.modalHeader}>
 							<Text style={styles.modalTitle}>Compose Message</Text>
@@ -200,40 +226,51 @@ export default function CustomerDetailScreen() {
 							</TouchableOpacity>
 						</View>
 
-						<View style={styles.templatePreview}>
-							<Text style={styles.previewLabel}>Template Preview:</Text>
-							<Text style={styles.previewText}>
-								Hello <Text style={styles.previewHighlight}>{customer.name}</Text>! We hope you're having a great day. We're reaching out from <Text style={styles.previewHighlight}>{selectedStore?.name}</Text> with a quick update for you:{"\n\n"}
-								{customMsg || '...'}{"\n\n"}
-								<Text style={styles.previewMuted}>Thank you for being a valued customer!</Text>
-							</Text>
-						</View>
+						<ScrollView keyboardShouldPersistTaps="handled">
+							<View style={styles.templatePreview}>
+								<Text style={styles.previewLabel}>Exactly what they'll receive:</Text>
+								<Text style={styles.previewText}>
+									Hello <Text style={styles.previewHighlight}>{customer.name}</Text>! We hope you're having a great day. We're reaching out from <Text style={styles.previewHighlight}>{selectedStore?.name}</Text> with a quick update for you:{"\n\n"}
+									{sanitizeTemplateParam(customMsg) || '...'}{"\n\n"}
+									<Text style={styles.previewMuted}>Thank you for being a valued customer!</Text>
+								</Text>
+							</View>
 
-						<TextInput
-							style={styles.composerInput}
-							multiline
-							placeholder="Type your personal message here..."
-							value={customMsg}
-							onChangeText={setCustomMsg}
-							autoFocus
-						/>
+							<TextInput
+								style={styles.composerInput}
+								multiline
+								placeholder="Type your personal message here..."
+								value={customMsg}
+								onChangeText={setCustomMsg}
+								maxLength={700}
+								autoFocus
+							/>
 
-						<TouchableOpacity
-							style={[styles.sendBtn, messageMutation.isPending && styles.sendBtnDisabled]}
-							onPress={handleSendMessage}
-							disabled={messageMutation.isPending}
-						>
-							{messageMutation.isPending ? (
-								<ActivityIndicator size="small" color="#FFF" />
-							) : (
-								<>
-									<MaterialIcons name="send" size={20} color="#FFF" />
-									<Text style={styles.sendBtnText}>Send to {customer.name}</Text>
-								</>
+							{willBeReflowed(customMsg) && (
+								<Text style={styles.reflowNote}>
+									WhatsApp can't put line breaks in a promotional template, so this arrives as
+									one paragraph with a <Text style={{ fontWeight: '700' }}>View full message</Text> button.
+									One tap and they get your version exactly as you typed it.
+								</Text>
 							)}
-						</TouchableOpacity>
+
+							<TouchableOpacity
+								style={[styles.sendBtn, messageMutation.isPending && styles.sendBtnDisabled]}
+								onPress={handleSendMessage}
+								disabled={messageMutation.isPending}
+							>
+								{messageMutation.isPending ? (
+									<ActivityIndicator size="small" color="#FFF" />
+								) : (
+									<>
+										<MaterialIcons name="send" size={20} color="#FFF" />
+										<Text style={styles.sendBtnText}>Send to {customer.name}</Text>
+									</>
+								)}
+							</TouchableOpacity>
+						</ScrollView>
 					</View>
-				</View>
+				</KeyboardAvoidingView>
 			</Modal>
 		</SafeAreaView>
 	);
@@ -241,7 +278,8 @@ export default function CustomerDetailScreen() {
 
 const styles = StyleSheet.create({
 	container: { flex: 1, backgroundColor: '#F9FAFB', paddingTop: 40 },
-	center: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+	center: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: 12 },
+	errorText: { fontSize: 15, color: '#6B7280' },
 	header: {
 		flexDirection: 'row',
 		alignItems: 'center',
@@ -333,7 +371,17 @@ const styles = StyleSheet.create({
 		textAlignVertical: 'top',
 		marginBottom: 20
 	},
-	sendBtn: { 
+	reflowNote: {
+		fontSize: 12,
+		color: '#854D0E',
+		backgroundColor: '#FEF9C3',
+		borderRadius: 8,
+		padding: 10,
+		lineHeight: 17,
+		marginTop: -8,
+		marginBottom: 16
+	},
+	sendBtn: {
 		backgroundColor: '#065637', 
 		borderRadius: 12, 
 		paddingVertical: 16, 
