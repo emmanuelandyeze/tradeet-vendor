@@ -521,6 +521,7 @@ const StorePaymentsScreen = () => {
 		const isPendingKyc = status === 'kyc_pending';
 		const isRejected = status === 'kyc_rejected';
 		const needsKyc = status === 'customer_created' || status === 'kyc_required';
+		const isNotCreated = status === 'not_created' || status === 'setup' || !anchorAccount?.customerId;
 
 		return (
 			<View style={styles.anchorSectionContainer}>
@@ -538,14 +539,14 @@ const StorePaymentsScreen = () => {
 							isCompleted && { backgroundColor: '#ECFDF5' },
 							(isPendingKyc || needsKyc) && { backgroundColor: '#FEF3C7' },
 							isRejected && { backgroundColor: '#FEE2E2' },
-							!anchorAccount && { backgroundColor: '#EFF6FF' }
+							isNotCreated && { backgroundColor: '#EFF6FF' }
 						]}>
 							<Text style={[
 								styles.statusPillText,
 								isCompleted && { color: '#059669' },
 								(isPendingKyc || needsKyc) && { color: '#D97706' },
 								isRejected && { color: '#DC2626' },
-								!anchorAccount && { color: '#2563EB' }
+								isNotCreated && { color: '#2563EB' }
 							]}>
 								{isCompleted ? 'ACTIVE' : isPendingKyc ? 'PENDING' : isRejected ? 'REJECTED' : needsKyc ? 'KYC NEEDED' : 'SETUP'}
 							</Text>
@@ -595,7 +596,7 @@ const StorePaymentsScreen = () => {
 
 							<TouchableOpacity
 								style={[styles.anchorActionBtn, isRejected && { backgroundColor: '#DC2626' }]}
-								onPress={needsKyc || isRejected || !anchorAccount ? handleOpenAnchorModal : handleRetryProvisioning}
+								onPress={isNotCreated || needsKyc || isRejected ? handleOpenAnchorModal : handleRetryProvisioning}
 								disabled={submittingAnchor}
 							>
 								{submittingAnchor ? (
