@@ -10,7 +10,6 @@ import {
 	Alert,
 	SafeAreaView,
 	Modal,
-	KeyboardAvoidingView,
 	Platform
 } from 'react-native';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -20,6 +19,7 @@ import { sanitizeTemplateParam, willBeReflowed } from '@/utils/whatsappText';
 import { Feather, FontAwesome, MaterialIcons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import KeyboardSheet from '@/components/KeyboardSheet';
 
 export default function CustomerDetailScreen() {
 	const { id } = useLocalSearchParams();
@@ -214,10 +214,7 @@ export default function CustomerDetailScreen() {
 				animationType="slide"
 				onRequestClose={() => setMessageModalVisible(false)}
 			>
-				<KeyboardAvoidingView
-					style={styles.modalOverlay}
-					behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-				>
+				<KeyboardSheet style={styles.modalOverlay}>
 					<View style={styles.modalCard}>
 						<View style={styles.modalHeader}>
 							<Text style={styles.modalTitle}>Compose Message</Text>
@@ -270,7 +267,7 @@ export default function CustomerDetailScreen() {
 							</TouchableOpacity>
 						</ScrollView>
 					</View>
-				</KeyboardAvoidingView>
+				</KeyboardSheet>
 			</Modal>
 		</SafeAreaView>
 	);

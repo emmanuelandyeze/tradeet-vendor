@@ -10,7 +10,6 @@ import {
 	ScrollView,
 	ToastAndroid,
 	ActivityIndicator,
-	KeyboardAvoidingView,
 	Platform,
 	StatusBar,
 	Switch
@@ -21,6 +20,7 @@ import { AuthContext } from '@/context/AuthContext';
 import { ProductsContext } from '@/context/ProductsContext';
 import axiosInstance from '@/utils/axiosInstance';
 import SalesTable from '../../../components/SalesTable';
+import KeyboardSheet from '@/components/KeyboardSheet';
 
 const SalesScreen = () => {
 	const { userInfo, selectedStore } = useContext(AuthContext);
@@ -300,10 +300,7 @@ const SalesScreen = () => {
 				transparent={true}
 				onRequestClose={() => setModalVisible(false)}
 			>
-				<KeyboardAvoidingView
-					style={styles.modalOverlay}
-					behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-				>
+				<KeyboardSheet style={styles.modalOverlay}>
 					<View style={styles.modalContent}>
 						<View style={styles.modalHeaderBar}>
 							<Text style={styles.modalTitle}>New Sale</Text>
@@ -505,7 +502,7 @@ const SalesScreen = () => {
 
 						</ScrollView>
 					</View>
-				</KeyboardAvoidingView>
+				</KeyboardSheet>
 			</Modal>
 		</View>
 	);

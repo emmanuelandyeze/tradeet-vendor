@@ -39,6 +39,7 @@ import CategoryDropdown from '../../components/CategoryDropdown';
 import * as FileSystem from 'expo-file-system';
 import Feather from '@expo/vector-icons/Feather';
 import FontAwesome5 from '@expo/vector-icons/FontAwesome5';
+import KeyboardSheet from '@/components/KeyboardSheet';
 
 const SetupStoreScreen = () => {
 	const router = useRouter();
@@ -582,7 +583,7 @@ const SetupStoreScreen = () => {
 
 			{/* Preview Modal */}
 			<Modal visible={showPreviewModal} transparent animationType="fade">
-				<View style={styles.modalOverlay}>
+				<KeyboardSheet style={styles.modalOverlay}>
 					<View style={styles.modalContent}>
 						<View ref={storeInfoRef} collapsable={false} style={{ backgroundColor: '#fff', borderRadius: 12, overflow: 'hidden' }}>
 							<StoreCard
@@ -601,7 +602,7 @@ const SetupStoreScreen = () => {
 							<Feather name="x" size={24} color="#fff" />
 						</TouchableOpacity>
 					</View>
-				</View>
+				</KeyboardSheet>
 			</Modal>
 
 		</SafeAreaView>

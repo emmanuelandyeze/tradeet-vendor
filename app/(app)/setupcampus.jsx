@@ -31,6 +31,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import StoreCard from '@/components/StoreCard'
+import KeyboardSheet from '@/components/KeyboardSheet';
 
 
 const SetupStoreScreen = ({}) => {
@@ -419,7 +420,7 @@ const SetupStoreScreen = ({}) => {
 				transparent
 				animationType="slide"
 			>
-				<View style={styles.modalBackground}>
+				<KeyboardSheet style={styles.modalBackground}>
 					<View
 						style={{
 							backgroundColor: '#fff',
@@ -473,7 +474,7 @@ const SetupStoreScreen = ({}) => {
 							</TouchableOpacity>
 						</View>
 					</View>
-				</View>
+				</KeyboardSheet>
 			</Modal>
 
 			{/* Modal for inactive campuses */}
@@ -482,7 +483,7 @@ const SetupStoreScreen = ({}) => {
 				transparent={true}
 				animationType="slide"
 			>
-				<View style={styles.modalBackground}>
+				<KeyboardSheet style={styles.modalBackground}>
 					<View style={styles.modalContent}>
 						<Text style={styles.modalEmoji}>😥</Text>
 						<Text style={styles.modalTitle}>
@@ -511,7 +512,7 @@ const SetupStoreScreen = ({}) => {
 							<Text style={styles.closeButtonText}>x</Text>
 						</TouchableOpacity>
 					</View>
-				</View>
+				</KeyboardSheet>
 			</Modal>
 		</ScrollView>
 	);

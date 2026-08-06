@@ -11,7 +11,6 @@ import {
     ScrollView,
     ToastAndroid,
     ActivityIndicator,
-    KeyboardAvoidingView,
     Platform,
     StatusBar
 } from 'react-native';
@@ -21,6 +20,7 @@ import { useRouter } from 'expo-router';
 import { AuthContext } from '@/context/AuthContext';
 import axiosInstance from '@/utils/axiosInstance';
 import ExpenseTable from '../../../components/ExpenseTable';
+import KeyboardSheet from '@/components/KeyboardSheet';
 
 const ExpensesScreen = () => {
     const { userInfo, selectedStore } = useContext(AuthContext);
@@ -292,10 +292,7 @@ const ExpensesScreen = () => {
                 transparent={true}
                 onRequestClose={() => setModalVisible(false)}
             >
-                <KeyboardAvoidingView
-                    style={styles.modalOverlay}
-                    behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-                >
+                <KeyboardSheet style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
                         <View style={styles.modalHeaderBar}>
                             <Text style={styles.modalTitle}>New Expense</Text>
@@ -399,7 +396,7 @@ const ExpensesScreen = () => {
 
                         </ScrollView>
                     </View>
-                </KeyboardAvoidingView>
+                </KeyboardSheet>
             </Modal>
         </View>
     );

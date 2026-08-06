@@ -24,7 +24,6 @@ import {
 	Linking,
 	Platform,
 	SafeAreaView,
-	KeyboardAvoidingView,
 	Pressable,
 } from 'react-native';
 import axiosInstance from '@/utils/axiosInstance';
@@ -35,6 +34,7 @@ import Feather from '@expo/vector-icons/Feather';
 import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { AuthContext } from '@/context/AuthContext';
 import SkeletonLoader from '@/components/SkeletonLoader';
+import KeyboardSheet from '@/components/KeyboardSheet';
 
 const COLORS = {
 	primary: '#065637',
@@ -784,14 +784,10 @@ const SingleOrderPage = () => {
 
 			{/* Message Customer */}
 			<Modal visible={showMessageModal} transparent animationType="slide" onRequestClose={() => setShowMessageModal(false)}>
-				<KeyboardAvoidingView
-					style={{ flex: 1 }}
-					behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-				>
-					{/* Tapping the dimmed area closes; the inner Pressable stops taps on the
-					    sheet itself from bubbling up and dismissing it. */}
-					<Pressable style={styles.modalOverlay} onPress={() => setShowMessageModal(false)}>
-						<Pressable style={styles.modalContent} onPress={() => { }}>
+				{/* KeyboardSheet lifts the sheet by the real keyboard height and closes on a
+				    tap outside; taps on the sheet itself are absorbed. */}
+				<KeyboardSheet style={styles.modalOverlay} onPress={() => setShowMessageModal(false)}>
+					<Pressable style={styles.modalContent} onPress={() => { }}>
 							<View style={styles.msgHeader}>
 								<Text style={[styles.modalTitle, { marginBottom: 0 }]}>Message Customer</Text>
 								<TouchableOpacity
@@ -828,9 +824,8 @@ const SingleOrderPage = () => {
 							>
 								{sendingMsg ? <ActivityIndicator color="#fff" /> : <Text style={{ color: COLORS.white, fontWeight: '600', fontSize: 16 }}>Send Message</Text>}
 							</TouchableOpacity>
-						</Pressable>
 					</Pressable>
-				</KeyboardAvoidingView>
+				</KeyboardSheet>
 			</Modal>
 
 		</SafeAreaView >

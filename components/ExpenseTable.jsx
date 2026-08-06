@@ -18,6 +18,7 @@ import { AuthContext } from '@/context/AuthContext';
 import PlaceholderLogo from './PlaceholderLogo';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import axiosInstance from '@/utils/axiosInstance';
+import KeyboardSheet from './KeyboardSheet';
 
 const ExpenseTable = ({
 	expenses,
@@ -325,7 +326,7 @@ const ExpenseTable = ({
 					transparent
 					onRequestClose={closeModal}
 				>
-					<View style={styles.modalContainer}>
+					<KeyboardSheet style={styles.modalContainer}>
 						<View
 							ref={invoiceRef}
 							collapsable={false}
@@ -384,7 +385,7 @@ const ExpenseTable = ({
 								</TouchableOpacity>
 							</View>
 						</View>
-					</View>
+					</KeyboardSheet>
 				</Modal>
 			)}
 		</View>

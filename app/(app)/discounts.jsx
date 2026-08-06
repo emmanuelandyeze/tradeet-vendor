@@ -17,7 +17,6 @@ import {
 	Alert,
 	Switch,
 	ScrollView,
-	KeyboardAvoidingView,
 	Platform,
 	Keyboard,
 	TouchableOpacity,
@@ -27,6 +26,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import { router } from 'expo-router';
 import { useContext } from 'react';
 import { AuthContext } from '@/context/AuthContext';
+import KeyboardSheet from '@/components/KeyboardSheet';
 
 const DISCOUNT_ENDPOINT = '/discounts';
 const THEME = {
@@ -636,10 +636,7 @@ export default function DiscountsScreen() {
 				onRequestClose={closeModal}
 			>
 				<View style={styles.modalOverlay}>
-					<KeyboardAvoidingView
-						behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-						style={styles.modalContainer}
-					>
+					<KeyboardSheet style={styles.modalContainer}>
 						<View style={styles.modalHeader}>
 							<Text style={styles.modalTitle}>
 								{editing ? 'Edit Discount' : 'New Discount'}
@@ -816,7 +813,7 @@ export default function DiscountsScreen() {
 								</Text>
 							)}
 						</TouchableOpacity>
-					</KeyboardAvoidingView>
+					</KeyboardSheet>
 				</View>
 			</Modal>
 

@@ -14,7 +14,6 @@ import {
 	StyleSheet,
 	ToastAndroid,
 	ScrollView,
-	KeyboardAvoidingView,
 	Platform,
 	ActivityIndicator,
 	Switch,
@@ -25,6 +24,7 @@ import { AuthContext } from '@/context/AuthContext';
 import { ProductsContext } from '@/context/ProductsContext';
 import axiosInstance from '@/utils/axiosInstance';
 import InvoiceTable from '../../../components/InvoiceTable';
+import KeyboardSheet from '@/components/KeyboardSheet';
 
 const InvoicesScreen = () => {
 	const { userInfo, sendPushNotification, selectedStore } =
@@ -423,10 +423,7 @@ const InvoicesScreen = () => {
 				presentationStyle="pageSheet"
 				onRequestClose={() => setModalVisible(false)}
 			>
-				<KeyboardAvoidingView
-					style={styles.modalContainer}
-					behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-				>
+				<KeyboardSheet style={styles.modalContainer}>
 					<View style={styles.modalContent}>
 						{/* Modal Header */}
 						<View style={styles.modalHeader}>
@@ -661,7 +658,7 @@ const InvoicesScreen = () => {
 							</TouchableOpacity>
 						</View>
 					</View>
-				</KeyboardAvoidingView>
+				</KeyboardSheet>
 			</Modal>
 		</View >
 	);

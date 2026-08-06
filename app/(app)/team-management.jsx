@@ -16,6 +16,7 @@ import { StatusBar } from 'expo-status-bar';
 import { Entypo, Feather, Ionicons } from '@expo/vector-icons';
 import { AuthContext } from '@/context/AuthContext';
 import axiosInstance from '@/utils/axiosInstance';
+import KeyboardSheet from '@/components/KeyboardSheet';
 
 export default function TeamManagement() {
     const router = useRouter();
@@ -272,9 +273,8 @@ export default function TeamManagement() {
                 animationType="slide"
                 onRequestClose={() => setModalVisible(false)}
             >
-                <TouchableOpacity
+                <KeyboardSheet
                     style={styles.modalOverlay}
-                    activeOpacity={1}
                     onPress={() => setModalVisible(false)}
                 >
                     <TouchableOpacity activeOpacity={1} style={styles.modalContent}>
@@ -314,7 +314,7 @@ export default function TeamManagement() {
                             )}
                         </TouchableOpacity>
                     </TouchableOpacity>
-                </TouchableOpacity>
+                </KeyboardSheet>
             </Modal>
         </View>
     );

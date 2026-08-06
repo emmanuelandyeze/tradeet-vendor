@@ -29,6 +29,7 @@ import { StatusBar } from 'expo-status-bar';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SkeletonLoader from '@/components/SkeletonLoader';
 import * as Notifications from 'expo-notifications';
+import KeyboardSheet from '@/components/KeyboardSheet';
 
 // Helper for "Time Ago"
 const formatTimeAgo = (dateString) => {
@@ -414,9 +415,8 @@ const Orders = () => {
 				transparent
 				onRequestClose={() => setStoreModalVisible(false)}
 			>
-				<TouchableOpacity
+				<KeyboardSheet
 					style={styles.modalOverlay}
-					activeOpacity={1}
 					onPress={() => setStoreModalVisible(false)}
 				>
 					<View style={styles.modalContent}>
@@ -475,7 +475,7 @@ const Orders = () => {
 							}}
 						/>
 					</View>
-				</TouchableOpacity>
+				</KeyboardSheet>
 			</Modal>
 		</View>
 	);

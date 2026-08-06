@@ -18,6 +18,7 @@ import { useRouter } from 'expo-router';
 import { AuthContext } from '@/context/AuthContext';
 import axiosInstance from '@/utils/axiosInstance';
 import { StatusBar } from 'expo-status-bar';
+import KeyboardSheet from '@/components/KeyboardSheet';
 
 const DomainSettingsScreen = () => {
     const router = useRouter();
@@ -308,7 +309,7 @@ const DomainSettingsScreen = () => {
                 animationType="slide"
                 onRequestClose={() => setModalVisible(false)}
             >
-                <View style={styles.modalOverlay}>
+                <KeyboardSheet style={styles.modalOverlay}>
                     <View style={styles.modalContent}>
                         <View style={styles.modalHeader}>
                             <Text style={styles.modalTitle}>Select Business</Text>
@@ -338,7 +339,7 @@ const DomainSettingsScreen = () => {
                             )}
                         />
                     </View>
-                </View>
+                </KeyboardSheet>
             </Modal>
         </View>
     );

@@ -17,6 +17,7 @@ import {
 } from '@/services/discountServices';
 import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import KeyboardSheet from './KeyboardSheet';
 
 const DiscountList = ({ businessId }) => {
 	const [discounts, setDiscounts] = useState([]);
@@ -211,7 +212,7 @@ const DiscountList = ({ businessId }) => {
 				animationType="slide"
 				onRequestClose={() => setModalVisible(false)}
 			>
-				<View style={styles.modalContainer}>
+				<KeyboardSheet style={styles.modalContainer}>
 					<Text style={styles.modalTitle}>
 						{editingDiscountId
 							? 'Edit Discount'
@@ -271,7 +272,7 @@ const DiscountList = ({ businessId }) => {
 							<Text style={styles.buttonText}>Cancel</Text>
 						</TouchableOpacity>
 					</View>
-				</View>
+				</KeyboardSheet>
 			</Modal>
 		</View>
 	);

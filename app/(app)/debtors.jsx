@@ -21,6 +21,7 @@ import { StatusBar } from 'expo-status-bar';
 import { AuthContext } from '@/context/AuthContext';
 import axiosInstance from '@/utils/axiosInstance';
 import { COLORS, TYPOGRAPHY, LAYOUT, ACCESSIBILITY } from '@/constants/theme';
+import KeyboardSheet from '@/components/KeyboardSheet';
 
 export default function DebtorsScreen() {
 	const router = useRouter();
@@ -382,7 +383,7 @@ export default function DebtorsScreen() {
 
 			{/* --- GIVE CREDIT MODAL --- */}
 			<Modal visible={giveCreditModalVisible} animationType="slide" transparent>
-				<View style={styles.modalOverlay}>
+				<KeyboardSheet style={styles.modalOverlay}>
 					<View style={styles.modalContent}>
 						<View style={styles.modalHeader}>
 							<Text style={styles.modalTitle}>Record Credit (+ Debt)</Text>
@@ -459,12 +460,12 @@ export default function DebtorsScreen() {
 							</TouchableOpacity>
 						</ScrollView>
 					</View>
-				</View>
+				</KeyboardSheet>
 			</Modal>
 
 			{/* --- REPAYMENT MODAL --- */}
 			<Modal visible={repaymentModalVisible} animationType="slide" transparent>
-				<View style={styles.modalOverlay}>
+				<KeyboardSheet style={styles.modalOverlay}>
 					<View style={styles.modalContent}>
 						<View style={styles.modalHeader}>
 							<Text style={styles.modalTitle}>Record Repayment (- Pay)</Text>
@@ -531,12 +532,12 @@ export default function DebtorsScreen() {
 							)}
 						</TouchableOpacity>
 					</View>
-				</View>
+				</KeyboardSheet>
 			</Modal>
 
 			{/* --- LEDGER STATEMENT HISTORY MODAL --- */}
 			<Modal visible={ledgerModalVisible} animationType="slide" transparent>
-				<View style={styles.modalOverlay}>
+				<KeyboardSheet style={styles.modalOverlay}>
 					<View style={[styles.modalContent, { maxHeight: '80%' }]}>
 						<View style={styles.modalHeader}>
 							<Text style={styles.modalTitle}>Debt History Statement</Text>
@@ -595,7 +596,7 @@ export default function DebtorsScreen() {
 							/>
 						)}
 					</View>
-				</View>
+				</KeyboardSheet>
 			</Modal>
 		</SafeAreaView>
 	);

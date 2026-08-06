@@ -13,7 +13,6 @@ import {
 	Dimensions,
 	RefreshControl,
 	TextInput,
-	KeyboardAvoidingView,
 	Platform,
 	ScrollView
 } from 'react-native';
@@ -24,6 +23,7 @@ import { sanitizeTemplateParam, willBeReflowed } from '@/utils/whatsappText';
 import { Feather, MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { StatusBar } from 'expo-status-bar';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import KeyboardSheet from '@/components/KeyboardSheet';
 
 const { width } = Dimensions.get('window');
 
@@ -521,10 +521,7 @@ export default function CustomersScreen() {
 				animationType="slide"
 				onRequestClose={() => setMessageModalVisible(false)}
 			>
-				<KeyboardAvoidingView
-					style={styles.modalOverlay}
-					behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-				>
+				<KeyboardSheet style={styles.modalOverlay}>
 					<View style={styles.modalCard}>
 						<View style={styles.modalHeader}>
 							<Text style={styles.modalTitle}>
@@ -592,7 +589,7 @@ export default function CustomersScreen() {
 							</TouchableOpacity>
 						</ScrollView>
 					</View>
-				</KeyboardAvoidingView>
+				</KeyboardSheet>
 			</Modal>
 		</SafeAreaView>
 	);

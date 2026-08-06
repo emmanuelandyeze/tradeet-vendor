@@ -30,6 +30,7 @@ import {
 import axiosInstance from '@/utils/axiosInstance';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useRouter } from 'expo-router';
+import KeyboardSheet from './KeyboardSheet';
 
 // Fast shimmer for loading state
 const Shimmer = ({ style }) => {
@@ -401,7 +402,7 @@ export default function Header({
 				transparent={true}
 				onRequestClose={() => setModalVisible(false)}
 			>
-				<View style={styles.modalOverlay}>
+				<KeyboardSheet style={styles.modalOverlay}>
 					<View style={styles.modalCard}>
 						<View style={styles.modalHeader}>
 							<Text style={styles.modalTitle}>
@@ -495,7 +496,7 @@ export default function Header({
 							/>
 						)}
 					</View>
-				</View>
+				</KeyboardSheet>
 			</Modal>
 
 			{/* Add Branch Modal */}
@@ -505,7 +506,7 @@ export default function Header({
 				transparent={true}
 				onRequestClose={() => setAddBranchModalVisible(false)}
 			>
-				<View style={styles.modalOverlay}>
+				<KeyboardSheet style={styles.modalOverlay}>
 					<View style={styles.modalCard}>
 						<Text style={styles.modalTitle}>New Branch</Text>
 						<TextInput
@@ -547,7 +548,7 @@ export default function Header({
 							</TouchableOpacity>
 						</View>
 					</View>
-				</View>
+				</KeyboardSheet>
 			</Modal>
 
 			{/* Quick Swap Logo Modal */}

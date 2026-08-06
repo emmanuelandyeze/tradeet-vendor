@@ -22,6 +22,7 @@ import { AuthContext } from '@/context/AuthContext';
 import PlaceholderLogo from './PlaceholderLogo';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import axiosInstance from '@/utils/axiosInstance';
+import KeyboardSheet from './KeyboardSheet';
 
 const InvoiceTable = ({
 	invoices = [],
@@ -1106,7 +1107,7 @@ const InvoiceTable = ({
 					transparent
 					onRequestClose={closeModal}
 				>
-					<View style={styles.modalContainer}>
+					<KeyboardSheet style={styles.modalContainer}>
 						<View style={styles.modalContent}>
 							{/* Watermark */}
 							<Text style={styles.watermarkText}>TRADEET BUSINESS</Text>
@@ -1500,7 +1501,7 @@ const InvoiceTable = ({
 							transparent
 							onRequestClose={closePaymentModal}
 						>
-							<View style={styles.modalContainer}>
+							<KeyboardSheet style={styles.modalContainer}>
 								<View
 									style={[
 										styles.modalContent,
@@ -1624,9 +1625,9 @@ const InvoiceTable = ({
 										)}
 									</TouchableOpacity>
 								</View>
-							</View>
+							</KeyboardSheet>
 						</Modal>
-					</View>
+					</KeyboardSheet>
 				</Modal>
 			)}
 		</View>

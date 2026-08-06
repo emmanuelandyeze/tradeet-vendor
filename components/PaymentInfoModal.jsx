@@ -10,6 +10,7 @@ import {
 } from 'react-native';
 import axios from 'axios';
 import { Picker } from '@react-native-picker/picker';
+import KeyboardSheet from './KeyboardSheet';
 
 const PaymentInfoModal = ({ visible, onClose, onSave }) => {
 	const [banks, setBanks] = useState([]);
@@ -100,7 +101,7 @@ const PaymentInfoModal = ({ visible, onClose, onSave }) => {
 			visible={visible}
 			onRequestClose={onClose}
 		>
-			<View style={styles.modalOverlay}>
+			<KeyboardSheet style={styles.modalOverlay}>
 				<View style={styles.modalContent}>
 					<Text style={styles.title}>
 						Add Payment Information
@@ -165,7 +166,7 @@ const PaymentInfoModal = ({ visible, onClose, onSave }) => {
 						</Text>
 					</TouchableOpacity>
 				</View>
-			</View>
+			</KeyboardSheet>
 		</Modal>
 	);
 };

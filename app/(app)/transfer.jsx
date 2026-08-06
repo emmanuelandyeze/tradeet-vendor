@@ -30,6 +30,7 @@ import { AuthContext } from '@/context/AuthContext';
 import { Ionicons } from '@expo/vector-icons';
 import { captureRef } from 'react-native-view-shot'; // Import captureRef
 import * as Sharing from 'expo-sharing'; // Import expo-sharing
+import KeyboardSheet from '@/components/KeyboardSheet';
 
 const TransferScreen = () => {
 	const { userInfo } = useContext(AuthContext);
@@ -505,7 +506,7 @@ const TransferScreen = () => {
 						onPress={Keyboard.dismiss}
 						accessible={false}
 					>
-						<View style={styles.modalOverlay}>
+						<KeyboardSheet style={styles.modalOverlay}>
 							<View style={styles.modalContent}>
 								<View style={styles.modalHeader}>
 									<Text style={styles.modalTitle}>
@@ -700,7 +701,7 @@ const TransferScreen = () => {
 									</>
 								)}
 							</View>
-						</View>
+						</KeyboardSheet>
 					</TouchableWithoutFeedback>
 				</Modal>
 
@@ -798,7 +799,7 @@ const TransferScreen = () => {
 						setIsReceiptModalVisible(false)
 					}
 				>
-					<View style={styles.modalOverlay}>
+					<KeyboardSheet style={styles.modalOverlay}>
 						<View style={styles.modalContent}>
 							<View style={styles.modalHeader}>
 								<Text style={styles.modalTitle}>
@@ -939,7 +940,7 @@ const TransferScreen = () => {
 								</Text>
 							</TouchableOpacity>
 						</View>
-					</View>
+					</KeyboardSheet>
 				</Modal>
 
 				{/* Success Notification */}

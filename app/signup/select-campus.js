@@ -14,6 +14,7 @@ import {
 	useRouter,
 } from 'expo-router';
 import { AuthContext } from '@/context/AuthContext';
+import KeyboardSheet from '@/components/KeyboardSheet';
 
 export default function CampusScreen() {
 	const router = useRouter();
@@ -156,7 +157,7 @@ export default function CampusScreen() {
 				transparent={true}
 				animationType="slide"
 			>
-				<View style={styles.modalBackground}>
+				<KeyboardSheet style={styles.modalBackground}>
 					<View style={styles.modalContent}>
 						<Text style={styles.modalEmoji}>😥</Text>
 						<Text style={styles.modalTitle}>
@@ -185,7 +186,7 @@ export default function CampusScreen() {
 							<Text style={styles.closeButtonText}>x</Text>
 						</TouchableOpacity>
 					</View>
-				</View>
+				</KeyboardSheet>
 			</Modal>
 		</View>
 	);

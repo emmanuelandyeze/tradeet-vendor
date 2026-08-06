@@ -21,6 +21,7 @@ import PlaceholderLogo from './PlaceholderLogo';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import axiosInstance from '@/utils/axiosInstance';
 import { router } from 'expo-router';
+import KeyboardSheet from './KeyboardSheet';
 
 const SalesTable = ({
 	invoices,
@@ -422,7 +423,7 @@ const SalesTable = ({
 					transparent
 					onRequestClose={closeModal}
 				>
-					<View style={styles.modalContainer}>
+					<KeyboardSheet style={styles.modalContainer}>
 						<View style={styles.modalContent}>
 							{!['pro', 'business'].includes((userInfo?.plan?.name || '').toLowerCase()) && (
 								<Text style={styles.watermarkText}>
@@ -667,7 +668,7 @@ const SalesTable = ({
 								</View>
 							</View>
 						</View>
-					</View>
+					</KeyboardSheet>
 
 					{/* Payment Recording Modal */}
 					<Modal
@@ -676,7 +677,7 @@ const SalesTable = ({
 						transparent
 						onRequestClose={closePaymentModal}
 					>
-						<View style={styles.modalContainer}>
+						<KeyboardSheet style={styles.modalContainer}>
 							<View
 								style={[
 									styles.modalContent,
@@ -794,7 +795,7 @@ const SalesTable = ({
 									)}
 								</TouchableOpacity>
 							</View>
-						</View>
+						</KeyboardSheet>
 					</Modal>
 				</Modal>
 			)}
