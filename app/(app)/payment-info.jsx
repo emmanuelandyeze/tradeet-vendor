@@ -91,6 +91,28 @@ const StorePaymentsScreen = () => {
 	const [filteredBanks, setFilteredBanks] = useState([]);
 	const [showBankSuggestions, setShowBankSuggestions] = useState(false);
 
+	// Anchor Account State
+	const [anchorAccount, setAnchorAccount] = useState(null);
+	const [anchorLoading, setAnchorLoading] = useState(false);
+	const [anchorModalVisible, setAnchorModalVisible] = useState(false);
+	const [anchorStep, setAnchorStep] = useState(1); // 1 = Customer Info, 2 = BVN Verification
+	const [submittingAnchor, setSubmittingAnchor] = useState(false);
+
+	// Anchor Form Inputs
+	const [firstName, setFirstName] = useState('');
+	const [lastName, setLastName] = useState('');
+	const [email, setEmail] = useState('');
+	const [phoneNumber, setPhoneNumber] = useState('');
+	const [addressLine1, setAddressLine1] = useState('');
+	const [city, setCity] = useState('');
+	const [stateName, setStateName] = useState('Lagos');
+	const [postalCode, setPostalCode] = useState('100001');
+
+	// KYC Form Inputs
+	const [bvn, setBvn] = useState('');
+	const [dateOfBirth, setDateOfBirth] = useState('');
+	const [gender, setGender] = useState('Female');
+
 	const fetchStore = useCallback(async (id) => {
 		if (!id) {
 			setStore(null);
@@ -106,6 +128,24 @@ const StorePaymentsScreen = () => {
 			Alert.alert('Error', 'Unable to load store details.');
 		} finally {
 			setLoading(false);
+		}
+	}, []);
+
+	const fetchAnchorAccount = useCallback(async (id) => {
+		if (!id) return;
+		setAnchorLoading(true);
+		try {
+			const token = await AsyncStorage.getItem(STORAGE_KEY);
+			const resp = await axiosInstance.get(`/anchor/${id}`, {
+				headers: { Authorization: `Bearer ${token}` },
+			});
+			if (resp.data?.success) {
+				setAnchorAccount(resp.data.data);
+			}
+		} catch (err) {
+			console.log('No anchor account found or error:', err.response?.data?.message || err.message);
+		} finally {
+			setAnchorLoading(false);
 		}
 	}, []);
 
@@ -143,12 +183,124 @@ const StorePaymentsScreen = () => {
 	}, [contextSelectedStore, storesList]);
 
 	useEffect(() => {
-		if (selectedStoreId) fetchStore(selectedStoreId);
-	}, [selectedStoreId, fetchStore]);
+		if (selectedStoreId) {
+			fetchStore(selectedStoreId);
+			fetchAnchorAccount(selectedStoreId);
+		}
+	}, [selectedStoreId, fetchStore, fetchAnchorAccount]);
 
 	useEffect(() => {
 		getBankNames();
 	}, []);
+
+	// Anchor Action Handlers
+	const handleOpenAnchorModal = () => {
+		if (anchorAccount?.status === 'customer_created' || anchorAccount?.status === 'kyc_required' || anchorAccount?.status === 'kyc_rejected') {
+			setAnchorStep(2);
+		} else {
+			setAnchorStep(1);
+			if (userInfo?.name) {
+				const parts = userInfo.name.trim().split(' ');
+				setFirstName(parts[0] || '');
+				setLastName(parts.slice(1).join(' ') || parts[0] || '');
+			}
+			if (userInfo?.email) setEmail(userInfo.email);
+			if (userInfo?.phone) setPhoneNumber(userInfo.phone);
+		}
+		setAnchorModalVisible(true);
+	};
+
+	const handleStartAnchorOnboard = async () => {
+		if (!firstName || !lastName || !email || !phoneNumber) {
+			Alert.alert('Required Fields', 'Please fill in your first name, last name, email, and phone number.');
+			return;
+		}
+		setSubmittingAnchor(true);
+		try {
+			const token = await AsyncStorage.getItem(STORAGE_KEY);
+			const resp = await axiosInstance.post(
+				`/anchor/${selectedStoreId}/onboard`,
+				{
+					firstName,
+					lastName,
+					email,
+					phoneNumber,
+					address: { line1: addressLine1 || '123 Main St', city: city || 'Lagos', state: stateName || 'Lagos', postalCode: postalCode || '100001' }
+				},
+				{ headers: { Authorization: `Bearer ${token}` } }
+			);
+
+			if (resp.data?.success) {
+				setAnchorAccount(resp.data.data);
+				setAnchorStep(2); // Proceed to BVN Step
+			} else {
+				Alert.alert('Setup Error', resp.data?.message || 'Could not complete onboarding.');
+			}
+		} catch (err) {
+			console.error('Anchor onboard error:', err);
+			Alert.alert('Error', err.response?.data?.message || 'Failed to start account creation.');
+		} finally {
+			setSubmittingAnchor(false);
+		}
+	};
+
+	const handleSubmitAnchorKyc = async () => {
+		if (!bvn || bvn.length !== 11) {
+			Alert.alert('Invalid BVN', 'Please enter your 11-digit Bank Verification Number.');
+			return;
+		}
+		if (!dateOfBirth || !/^\d{4}-\d{2}-\d{2}$/.test(dateOfBirth)) {
+			Alert.alert('Invalid Date of Birth', 'Please enter Date of Birth in YYYY-MM-DD format (e.g. 1995-04-22).');
+			return;
+		}
+		setSubmittingAnchor(true);
+		try {
+			const token = await AsyncStorage.getItem(STORAGE_KEY);
+			const resp = await axiosInstance.post(
+				`/anchor/${selectedStoreId}/verify`,
+				{ bvn, dateOfBirth, gender },
+				{ headers: { Authorization: `Bearer ${token}` } }
+			);
+
+			if (resp.data?.success) {
+				setAnchorAccount(resp.data.data);
+				setAnchorModalVisible(false);
+				Alert.alert('Verification Submitted', 'Your BVN verification has been submitted successfully.');
+				fetchAnchorAccount(selectedStoreId);
+			} else {
+				Alert.alert('KYC Error', resp.data?.message || 'Verification failed.');
+			}
+		} catch (err) {
+			console.error('Anchor KYC error:', err);
+			Alert.alert('Verification Failed', err.response?.data?.message || 'Failed to verify BVN.');
+		} finally {
+			setSubmittingAnchor(false);
+		}
+	};
+
+	const handleRetryProvisioning = async () => {
+		setSubmittingAnchor(true);
+		try {
+			const token = await AsyncStorage.getItem(STORAGE_KEY);
+			const resp = await axiosInstance.post(
+				`/anchor/${selectedStoreId}/provision`,
+				{},
+				{ headers: { Authorization: `Bearer ${token}` } }
+			);
+			if (resp.data?.success) {
+				setAnchorAccount(resp.data.data);
+				Alert.alert('Success', 'Account creation re-triggered successfully.');
+			} else {
+				Alert.alert('Notice', resp.data?.message || 'Could not provision account.');
+			}
+		} catch (err) {
+			console.error('Provision error:', err);
+			Alert.alert('Error', err.response?.data?.message || 'Failed to provision account.');
+		} finally {
+			setSubmittingAnchor(false);
+			fetchAnchorAccount(selectedStoreId);
+		}
+	};
 
 	const persistPaymentInfo = async (newPaymentArray) => {
 		if (!store || !store._id) return false;
@@ -358,6 +510,106 @@ const StorePaymentsScreen = () => {
 		</TouchableOpacity>
 	);
 
+	const renderAnchorHeader = () => {
+		const status = anchorAccount?.status || 'not_created';
+		const isCompleted = status === 'active';
+		const isPendingKyc = status === 'kyc_pending';
+		const isRejected = status === 'kyc_rejected';
+		const needsKyc = status === 'customer_created' || status === 'kyc_required';
+
+		return (
+			<View style={styles.anchorSectionContainer}>
+				<View style={styles.anchorCard}>
+					<View style={styles.anchorCardTop}>
+						<View style={styles.anchorIconBadge}>
+							<Feather name="shield-check" size={20} color="#059669" />
+						</View>
+						<View style={{ flex: 1 }}>
+							<Text style={styles.anchorTitle}>Dedicated Virtual Account</Text>
+							<Text style={styles.anchorSub}>Direct bank transfers into your Tradeet dashboard</Text>
+						</View>
+						<View style={[
+							styles.statusPill,
+							isCompleted && { backgroundColor: '#ECFDF5' },
+							(isPendingKyc || needsKyc) && { backgroundColor: '#FEF3C7' },
+							isRejected && { backgroundColor: '#FEE2E2' },
+							!anchorAccount && { backgroundColor: '#EFF6FF' }
+						]}>
+							<Text style={[
+								styles.statusPillText,
+								isCompleted && { color: '#059669' },
+								(isPendingKyc || needsKyc) && { color: '#D97706' },
+								isRejected && { color: '#DC2626' },
+								!anchorAccount && { color: '#2563EB' }
+							]}>
+								{isCompleted ? 'ACTIVE' : isPendingKyc ? 'PENDING' : isRejected ? 'REJECTED' : needsKyc ? 'KYC NEEDED' : 'SETUP'}
+							</Text>
+						</View>
+					</View>
+
+					{anchorLoading ? (
+						<ActivityIndicator size="small" color="#059669" style={{ marginVertical: 16 }} />
+					) : isCompleted ? (
+						<View style={styles.anchorDetailsBox}>
+							<View style={styles.anchorRow}>
+								<Text style={styles.anchorLabel}>Bank Name</Text>
+								<Text style={styles.anchorVal}>{anchorAccount?.bankName || 'Providus Bank / 9PSB'}</Text>
+							</View>
+							<View style={styles.anchorRow}>
+								<Text style={styles.anchorLabel}>Account Number</Text>
+								<View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+									<Text style={styles.anchorNuban}>{anchorAccount?.accountNumber}</Text>
+									<TouchableOpacity onPress={() => Alert.alert('Copied', 'Account number copied to clipboard.')}>
+										<Feather name="copy" size={16} color="#059669" />
+									</TouchableOpacity>
+								</View>
+							</View>
+							<View style={styles.anchorRow}>
+								<Text style={styles.anchorLabel}>Account Name</Text>
+								<Text style={styles.anchorVal}>{anchorAccount?.accountName || store?.name}</Text>
+							</View>
+							<View style={styles.anchorDivider} />
+							<View style={styles.anchorRow}>
+								<Text style={styles.anchorLabel}>Available Balance</Text>
+								<Text style={styles.anchorBalance}>
+									₦{(anchorAccount?.availableBalance || 0).toLocaleString()}
+								</Text>
+							</View>
+						</View>
+					) : (
+						<View style={styles.anchorNoticeBox}>
+							<Text style={styles.anchorNoticeText}>
+								{isRejected
+									? `KYC Verification failed: ${anchorAccount?.statusMessage || 'Name on BVN does not match profile'}`
+									: isPendingKyc
+									? 'Your identity verification is currently being processed by our banking partner.'
+									: needsKyc
+									? 'Customer profile created! Submit your 11-digit BVN to activate your account number.'
+									: 'Get an account number your customers can pay into directly. Payments automatically reflect on your dashboard.'}
+							</Text>
+
+							<TouchableOpacity
+								style={[styles.anchorActionBtn, isRejected && { backgroundColor: '#DC2626' }]}
+								onPress={needsKyc || isRejected || !anchorAccount ? handleOpenAnchorModal : handleRetryProvisioning}
+								disabled={submittingAnchor}
+							>
+								{submittingAnchor ? (
+									<ActivityIndicator color="#fff" size="small" />
+								) : (
+									<Text style={styles.anchorActionBtnText}>
+										{isRejected ? 'Retry BVN Verification' : needsKyc ? 'Complete BVN Step' : isPendingKyc ? 'Refresh Status' : 'Set Up Account Number'}
+									</Text>
+								)}
+							</TouchableOpacity>
+						</View>
+					)}
+				</View>
+
+				<Text style={styles.sectionHeaderTitle}>Saved Payout Accounts</Text>
+			</View>
+		);
+	};
+
 	return (
 		<View style={styles.container}>
 			<StatusBar style="dark" backgroundColor="#fff" />
@@ -365,7 +617,7 @@ const StorePaymentsScreen = () => {
 				<TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
 					<Feather name="arrow-left" size={24} color="#1F2937" />
 				</TouchableOpacity>
-				<Text style={styles.headerTitle}>Payout Accounts</Text>
+				<Text style={styles.headerTitle}>Payout & Virtual Accounts</Text>
 				<TouchableOpacity onPress={openAddModal} style={styles.addIconBtn}>
 					<Feather name="plus" size={24} color="#2563EB" />
 				</TouchableOpacity>
@@ -380,16 +632,17 @@ const StorePaymentsScreen = () => {
 					data={store?.paymentInfo ?? []}
 					keyExtractor={(p, i) => `${p.accountNumber}-${i}`}
 					renderItem={renderPayment}
+					ListHeaderComponent={renderAnchorHeader}
 					contentContainerStyle={styles.listContent}
 					ListEmptyComponent={
 						<View style={styles.emptyState}>
 							<View style={styles.emptyIconBg}>
 								<Feather name="credit-card" size={32} color="#9CA3AF" />
 							</View>
-							<Text style={styles.emptyTitle}>No Accounts</Text>
-							<Text style={styles.emptySubtitle}>Link a bank account to receive payouts.</Text>
+							<Text style={styles.emptyTitle}>No Manual Accounts</Text>
+							<Text style={styles.emptySubtitle}>Link external bank accounts to withdraw stored funds.</Text>
 							<TouchableOpacity style={styles.addBtnLarge} onPress={openAddModal}>
-								<Text style={styles.addBtnText}>Add Bank Account</Text>
+								<Text style={styles.addBtnText}>Add Manual Account</Text>
 							</TouchableOpacity>
 						</View>
 					}
@@ -471,6 +724,188 @@ const StorePaymentsScreen = () => {
 									</TouchableOpacity>
 									<TouchableOpacity style={styles.saveButton} onPress={handleModalSave} disabled={saving}>
 										{saving ? <ActivityIndicator color="#fff" /> : <Text style={styles.saveButtonText}>Save Details</Text>}
+									</TouchableOpacity>
+								</View>
+							</View>
+						</KeyboardAvoidingView>
+					</View>
+				</View>
+			</Modal>
+
+			{/* Anchor Onboarding & KYC Modal */}
+			<Modal visible={anchorModalVisible} animationType="slide" transparent>
+				<View style={styles.modalOverlay}>
+					<View style={styles.modalContainer}>
+						<KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : undefined} style={{ flex: 1 }}>
+							<View style={styles.modalContent}>
+								<View style={styles.modalHeader}>
+									<Text style={styles.modalTitle}>
+										{anchorStep === 1 ? 'Step 1: Merchant Profile' : 'Step 2: BVN Identity Verification'}
+									</Text>
+									<TouchableOpacity onPress={() => setAnchorModalVisible(false)} style={styles.closeModalBtn}>
+										<Feather name="x" size={24} color="#6B7280" />
+									</TouchableOpacity>
+								</View>
+
+								<ScrollView keyboardShouldPersistTaps="handled" contentContainerStyle={styles.formScroller}>
+									{anchorStep === 1 ? (
+										<>
+											<Text style={styles.stepSubtitle}>
+												Provide legal merchant details required to create your dedicated bank account.
+											</Text>
+											<View style={{ flexDirection: 'row', gap: 12 }}>
+												<View style={[styles.inputGroup, { flex: 1 }]}>
+													<Text style={styles.label}>First Name *</Text>
+													<TextInput
+														value={firstName}
+														onChangeText={setFirstName}
+														placeholder="First Name"
+														style={styles.textInput}
+														placeholderTextColor="#9CA3AF"
+													/>
+												</View>
+												<View style={[styles.inputGroup, { flex: 1 }]}>
+													<Text style={styles.label}>Last Name *</Text>
+													<TextInput
+														value={lastName}
+														onChangeText={setLastName}
+														placeholder="Last Name"
+														style={styles.textInput}
+														placeholderTextColor="#9CA3AF"
+													/>
+												</View>
+											</View>
+
+											<View style={styles.inputGroup}>
+												<Text style={styles.label}>Email Address *</Text>
+												<TextInput
+													value={email}
+													onChangeText={setEmail}
+													placeholder="merchant@example.com"
+													style={styles.textInput}
+													keyboardType="email-address"
+													autoCapitalize="none"
+													placeholderTextColor="#9CA3AF"
+												/>
+											</View>
+
+											<View style={styles.inputGroup}>
+												<Text style={styles.label}>Phone Number *</Text>
+												<TextInput
+													value={phoneNumber}
+													onChangeText={setPhoneNumber}
+													placeholder="08012345678"
+													style={styles.textInput}
+													keyboardType="phone-pad"
+													placeholderTextColor="#9CA3AF"
+												/>
+											</View>
+
+											<View style={styles.inputGroup}>
+												<Text style={styles.label}>Address Line 1</Text>
+												<TextInput
+													value={addressLine1}
+													onChangeText={setAddressLine1}
+													placeholder="e.g. 12 Herbert Macaulay Way"
+													style={styles.textInput}
+													placeholderTextColor="#9CA3AF"
+												/>
+											</View>
+
+											<View style={{ flexDirection: 'row', gap: 12 }}>
+												<View style={[styles.inputGroup, { flex: 1 }]}>
+													<Text style={styles.label}>City</Text>
+													<TextInput
+														value={city}
+														onChangeText={setCity}
+														placeholder="Yaba"
+														style={styles.textInput}
+														placeholderTextColor="#9CA3AF"
+													/>
+												</View>
+												<View style={[styles.inputGroup, { flex: 1 }]}>
+													<Text style={styles.label}>State</Text>
+													<TextInput
+														value={stateName}
+														onChangeText={setStateName}
+														placeholder="Lagos"
+														style={styles.textInput}
+														placeholderTextColor="#9CA3AF"
+													/>
+												</View>
+											</View>
+										</>
+									) : (
+										<>
+											<Text style={styles.stepSubtitle}>
+												Under Central Bank of Nigeria regulations, BVN identity verification is required for dedicated deposit accounts.
+											</Text>
+											<View style={styles.inputGroup}>
+												<Text style={styles.label}>11-Digit BVN *</Text>
+												<TextInput
+													value={bvn}
+													onChangeText={setBvn}
+													placeholder="22222222200"
+													style={styles.textInput}
+													keyboardType="numeric"
+													maxLength={11}
+													placeholderTextColor="#9CA3AF"
+												/>
+												<Text style={styles.helperText}>Your BVN is verified securely with Anchor & NIBSS.</Text>
+											</View>
+
+											<View style={styles.inputGroup}>
+												<Text style={styles.label}>Date of Birth (YYYY-MM-DD) *</Text>
+												<TextInput
+													value={dateOfBirth}
+													onChangeText={setDateOfBirth}
+													placeholder="1996-03-20"
+													style={styles.textInput}
+													placeholderTextColor="#9CA3AF"
+												/>
+											</View>
+
+											<View style={styles.inputGroup}>
+												<Text style={styles.label}>Gender *</Text>
+												<View style={{ flexDirection: 'row', gap: 12, marginTop: 4 }}>
+													{['Female', 'Male'].map((g) => (
+														<TouchableOpacity
+															key={g}
+															onPress={() => setGender(g)}
+															style={[
+																styles.genderOption,
+																gender === g && styles.genderOptionSelected
+															]}
+														>
+															<Text style={[styles.genderText, gender === g && styles.genderTextSelected]}>{g}</Text>
+														</TouchableOpacity>
+													))}
+												</View>
+											</View>
+										</>
+									)}
+								</ScrollView>
+
+								<View style={styles.modalFooter}>
+									<TouchableOpacity
+										style={styles.cancelButton}
+										onPress={() => {
+											if (anchorStep === 2 && !anchorAccount?.customerId) setAnchorStep(1);
+											else setAnchorModalVisible(false);
+										}}
+									>
+										<Text style={styles.cancelButtonText}>{anchorStep === 2 && !anchorAccount?.customerId ? 'Back' : 'Cancel'}</Text>
+									</TouchableOpacity>
+									<TouchableOpacity
+										style={styles.saveButton}
+										onPress={anchorStep === 1 ? handleStartAnchorOnboard : handleSubmitAnchorKyc}
+										disabled={submittingAnchor}
+									>
+										{submittingAnchor ? (
+											<ActivityIndicator color="#fff" />
+										) : (
+											<Text style={styles.saveButtonText}>{anchorStep === 1 ? 'Next: BVN Verification' : 'Verify & Activate'}</Text>
+										)}
 									</TouchableOpacity>
 								</View>
 							</View>
@@ -763,6 +1198,157 @@ const styles = StyleSheet.create({
 	saveButtonText: {
 		color: '#fff',
 		fontWeight: '600',
+	},
+
+	// Anchor Card & Section Styles
+	anchorSectionContainer: {
+		marginBottom: 20,
+	},
+	sectionHeaderTitle: {
+		fontSize: 15,
+		fontWeight: '700',
+		color: '#374151',
+		marginTop: 8,
+		marginBottom: 8,
+	},
+	anchorCard: {
+		backgroundColor: '#fff',
+		borderRadius: 16,
+		padding: 16,
+		borderWidth: 1.5,
+		borderColor: '#10B981',
+		shadowColor: '#10B981',
+		shadowOffset: { width: 0, height: 2 },
+		shadowOpacity: 0.08,
+		shadowRadius: 6,
+		elevation: 2,
+	},
+	anchorCardTop: {
+		flexDirection: 'row',
+		alignItems: 'center',
+		gap: 12,
+		marginBottom: 14,
+	},
+	anchorIconBadge: {
+		width: 40,
+		height: 40,
+		borderRadius: 10,
+		backgroundColor: '#ECFDF5',
+		alignItems: 'center',
+		justifyContent: 'center',
+	},
+	anchorTitle: {
+		fontSize: 15,
+		fontWeight: '700',
+		color: '#111827',
+	},
+	anchorSub: {
+		fontSize: 12,
+		color: '#6B7280',
+		marginTop: 2,
+	},
+	statusPill: {
+		paddingHorizontal: 8,
+		paddingVertical: 4,
+		borderRadius: 6,
+	},
+	statusPillText: {
+		fontSize: 11,
+		fontWeight: '800',
+		letterSpacing: 0.5,
+	},
+	anchorDetailsBox: {
+		backgroundColor: '#F9FAFB',
+		borderRadius: 12,
+		padding: 14,
+		gap: 10,
+		borderWidth: 1,
+		borderColor: '#F3F4F6',
+	},
+	anchorRow: {
+		flexDirection: 'row',
+		justifyContent: 'space-between',
+		alignItems: 'center',
+	},
+	anchorLabel: {
+		fontSize: 13,
+		color: '#6B7280',
+		fontWeight: '500',
+	},
+	anchorVal: {
+		fontSize: 14,
+		color: '#111827',
+		fontWeight: '600',
+	},
+	anchorNuban: {
+		fontSize: 16,
+		color: '#059669',
+		fontWeight: '800',
+		fontFamily: Platform.OS === 'ios' ? 'Courier' : 'monospace',
+		letterSpacing: 1,
+	},
+	anchorDivider: {
+		height: 1,
+		backgroundColor: '#E5E7EB',
+		marginVertical: 4,
+	},
+	anchorBalance: {
+		fontSize: 16,
+		color: '#111827',
+		fontWeight: '800',
+	},
+	anchorNoticeBox: {
+		backgroundColor: '#F9FAFB',
+		borderRadius: 12,
+		padding: 14,
+		gap: 12,
+		borderWidth: 1,
+		borderColor: '#F3F4F6',
+	},
+	anchorNoticeText: {
+		fontSize: 13,
+		color: '#4B5563',
+		lineHeight: 19,
+	},
+	anchorActionBtn: {
+		backgroundColor: '#10B981',
+		paddingVertical: 12,
+		borderRadius: 8,
+		alignItems: 'center',
+		justifyContent: 'center',
+	},
+	anchorActionBtnText: {
+		color: '#fff',
+		fontSize: 14,
+		fontWeight: '700',
+	},
+	stepSubtitle: {
+		fontSize: 13,
+		color: '#6B7280',
+		marginBottom: 16,
+		lineHeight: 18,
+	},
+	genderOption: {
+		flex: 1,
+		paddingVertical: 10,
+		borderWidth: 1,
+		borderColor: '#E5E7EB',
+		borderRadius: 8,
+		alignItems: 'center',
+		backgroundColor: '#fff',
+	},
+	genderOptionSelected: {
+		borderColor: '#10B981',
+		backgroundColor: '#ECFDF5',
+	},
+	genderText: {
+		fontSize: 14,
+		color: '#374151',
+		fontWeight: '500',
+	},
+	genderTextSelected: {
+		color: '#059669',
+		fontWeight: '700',
 	},
 });
 
