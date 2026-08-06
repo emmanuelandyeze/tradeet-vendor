@@ -195,7 +195,7 @@ const StorePaymentsScreen = () => {
 
 	// Anchor Action Handlers
 	const handleOpenAnchorModal = () => {
-		if (anchorAccount?.status === 'customer_created' || anchorAccount?.status === 'kyc_required' || anchorAccount?.status === 'kyc_rejected') {
+		if (anchorAccount?.customerId && (anchorAccount?.status === 'customer_created' || anchorAccount?.status === 'kyc_required' || anchorAccount?.status === 'kyc_rejected')) {
 			setAnchorStep(2);
 		} else {
 			setAnchorStep(1);
@@ -272,7 +272,12 @@ const StorePaymentsScreen = () => {
 			}
 		} catch (err) {
 			console.error('Anchor KYC error:', err);
-			Alert.alert('Verification Failed', err.response?.data?.message || 'Failed to verify BVN.');
+			const msg = err.response?.data?.message || 'Failed to verify BVN.';
+			if (/start onboarding/i.test(msg)) {
+				setAnchorStep(1);
+			} else {
+				Alert.alert('Verification Failed', msg);
+			}
 		} finally {
 			setSubmittingAnchor(false);
 		}
