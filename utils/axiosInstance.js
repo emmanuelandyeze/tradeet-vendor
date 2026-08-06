@@ -2,7 +2,7 @@
 import axios from 'axios';
 
 const BASE_URL =
-	process.env.EXPO_PUBLIC_API_URL || 'http://127.0.0.1:8080/api/v1/';
+	process.env.EXPO_PUBLIC_API_URL || 'https://tradeet-server.onrender.com/api/v1/';
 
 const axiosInstance = axios.create({
 	baseURL: BASE_URL,
