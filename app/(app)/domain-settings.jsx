@@ -8,7 +8,6 @@ import {
     ScrollView,
     ActivityIndicator,
     Alert,
-    ToastAndroid,
     Linking,
     Modal,
     FlatList
@@ -19,6 +18,7 @@ import { AuthContext } from '@/context/AuthContext';
 import axiosInstance from '@/utils/axiosInstance';
 import { StatusBar } from 'expo-status-bar';
 import KeyboardSheet from '@/components/KeyboardSheet';
+import { notify } from '@/utils/toast';
 
 const DomainSettingsScreen = () => {
     const router = useRouter();
@@ -106,7 +106,7 @@ const DomainSettingsScreen = () => {
                 // If we are currently on a branch of this store, we might need to be careful.
                 // For now, simpler to just toast. The context update might happen on next fetch.
 
-                ToastAndroid.show(`Domain updated for ${targetStore.name}`, ToastAndroid.SHORT);
+                notify(`Domain updated for ${targetStore.name}`);
                 router.back();
             }
         } catch (error) {

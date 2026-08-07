@@ -17,7 +17,6 @@ import {
 	Image,
 	Platform,
 	Pressable,
-	ToastAndroid,
 	StyleSheet,
 	ActivityIndicator,
 } from 'react-native';

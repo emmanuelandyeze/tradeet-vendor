@@ -8,7 +8,6 @@ import {
 	StyleSheet,
 	Image,
 	Alert,
-	ToastAndroid,
 	TextInput,
 } from 'react-native';
 import * as Sharing from 'expo-sharing';
@@ -19,6 +18,7 @@ import PlaceholderLogo from './PlaceholderLogo';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import axiosInstance from '@/utils/axiosInstance';
 import KeyboardSheet from './KeyboardSheet';
+import { notify } from '@/utils/toast';
 
 const ExpenseTable = ({
 	expenses,
@@ -117,18 +117,12 @@ const ExpenseTable = ({
 			},
 		);
 		if (response.status === 200) {
-			ToastAndroid.show(
-				'Payment recorded successfully!',
-				ToastAndroid.LONG,
-			);
+			notify('Payment recorded successfully!', { long: true });
 			closePaymentModal();
 			closeModal();
 			fetchOrders();
 		} else
-			ToastAndroid.show(
-				'Failed to record payment',
-				ToastAndroid.LONG,
-			);
+			notify('Failed to record payment', { long: true });
 	};
 
 	// Helper to get the display store (Parent if current is Branch, else current)

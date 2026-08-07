@@ -107,6 +107,21 @@ export default function TabLayout() {
 			/>
 
 			<Tabs.Screen
+				name="payments"
+				options={{
+					title: 'Payments',
+					tabBarIcon: ({ color, focused }) => (
+						<AnimatedTabIcon
+							name={focused ? 'wallet' : 'wallet-outline'}
+							color={color}
+							size={24}
+							focused={focused}
+						/>
+					),
+				}}
+			/>
+
+			<Tabs.Screen
 				name="marketing"
 				options={{
 					href: null,

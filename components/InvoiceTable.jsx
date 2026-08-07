@@ -9,7 +9,6 @@ import {
 	StyleSheet,
 	Image,
 	Alert,
-	ToastAndroid,
 	TextInput,
 	ScrollView,
 	ActivityIndicator,
@@ -23,6 +22,7 @@ import PlaceholderLogo from './PlaceholderLogo';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import axiosInstance from '@/utils/axiosInstance';
 import KeyboardSheet from './KeyboardSheet';
+import { notify } from '@/utils/toast';
 
 const InvoiceTable = ({
 	invoices = [],
@@ -755,10 +755,7 @@ const InvoiceTable = ({
 									dialogTitle: `Invoice ${selectedInvoice.invoiceNumber || ''
 										}`,
 								});
-								ToastAndroid.show(
-									'Invoice shared',
-									ToastAndroid.SHORT,
-								);
+								notify('Invoice shared');
 							},
 						},
 					],
@@ -775,10 +772,7 @@ const InvoiceTable = ({
 					dialogTitle: `Invoice ${selectedInvoice.invoiceNumber || ''
 						}`,
 				});
-				ToastAndroid.show(
-					'Invoice shared',
-					ToastAndroid.SHORT,
-				);
+				notify('Invoice shared');
 			}
 		} catch (error) {
 			console.error('Error sharing document:', error);
@@ -810,16 +804,10 @@ const InvoiceTable = ({
 				dialogTitle: `Receipt ${updatedInvoice?.invoiceNumber || ''
 					}`,
 			});
-			ToastAndroid.show(
-				'Receipt shared',
-				ToastAndroid.SHORT,
-			);
+			notify('Receipt shared');
 		} catch (err) {
 			console.error('Error sharing receipt:', err);
-			ToastAndroid.show(
-				'Failed to share receipt',
-				ToastAndroid.LONG,
-			);
+			notify('Failed to share receipt', { long: true });
 		} finally {
 			setInvoiceLoading(false);
 		}
@@ -832,10 +820,7 @@ const InvoiceTable = ({
 			!amountPaid ||
 			parseFloat(amountPaid) <= 0
 		) {
-			ToastAndroid.show(
-				'Please enter a valid amount.',
-				ToastAndroid.SHORT,
-			);
+			notify('Please enter a valid amount.');
 			return;
 		}
 
@@ -908,10 +893,7 @@ const InvoiceTable = ({
 								};
 							}
 
-							ToastAndroid.show(
-								'Payment recorded successfully!',
-								ToastAndroid.LONG,
-							);
+							notify('Payment recorded successfully!', { long: true });
 							closePaymentModal();
 
 							// Refresh list/details in UI
@@ -956,10 +938,7 @@ const InvoiceTable = ({
 														''
 														}`,
 												});
-												ToastAndroid.show(
-													'Invoice shared',
-													ToastAndroid.SHORT,
-												);
+												notify('Invoice shared');
 											},
 										},
 									],
@@ -999,7 +978,7 @@ const InvoiceTable = ({
 							const msg =
 								err.response?.data?.message ||
 								'Failed to record payment';
-							ToastAndroid.show(msg, ToastAndroid.LONG);
+							notify(msg, { long: true });
 						} finally {
 							setPaymentLoading(false);
 						}

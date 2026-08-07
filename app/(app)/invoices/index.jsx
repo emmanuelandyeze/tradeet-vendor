@@ -12,7 +12,6 @@ import {
 	Modal,
 	TextInput,
 	StyleSheet,
-	ToastAndroid,
 	ScrollView,
 	Platform,
 	ActivityIndicator,
@@ -25,6 +24,7 @@ import { ProductsContext } from '@/context/ProductsContext';
 import axiosInstance from '@/utils/axiosInstance';
 import InvoiceTable from '../../../components/InvoiceTable';
 import KeyboardSheet from '@/components/KeyboardSheet';
+import { notify } from '@/utils/toast';
 
 const InvoicesScreen = () => {
 	const { userInfo, sendPushNotification, selectedStore } =
@@ -163,10 +163,7 @@ const InvoicesScreen = () => {
 				'fetchInvoices error',
 				err?.response?.data ?? err.message,
 			);
-			ToastAndroid.show(
-				'Failed to fetch invoices',
-				ToastAndroid.SHORT,
-			);
+			notify('Failed to fetch invoices');
 		} finally {
 			setLoadingInvoices(false);
 		}
@@ -174,10 +171,7 @@ const InvoicesScreen = () => {
 
 	const validateBeforeCreate = () => {
 		if (!customer.name || !customer.phone) {
-			ToastAndroid.show(
-				'Enter customer name and phone.',
-				ToastAndroid.SHORT,
-			);
+			notify('Enter customer name and phone.');
 			return false;
 		}
 		if (
@@ -188,20 +182,14 @@ const InvoicesScreen = () => {
 					l.quantity <= 0,
 			)
 		) {
-			ToastAndroid.show(
-				'Ensure each item has a description, positive price & quantity.',
-				ToastAndroid.SHORT,
-			);
+			notify('Ensure each item has a description, positive price & quantity.');
 			return false;
 		}
 		if (
 			taxEnabled &&
 			(isNaN(taxPercent) || taxPercent < 0)
 		) {
-			ToastAndroid.show(
-				'Enter a valid tax percentage.',
-				ToastAndroid.SHORT,
-			);
+			notify('Enter a valid tax percentage.');
 			return false;
 		}
 		// ...
@@ -218,10 +206,7 @@ const InvoicesScreen = () => {
 		}
 
 		if (!effectiveTin) {
-			ToastAndroid.show(
-				'Missing TIN. Please update Store Settings.',
-				ToastAndroid.LONG,
-			);
+			notify('Missing TIN. Please update Store Settings.', { long: true });
 			// strict enforcement? The user said "every invoice should bear the TIN".
 			// Choosing to BLOCK creation to enforce compliance.
 			return false;
@@ -287,10 +272,7 @@ const InvoicesScreen = () => {
 				'/invoices',
 				payload,
 			);
-			ToastAndroid.show(
-				'Invoice created successfully',
-				ToastAndroid.LONG,
-			);
+			notify('Invoice created successfully', { long: true });
 
 			// reset form
 			setCustomer({
@@ -320,7 +302,7 @@ const InvoicesScreen = () => {
 			const msg =
 				err.response?.data?.message ||
 				'Failed to create invoice';
-			ToastAndroid.show(msg, ToastAndroid.LONG);
+			notify(msg, { long: true });
 		} finally {
 			setInvoiceLoading(false);
 		}

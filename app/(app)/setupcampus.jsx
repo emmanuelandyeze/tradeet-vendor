@@ -17,8 +17,6 @@ import {
 	Image,
 	FlatList,
 	Linking,
-	ToastAndroid,
-	
 } from 'react-native';
 import { Picker } from '@react-native-picker/picker';
 // import * as ScreenCapture from 'expo-screen-capture';
@@ -32,6 +30,7 @@ import { useRouter } from 'expo-router';
 import Ionicons from '@expo/vector-icons/Ionicons';
 import StoreCard from '@/components/StoreCard'
 import KeyboardSheet from '@/components/KeyboardSheet';
+import { notify } from '@/utils/toast';
 
 
 const SetupStoreScreen = ({}) => {
@@ -215,7 +214,7 @@ const SetupStoreScreen = ({}) => {
 			}));
 			isCampusAppEnabled && setShowPreviewModal(true);
 			router.push('(tabs)/settings');
-			ToastAndroid.show(`Marketplace settings updated!`, ToastAndroid.LONG);
+			notify(`Marketplace settings updated!`, { long: true });
 		} catch (error) {
 			console.error('Error saving store setup:', error);
 			Alert.alert('Error', 'Failed to save store setup.');

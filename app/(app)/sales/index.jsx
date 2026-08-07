@@ -8,7 +8,6 @@ import {
 	TextInput,
 	StyleSheet,
 	ScrollView,
-	ToastAndroid,
 	ActivityIndicator,
 	Platform,
 	StatusBar,
@@ -21,6 +20,7 @@ import { ProductsContext } from '@/context/ProductsContext';
 import axiosInstance from '@/utils/axiosInstance';
 import SalesTable from '../../../components/SalesTable';
 import KeyboardSheet from '@/components/KeyboardSheet';
+import { notify } from '@/utils/toast';
 
 const SalesScreen = () => {
 	const { userInfo, selectedStore } = useContext(AuthContext);
@@ -129,14 +129,14 @@ const SalesScreen = () => {
 
 	const handleSubmit = async () => {
 		if (!customer.name || !customer.phone) {
-			ToastAndroid.show('Please enter customer details', ToastAndroid.SHORT);
+			notify('Please enter customer details');
 			return;
 		}
 
 		const { storeId, branchId } = getContextIds();
 
 		if (!storeId || !branchId) {
-			ToastAndroid.show('Store context error. Please restart app.', ToastAndroid.LONG);
+			notify('Store context error. Please restart app.', { long: true });
 			return;
 		}
 
@@ -165,7 +165,7 @@ const SalesScreen = () => {
 		try {
 			setInvoiceLoading(true);
 			await axiosInstance.post('/orders', orderData);
-			ToastAndroid.show('Sales recorded successfully!', ToastAndroid.LONG);
+			notify('Sales recorded successfully!', { long: true });
 			setModalVisible(false);
 			fetchOrders();
 
@@ -180,7 +180,7 @@ const SalesScreen = () => {
 			setPaymentMethod('cash');
 		} catch (error) {
 			console.error('Error creating order:', error.response?.data || error.message);
-			ToastAndroid.show(error.response?.data?.message || 'Failed to record sales', ToastAndroid.LONG);
+			notify(error.response?.data?.message || 'Failed to record sales', { long: true });
 		} finally {
 			setInvoiceLoading(false);
 		}

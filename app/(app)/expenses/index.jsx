@@ -9,7 +9,6 @@ import {
     StyleSheet,
     Alert,
     ScrollView,
-    ToastAndroid,
     ActivityIndicator,
     Platform,
     StatusBar
@@ -21,6 +20,7 @@ import { AuthContext } from '@/context/AuthContext';
 import axiosInstance from '@/utils/axiosInstance';
 import ExpenseTable from '../../../components/ExpenseTable';
 import KeyboardSheet from '@/components/KeyboardSheet';
+import { notify } from '@/utils/toast';
 
 const ExpensesScreen = () => {
     const { userInfo, selectedStore } = useContext(AuthContext);
@@ -125,7 +125,7 @@ const ExpensesScreen = () => {
                 branchId,
                 createdBy: userInfo?._id
             });
-            ToastAndroid.show('Expense saved successfully', ToastAndroid.SHORT);
+            notify('Expense saved successfully');
             fetchExpenses();
             setNewExpense({
                 title: '',
@@ -138,7 +138,7 @@ const ExpensesScreen = () => {
         } catch (error) {
             console.error('Error creating expense:', error);
             const errorMessage = error.response?.data?.message || 'Failed to save expense';
-            ToastAndroid.show(errorMessage, ToastAndroid.LONG);
+            notify(errorMessage, { long: true });
         } finally {
             setIsCreatingExpense(false);
         }

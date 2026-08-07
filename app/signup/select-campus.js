@@ -7,7 +7,6 @@ import {
 	TouchableOpacity,
 	Modal,
 	StyleSheet,
-	ToastAndroid,
 } from 'react-native';
 import {
 	useLocalSearchParams,
@@ -15,6 +14,7 @@ import {
 } from 'expo-router';
 import { AuthContext } from '@/context/AuthContext';
 import KeyboardSheet from '@/components/KeyboardSheet';
+import { notify } from '@/utils/toast';
 
 export default function CampusScreen() {
 	const router = useRouter();
@@ -54,23 +54,14 @@ export default function CampusScreen() {
 					response.message === 'Profile setup completed'
 				) {
 					router.push('(tabs)');
-					ToastAndroid.show(
-						`Great job!`,
-						ToastAndroid.LONG,
-					);
+					notify(`Great job!`, { long: true });
 					setLoading(false);
 				} else {
-					ToastAndroid.show(
-						response.message,
-						ToastAndroid.SHORT,
-					);
+					notify(response.message);
 					setLoading(false);
 				}
 			} catch (error) {
-				ToastAndroid.show(
-					'An error occurred. Please try again.',
-					ToastAndroid.SHORT,
-				);
+				notify('An error occurred. Please try again.');
 				console.error('Error completing profile:', error);
 				setLoading(false);
 			}

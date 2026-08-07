@@ -10,7 +10,6 @@ import {
 	TextInput,
 	Platform,
 	Modal,
-	ToastAndroid,
 	Alert,
 } from 'react-native';
 import React, {
@@ -30,6 +29,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import SkeletonLoader from '@/components/SkeletonLoader';
 import * as Notifications from 'expo-notifications';
 import KeyboardSheet from '@/components/KeyboardSheet';
+import { notify } from '@/utils/toast';
 
 // Helper for "Time Ago"
 const formatTimeAgo = (dateString) => {
@@ -168,7 +168,7 @@ const Orders = () => {
 
 				// 2. In-app feedback
 				if (Platform.OS === 'android') {
-					ToastAndroid.show(`🎉 ${title} - ${body}`, ToastAndroid.LONG);
+					notify(`🎉 ${title} - ${body}`, { long: true });
 				} else {
 					Alert.alert(title, body);
 				}

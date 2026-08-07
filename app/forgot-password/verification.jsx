@@ -7,7 +7,6 @@ import {
 	StyleSheet,
 	Platform,
 	TouchableOpacity,
-	ToastAndroid,
 } from 'react-native';
 import {
 	useLocalSearchParams,
@@ -20,6 +19,7 @@ import {
 	useClearByFocusCell,
 } from 'react-native-confirmation-code-field';
 import { AuthContext } from '@/context/AuthContext';
+import { notify } from '@/utils/toast';
 
 const styles = StyleSheet.create({
 	root: { flex: 1, padding: 20 },
@@ -64,10 +64,7 @@ export default function VerificationScreen() {
 	const handleNext = async () => {
 		// Validate phone number format here
 		if (!code) {
-			ToastAndroid.show(
-				'Please enter a valid code.',
-				ToastAndroid.SHORT,
-			);
+			notify('Please enter a valid code.');
 			return;
 		}
 
@@ -82,21 +79,12 @@ export default function VerificationScreen() {
 					pathname: '/forgot-password/reset-password',
                     params: { phone, otp: code },
 				});
-				ToastAndroid.show(
-					`OTP verified. Proceed to reset password.`,
-					ToastAndroid.SHORT,
-				);
+				notify(`OTP verified. Proceed to reset password.`);
 			} else {
-				ToastAndroid.show(
-					response.message,
-					ToastAndroid.SHORT,
-				);
+				notify(response.message);
 			}
 		} catch (error) {
-			ToastAndroid.show(
-				'An error occurred. Please try again.',
-				ToastAndroid.SHORT,
-			);
+			notify('An error occurred. Please try again.');
 			console.error('Error verifying phone number:', error);
 		}
 	};

@@ -11,7 +11,6 @@ import {
 	StyleSheet,
 	ScrollView,
 	TouchableOpacity,
-	ToastAndroid,
 	Platform,
 	Alert,
 	Dimensions,
@@ -20,6 +19,7 @@ import { Paystack } from 'react-native-paystack-webview';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { COLORS, TYPOGRAPHY, LAYOUT, ACCESSIBILITY } from '@/constants/theme';
+import { notify } from '@/utils/toast';
 
 const { width } = Dimensions.get('window');
 
@@ -58,7 +58,7 @@ const PricingTable = ({ getBusinessInfo, setPayModalVisible }) => {
 
 	const showToast = (message) => {
 		if (Platform.OS === 'android') {
-			ToastAndroid.show(message, ToastAndroid.LONG);
+			notify(message, { long: true });
 		} else {
 			Alert.alert('Status', message);
 		}

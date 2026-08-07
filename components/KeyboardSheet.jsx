@@ -1,5 +1,5 @@
 import React, { useEffect, useState } from 'react';
-import { Keyboard, Platform, Pressable, View } from 'react-native';
+import { Keyboard, Platform, Pressable, StyleSheet, View } from 'react-native';
 
 /**
  * Current on-screen keyboard height, from the keyboard event itself.
@@ -55,8 +55,18 @@ const KeyboardSheet = ({ style, children, onPress, ...rest }) => {
 	if (onPress) {
 		return (
 			<Pressable style={composed} onPress={onPress} {...rest}>
-				{/* Absorbs taps so pressing inside the sheet does not dismiss it. */}
-				<Pressable onPress={() => { }} style={{ width: '100%' }}>
+				{/*
+				  Absorbs taps so pressing inside the sheet does not dismiss it.
+
+				  `flexShrink` matters as much as the tap handling: without it this wrapper sizes
+				  to its content, and a child's percentage `maxHeight` then resolves against an
+				  unbounded parent and is ignored. The sheet grows past the screen, and any
+				  ScrollView inside it has no bounded height to scroll within.
+				*/}
+				<Pressable
+					onPress={() => { }}
+					style={styles.tapAbsorber}
+				>
 					{children}
 				</Pressable>
 			</Pressable>
@@ -69,5 +79,10 @@ const KeyboardSheet = ({ style, children, onPress, ...rest }) => {
 		</View>
 	);
 };
+
+const styles = StyleSheet.create({
+	// Bounded by the overlay's height, so percentage sizing inside the sheet resolves.
+	tapAbsorber: { width: '100%', flexShrink: 1 },
+});
 
 export default KeyboardSheet;

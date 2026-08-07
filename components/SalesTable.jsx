@@ -8,7 +8,6 @@ import {
 	StyleSheet,
 	Image,
 	Alert,
-	ToastAndroid,
 	TextInput,
 	ScrollView, // Added for scrollable modal content
 	ActivityIndicator, // Added for loading states
@@ -22,6 +21,7 @@ import Ionicons from '@expo/vector-icons/Ionicons';
 import axiosInstance from '@/utils/axiosInstance';
 import { router } from 'expo-router';
 import KeyboardSheet from './KeyboardSheet';
+import { notify } from '@/utils/toast';
 
 const SalesTable = ({
 	invoices,
@@ -98,10 +98,7 @@ const SalesTable = ({
 			!amountPaid ||
 			parseFloat(amountPaid) <= 0
 		) {
-			ToastAndroid.show(
-				'Please enter a valid amount.',
-				ToastAndroid.SHORT,
-			);
+			notify('Please enter a valid amount.');
 			return;
 		}
 
@@ -130,30 +127,21 @@ const SalesTable = ({
 								},
 							);
 							if (response.status === 200) {
-								ToastAndroid.show(
-									'Payment recorded successfully!',
-									ToastAndroid.LONG,
-								);
+								notify('Payment recorded successfully!', { long: true });
 								closePaymentModal();
 								closeModal(); // Close invoice detail modal too
 								fetchOrders(); // Refresh orders
 							} else {
-								ToastAndroid.show(
-									'Failed to record payment',
-									ToastAndroid.LONG,
-								);
+								notify('Failed to record payment', { long: true });
 							}
 						} catch (error) {
 							console.error(
 								'Error recording payment:',
 								error.response?.data || error.message,
 							);
-							ToastAndroid.show(
-								`Failed to record payment: ${error.response?.data?.message ||
+							notify(`Failed to record payment: ${error.response?.data?.message ||
 								'Something went wrong'
-								}`,
-								ToastAndroid.LONG,
-							);
+								}`, { long: true });
 						} finally {
 							setPaymentLoading(false);
 						}

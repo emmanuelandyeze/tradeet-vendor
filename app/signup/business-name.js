@@ -7,7 +7,6 @@ import {
 	Image,
 	Modal,
 	StyleSheet,
-	ToastAndroid,
 	ActivityIndicator,
 	KeyboardAvoidingView,
 	Platform,
@@ -24,6 +23,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import axiosInstance, {
 	onAuthFailure,
 } from '@/utils/axiosInstance';
+import { notify } from '@/utils/toast';
 
 export default function BusinessNameScreen() {
 	const router = useRouter();
@@ -58,10 +58,7 @@ export default function BusinessNameScreen() {
 		const { status } =
 			await ImagePicker.requestCameraPermissionsAsync();
 		if (status !== 'granted') {
-			ToastAndroid.show(
-				'Camera permissions are required to take a photo.',
-				ToastAndroid.LONG,
-			);
+			notify('Camera permissions are required to take a photo.', { long: true });
 			return;
 		}
 
@@ -82,18 +79,12 @@ export default function BusinessNameScreen() {
 
 		try {
 			if (!businessName.trim()) {
-				ToastAndroid.show(
-					'Please enter your business name.',
-					ToastAndroid.LONG,
-				);
+				notify('Please enter your business name.', { long: true });
 				setLoading(false);
 				return;
 			}
 			if (!selectedOffering) {
-				ToastAndroid.show(
-					'Please select your business offering.',
-					ToastAndroid.LONG,
-				);
+				notify('Please select your business offering.', { long: true });
 				setLoading(false);
 				return;
 			}
@@ -146,24 +137,15 @@ export default function BusinessNameScreen() {
 				// This prevents the AuthContext from redirecting back to business-name
 				await getUserInfo(token);
 
-				ToastAndroid.show(
-					`Welcome to Tradeet, ${businessName}!`,
-					ToastAndroid.LONG,
-				);
+				notify(`Welcome to Tradeet, ${businessName}!`, { long: true });
 				router.push('/signup/owner-details');
 			} else {
-				ToastAndroid.show(
-					data.message ||
-					'Failed to create store. Please try again.',
-					ToastAndroid.LONG,
-				);
+				notify(data.message ||
+					'Failed to create store. Please try again.', { long: true });
 			}
 		} catch (error) {
 			console.error('Error during store creation:', error);
-			ToastAndroid.show(
-				'An unexpected error occurred. Please try again.',
-				ToastAndroid.LONG,
-			);
+			notify('An unexpected error occurred. Please try again.', { long: true });
 		} finally {
 			setLoading(false);
 		}
@@ -171,17 +153,11 @@ export default function BusinessNameScreen() {
 
 	const goToOffering = () => {
 		if (!businessName.trim()) {
-			ToastAndroid.show(
-				'Please enter your business name.',
-				ToastAndroid.LONG,
-			);
+			notify('Please enter your business name.', { long: true });
 			return;
 		}
 		if (!businessDescription.trim()) {
-			ToastAndroid.show(
-				'Please enter your business description.',
-				ToastAndroid.LONG,
-			);
+			notify('Please enter your business description.', { long: true });
 			return;
 		}
 		setSelectedTab('offering');

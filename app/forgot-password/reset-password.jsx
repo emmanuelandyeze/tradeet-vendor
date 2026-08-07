@@ -13,13 +13,13 @@ import {
 	Dimensions,
 	TextInput,
 	Button,
-	ToastAndroid,
 } from 'react-native';
 import { useLocalSearchParams, useRouter, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { AuthContext } from '@/context/AuthContext';
 import PhoneInput from 'react-native-phone-number-input';
 import Toast from 'react-native-toast-message';
+import { notify } from '@/utils/toast';
 
 const { width, height } = Dimensions.get('window');
 
@@ -54,10 +54,7 @@ export default function ResetPassword() {
 	const handleNext = async () => {
 		// Validate phone number format here
 		if (!password) {
-			ToastAndroid.show(
-				'Please enter a new password.',
-				ToastAndroid.SHORT,
-			);
+			notify('Please enter a new password.');
 			return;
 		}
 
@@ -71,21 +68,12 @@ export default function ResetPassword() {
 					pathname: '/login',
 					params: { phone },
 				});
-				ToastAndroid.show(
-					`Password reset successful. Please login`,
-					ToastAndroid.SHORT,
-				);
+				notify(`Password reset successful. Please login`);
 			} else {
-				ToastAndroid.show(
-					response.message,
-					ToastAndroid.SHORT,
-				);
+				notify(response.message);
 			}
 		} catch (error) {
-			ToastAndroid.show(
-				'An error occurred. Please try again.',
-				ToastAndroid.SHORT,
-			);
+			notify('An error occurred. Please try again.');
 			console.error('Error verifying phone number:', error);
 		}
 	};

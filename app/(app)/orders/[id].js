@@ -19,7 +19,6 @@ import {
 	TextInput,
 	Modal,
 	ActivityIndicator,
-	ToastAndroid,
 	Image,
 	Linking,
 	Platform,
@@ -35,6 +34,7 @@ import MaterialCommunityIcons from '@expo/vector-icons/MaterialCommunityIcons';
 import { AuthContext } from '@/context/AuthContext';
 import SkeletonLoader from '@/components/SkeletonLoader';
 import KeyboardSheet from '@/components/KeyboardSheet';
+import { notify } from '@/utils/toast';
 
 const COLORS = {
 	primary: '#065637',
@@ -172,14 +172,8 @@ const SingleOrderPage = () => {
 		}
 	};
 
-	// --- Helper ---
-	const showToast = (message) => {
-		if (Platform.OS === 'android') {
-			ToastAndroid.show(message, ToastAndroid.SHORT);
-		} else {
-			Alert.alert('', message);
-		}
-	};
+	// notify() already picks the right presentation per platform.
+	const showToast = (message) => notify(message);
 
 	const toggleSection = (section) => {
 		setExpandedSections((prev) => ({ ...prev, [section]: !prev[section] }));

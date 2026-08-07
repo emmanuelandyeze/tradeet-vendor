@@ -13,13 +13,13 @@ import {
 	Dimensions,
 	TextInput,
 	Button,
-	ToastAndroid,
 } from 'react-native';
 import { useRouter, Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import { AuthContext } from '@/context/AuthContext';
 import PhoneInput from 'react-native-phone-number-input';
 import Toast from 'react-native-toast-message';
+import { notify } from '@/utils/toast';
 
 const { width, height } = Dimensions.get('window');
 
@@ -49,10 +49,7 @@ export default function ForgotPassword() {
 
 		// Validate phone number format here
 		if (!phone) {
-			ToastAndroid.show(
-				'Please enter a valid phone number.',
-				ToastAndroid.SHORT,
-			);
+			notify('Please enter a valid phone number.');
 			return;
 		}
 
@@ -61,25 +58,16 @@ export default function ForgotPassword() {
 			console.log(response);
 
 			if (response.message === 'OTP sent via WhatsApp') {
-				ToastAndroid.show(
-					`OTP sent to ${phone}`,
-					ToastAndroid.SHORT,
-				);
+				notify(`OTP sent to ${phone}`);
 				router.push({
 					pathname: '/forgot-password/verification',
 					params: { phone },
 				});
 			} else {
-				ToastAndroid.show(
-					response.message,
-					ToastAndroid.SHORT,
-				);
+				notify(response.message);
 			}
 		} catch (error) {
-			ToastAndroid.show(
-				'An error occurred. Please try again.',
-				ToastAndroid.SHORT,
-			);
+			notify('An error occurred. Please try again.');
 			console.error('Error verifying phone number:', error);
 		}
 	};

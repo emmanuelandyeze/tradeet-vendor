@@ -7,7 +7,6 @@ import {
 	Image,
 	Modal,
 	StyleSheet,
-	ToastAndroid,
 	ActivityIndicator,
 } from 'react-native';
 import {
@@ -16,6 +15,7 @@ import {
 } from 'expo-router';
 import { AuthContext } from '@/context/AuthContext';
 import Ionicons from '@expo/vector-icons/Ionicons';
+import { notify } from '@/utils/toast';
 
 export default function OwnerDetailsScreen() {
 	const router = useRouter();
@@ -58,21 +58,15 @@ export default function OwnerDetailsScreen() {
 			) {
 				goToPassword();
 			} else {
-				ToastAndroid.show(
-					response?.message ||
-						'Failed to complete profile. Please try again.',
-					ToastAndroid.LONG,
-				);
+				notify(response?.message ||
+						'Failed to complete profile. Please try again.', { long: true });
 			}
 		} catch (error) {
 			console.error(
 				'Error during profile completion:',
 				error,
 			);
-			ToastAndroid.show(
-				'An unexpected error occurred. Please try again.',
-				ToastAndroid.LONG,
-			);
+			notify('An unexpected error occurred. Please try again.', { long: true });
 		} finally {
 			setLoading(false); // Always reset loading state
 		}
@@ -83,25 +77,16 @@ export default function OwnerDetailsScreen() {
 			!ownerPassword.trim() ||
 			!confirmOwnerPassword.trim()
 		) {
-			ToastAndroid.show(
-				'Please fill in both password fields.',
-				ToastAndroid.LONG,
-			);
+			notify('Please fill in both password fields.', { long: true });
 			return;
 		}
 		if (ownerPassword !== confirmOwnerPassword) {
-			ToastAndroid.show(
-				'Passwords do not match.',
-				ToastAndroid.LONG,
-			);
+			notify('Passwords do not match.', { long: true });
 			return;
 		}
 		// Basic password strength check: at least 6 characters
 		if (ownerPassword.length < 8) {
-			ToastAndroid.show(
-				'Password must be at least 8 characters long.',
-				ToastAndroid.LONG,
-			);
+			notify('Password must be at least 8 characters long.', { long: true });
 			return;
 		}
 
@@ -118,21 +103,15 @@ export default function OwnerDetailsScreen() {
 			console.log(response);
 
 			if (response && response.message === 'Password set') {
-				ToastAndroid.show(
-					`Your account is now secure!`,
-					ToastAndroid.LONG,
-				);
+				notify(`Your account is now secure!`, { long: true });
 				router.push('/signup/business-name'); // Navigate to the main tabs screen
 			} else {
-				ToastAndroid.show(
-					response?.message ||
-						'Failed to set password. Please try again.',
-					ToastAndroid.LONG,
-				);
+				notify(response?.message ||
+						'Failed to set password. Please try again.', { long: true });
 			}
 		} catch (error) {
 			console.error('Error setting password:', error);
-			ToastAndroid.show(error.message, ToastAndroid.LONG);
+			notify(error.message, { long: true });
 		} finally {
 			setLoading(false);
 		}
