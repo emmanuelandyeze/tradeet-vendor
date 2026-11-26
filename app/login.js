@@ -20,6 +20,7 @@ import { AuthContext } from '@/context/AuthContext';
 import PhoneInput from 'react-native-phone-number-input';
 import Toast from 'react-native-toast-message';
 import { Ionicons } from '@expo/vector-icons';
+import { extractNationalPhoneNumber } from '@/utils/phone';
 
 export default function Login() {
 	const router = useRouter();
@@ -69,27 +70,28 @@ export default function Login() {
 
 		setLoading(true);
 
-		let phoneNumberToSend = formattedValue;
 		const callingCode = phoneInputRef.current?.getCallingCode();
-
-		if (callingCode && formattedValue.startsWith(`+${callingCode}`)) {
-			phoneNumberToSend = formattedValue.substring(`+${callingCode}`.length);
-		} else if (formattedValue.startsWith('+234')) {
-			phoneNumberToSend = formattedValue.substring(4);
-		}
+		const phoneNumberToSend = extractNationalPhoneNumber({
+			phone,
+			formattedValue,
+			callingCode,
+		});
 
 		try {
 			const response = await login(phoneNumberToSend, password);
 			if (response && response.token) {
 				showToast('success', 'Welcome back!');
-				router.push('(tabs)');
+				router.replace('/');
 			} else {
 				const errorMessage = response?.message || 'Login failed.';
 				showToast('error', errorMessage);
 			}
 		} catch (error) {
 			console.error('Login error:', error);
-			showToast('error', error.response?.data?.message || 'Something went wrong.');
+			showToast(
+				'error',
+				error?.response?.data?.message || error?.message || 'Something went wrong.',
+			);
 		} finally {
 			setLoading(false);
 		}
@@ -99,7 +101,7 @@ export default function Login() {
 		const result = await loginWithBiometrics();
 		if (result && result.success) {
 			showToast('success', 'Welcome back!');
-			router.push('(tabs)');
+			router.replace('/');
 		} else if (result && result.message) {
 			showToast('error', result.message);
 		}

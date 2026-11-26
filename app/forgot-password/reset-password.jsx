@@ -52,29 +52,37 @@ export default function ResetPassword() {
 	};
 
 	const handleNext = async () => {
-		// Validate phone number format here
-		if (!password) {
+		if (!password.trim()) {
 			notify('Please enter a new password.');
 			return;
 		}
+		if (password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+			notify('Password must be at least 8 characters and include letters and numbers.');
+			return;
+		}
 
+		setLoading(true);
 		try {
 			const response = await resetPassword(phone, otp, password);
 
-			if (
-				response.message === 'Password reset successful'
-			) {
-				router.push({
+			if (response?.message === 'Password reset successful') {
+				router.replace({
 					pathname: '/login',
 					params: { phone },
 				});
-				notify(`Password reset successful. Please login`);
+				notify('Password reset successful. Please login');
 			} else {
-				notify(response.message);
+				notify(response?.message || 'Failed to reset password.');
 			}
 		} catch (error) {
-			notify('An error occurred. Please try again.');
-			console.error('Error verifying phone number:', error);
+			notify(
+				error?.response?.data?.message ||
+					error?.message ||
+					'An error occurred. Please try again.',
+			);
+			console.error('Error resetting password:', error);
+		} finally {
+			setLoading(false);
 		}
 	};
 

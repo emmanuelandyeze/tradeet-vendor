@@ -20,6 +20,7 @@ import { AuthContext } from '@/context/AuthContext';
 import PhoneInput from 'react-native-phone-number-input';
 import Toast from 'react-native-toast-message';
 import { notify } from '@/utils/toast';
+import { extractNationalPhoneNumber } from '@/utils/phone';
 
 const { width, height } = Dimensions.get('window');
 
@@ -45,30 +46,44 @@ export default function ForgotPassword() {
 	// }, [navigation]);
 
 	const handleSendCode = async () => {
-		setLoading(true);
-
-		// Validate phone number format here
-		if (!phone) {
+		if (!phone.trim()) {
+			notify('Please enter your phone number.');
+			return;
+		}
+		if (phoneInput.current && !phoneInput.current.isValidNumber(phone)) {
 			notify('Please enter a valid phone number.');
 			return;
 		}
 
-		try {
-			const response = await sendResetOtp(phone);
-			console.log(response);
+		setLoading(true);
+		const callingCode = phoneInput.current?.getCallingCode();
+		const phoneNumberToSend = extractNationalPhoneNumber({
+			phone,
+			formattedValue,
+			callingCode,
+		});
 
-			if (response.message === 'OTP sent via WhatsApp') {
-				notify(`OTP sent to ${phone}`);
+		try {
+			const response = await sendResetOtp(phoneNumberToSend);
+
+			if (response?.message === 'OTP sent via WhatsApp') {
+				notify(`OTP sent to ${formattedValue || phoneNumberToSend}`);
 				router.push({
 					pathname: '/forgot-password/verification',
-					params: { phone },
+					params: { phone: phoneNumberToSend },
 				});
 			} else {
-				notify(response.message);
+				notify(response?.message || 'Failed to send OTP.');
 			}
 		} catch (error) {
-			notify('An error occurred. Please try again.');
+			notify(
+				error?.response?.data?.message ||
+					error?.message ||
+					'An error occurred. Please try again.',
+			);
 			console.error('Error verifying phone number:', error);
+		} finally {
+			setLoading(false);
 		}
 	};
 

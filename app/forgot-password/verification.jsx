@@ -62,9 +62,8 @@ export default function VerificationScreen() {
 		});
 
 	const handleNext = async () => {
-		// Validate phone number format here
-		if (!code) {
-			notify('Please enter a valid code.');
+		if (!code.trim() || code.length !== CELL_COUNT) {
+			notify(`Please enter the ${CELL_COUNT}-digit code.`);
 			return;
 		}
 
@@ -72,20 +71,24 @@ export default function VerificationScreen() {
 			const response = await verifyResetOtp(phone, code);
 
 			if (
-				response.message ===
-				'OTP verified. Proceed to reset password.'
+				response?.message === 'OTP verified' ||
+				response?.message === 'OTP verified. Proceed to reset password.'
 			) {
 				router.push({
 					pathname: '/forgot-password/reset-password',
-                    params: { phone, otp: code },
+					params: { phone, otp: code },
 				});
-				notify(`OTP verified. Proceed to reset password.`);
+				notify('OTP verified. Proceed to reset password.');
 			} else {
-				notify(response.message);
+				notify(response?.message || 'Invalid or expired OTP.');
 			}
 		} catch (error) {
-			notify('An error occurred. Please try again.');
-			console.error('Error verifying phone number:', error);
+			notify(
+				error?.response?.data?.message ||
+					error?.message ||
+					'An error occurred. Please try again.',
+			);
+			console.error('Error verifying OTP:', error);
 		}
 	};
 

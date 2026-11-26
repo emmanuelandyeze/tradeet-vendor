@@ -1457,13 +1457,15 @@ const AuthProvider = ({ children }) => {
 	const getRedirectPath = useCallback(() => {
 		if (isLoading) return '/loading';
 		if (!user?.token || !userInfo) return '/login';
-		if (!userInfo.name || !userInfo.password)
+		const hasPassword =
+			userInfo.hasPassword ?? Boolean(userInfo.password);
+		if (!userInfo.name || !hasPassword)
 			return '/signup/owner-details';
 		if (
 			Array.isArray(userInfo.stores) &&
 			userInfo.stores.length === 0 &&
 			userInfo.name &&
-			userInfo.password
+			hasPassword
 		)
 			return '/signup/business-name';
 		return null;
