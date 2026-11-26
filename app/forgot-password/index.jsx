@@ -20,6 +20,7 @@ import { StatusBar } from 'expo-status-bar';
 import { AuthContext } from '@/context/AuthContext';
 import PhoneInput from 'react-native-phone-number-input';
 import Toast from 'react-native-toast-message';
+import { extractNationalPhoneNumber } from '@/utils/phone';
 
 const { width, height } = Dimensions.get('window');
 
@@ -44,43 +45,50 @@ export default function ForgotPassword() {
 	// 	navigation.setOptions({ headerShown: false });
 	// }, [navigation]);
 
-	const handleSendCode = async () => {
-		setLoading(true);
+	const showToast = (type, text1) => {
+		Toast.show({ type, text1, position: 'top', visibilityTime: 3000 });
+	};
 
-		// Validate phone number format here
-		if (!phone) {
-			ToastAndroid.show(
-				'Please enter a valid phone number.',
-				ToastAndroid.SHORT,
-			);
+	const handleSendCode = async () => {
+		if (!phone.trim()) {
+			showToast('error', 'Please enter your phone number.');
+			return;
+		}
+		if (phoneInput.current && !phoneInput.current.isValidNumber(phone)) {
+			showToast('error', 'Please enter a valid phone number.');
 			return;
 		}
 
-		try {
-			const response = await sendResetOtp(phone);
-			console.log(response);
+		setLoading(true);
+		const callingCode = phoneInput.current?.getCallingCode();
+		const phoneNumberToSend = extractNationalPhoneNumber({
+			phone,
+			formattedValue,
+			callingCode,
+		});
 
-			if (response.message === 'OTP sent via WhatsApp') {
-				ToastAndroid.show(
-					`OTP sent to ${phone}`,
-					ToastAndroid.SHORT,
-				);
+		try {
+			const response = await sendResetOtp(phoneNumberToSend);
+
+			if (response?.message === 'OTP sent via WhatsApp') {
+				showToast('success', `OTP sent to ${formattedValue || phoneNumberToSend}`);
 				router.push({
 					pathname: '/forgot-password/verification',
-					params: { phone },
+					params: { phone: phoneNumberToSend },
 				});
 			} else {
-				ToastAndroid.show(
-					response.message,
-					ToastAndroid.SHORT,
-				);
+				showToast('error', response?.message || 'Failed to send OTP.');
 			}
 		} catch (error) {
-			ToastAndroid.show(
-				'An error occurred. Please try again.',
-				ToastAndroid.SHORT,
+			showToast(
+				'error',
+				error?.response?.data?.message ||
+					error?.message ||
+					'An error occurred. Please try again.',
 			);
 			console.error('Error verifying phone number:', error);
+		} finally {
+			setLoading(false);
 		}
 	};
 

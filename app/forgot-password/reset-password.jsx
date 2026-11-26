@@ -52,41 +52,38 @@ export default function ResetPassword() {
 	};
 
 	const handleNext = async () => {
-		// Validate phone number format here
-		if (!password) {
-			ToastAndroid.show(
-				'Please enter a new password.',
-				ToastAndroid.SHORT,
-			);
+		if (!password.trim()) {
+			showToast('error', 'Please enter a new password.');
+			return;
+		}
+		if (password.length < 8 || !/[A-Za-z]/.test(password) || !/\d/.test(password)) {
+			showToast('error', 'Password must be at least 8 characters and include letters and numbers.');
 			return;
 		}
 
+		setLoading(true);
 		try {
 			const response = await resetPassword(phone, otp, password);
 
-			if (
-				response.message === 'Password reset successful'
-			) {
-				router.push({
+			if (response?.message === 'Password reset successful') {
+				router.replace({
 					pathname: '/login',
 					params: { phone },
 				});
-				ToastAndroid.show(
-					`Password reset successful. Please login`,
-					ToastAndroid.SHORT,
-				);
+				showToast('success', 'Password reset successful. Please login');
 			} else {
-				ToastAndroid.show(
-					response.message,
-					ToastAndroid.SHORT,
-				);
+				showToast('error', response?.message || 'Failed to reset password.');
 			}
 		} catch (error) {
-			ToastAndroid.show(
-				'An error occurred. Please try again.',
-				ToastAndroid.SHORT,
+			showToast(
+				'error',
+				error?.response?.data?.message ||
+					error?.message ||
+					'An error occurred. Please try again.',
 			);
-			console.error('Error verifying phone number:', error);
+			console.error('Error resetting password:', error);
+		} finally {
+			setLoading(false);
 		}
 	};
 

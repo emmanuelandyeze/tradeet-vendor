@@ -13,6 +13,7 @@ import PhoneInput from 'react-native-phone-number-input';
 import { AuthContext } from '@/context/AuthContext';
 import Toast from 'react-native-toast-message';
 import { StatusBar } from 'expo-status-bar';
+import { extractNationalPhoneNumber } from '@/utils/phone';
 
 export default function PhoneNumberScreen() {
 	const router = useRouter();
@@ -51,18 +52,12 @@ export default function PhoneNumberScreen() {
 		setLoading(true);
 
 		try {
-			let phoneNumberToSend = formattedValue;
 			const callingCode = phoneInputRef.current?.getCallingCode();
-
-			if (callingCode && formattedValue.startsWith(`+${callingCode}`)) {
-				phoneNumberToSend = formattedValue.substring(`+${callingCode}`.length);
-			} else if (formattedValue.startsWith('+234')) {
-				phoneNumberToSend = formattedValue.substring(4);
-			}
-
-			if (phoneNumberToSend.startsWith('0')) {
-				phoneNumberToSend = phoneNumberToSend.substring(1);
-			}
+			const phoneNumberToSend = extractNationalPhoneNumber({
+				phone: phoneNumber,
+				formattedValue,
+				callingCode,
+			});
 
 			const response = await verifyPhoneNumber(phoneNumberToSend);
 

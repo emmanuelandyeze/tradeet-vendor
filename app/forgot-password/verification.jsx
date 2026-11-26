@@ -20,6 +20,7 @@ import {
 	useClearByFocusCell,
 } from 'react-native-confirmation-code-field';
 import { AuthContext } from '@/context/AuthContext';
+import Toast from 'react-native-toast-message';
 
 const styles = StyleSheet.create({
 	root: { flex: 1, padding: 20 },
@@ -61,13 +62,13 @@ export default function VerificationScreen() {
 			setValue,
 		});
 
+	const showToast = (type, text1) => {
+		Toast.show({ type, text1, position: 'top', visibilityTime: 3000 });
+	};
+
 	const handleNext = async () => {
-		// Validate phone number format here
-		if (!code) {
-			ToastAndroid.show(
-				'Please enter a valid code.',
-				ToastAndroid.SHORT,
-			);
+		if (!code.trim() || code.length !== CELL_COUNT) {
+			showToast('error', `Please enter the ${CELL_COUNT}-digit code.`);
 			return;
 		}
 
@@ -75,29 +76,25 @@ export default function VerificationScreen() {
 			const response = await verifyResetOtp(phone, code);
 
 			if (
-				response.message ===
-				'OTP verified. Proceed to reset password.'
+				response?.message === 'OTP verified' ||
+				response?.message === 'OTP verified. Proceed to reset password.'
 			) {
 				router.push({
 					pathname: '/forgot-password/reset-password',
-                    params: { phone, otp: code },
+					params: { phone, otp: code },
 				});
-				ToastAndroid.show(
-					`OTP verified. Proceed to reset password.`,
-					ToastAndroid.SHORT,
-				);
+				showToast('success', 'OTP verified. Proceed to reset password.');
 			} else {
-				ToastAndroid.show(
-					response.message,
-					ToastAndroid.SHORT,
-				);
+				showToast('error', response?.message || 'Invalid or expired OTP.');
 			}
 		} catch (error) {
-			ToastAndroid.show(
-				'An error occurred. Please try again.',
-				ToastAndroid.SHORT,
+			showToast(
+				'error',
+				error?.response?.data?.message ||
+					error?.message ||
+					'An error occurred. Please try again.',
 			);
-			console.error('Error verifying phone number:', error);
+			console.error('Error verifying OTP:', error);
 		}
 	};
 
